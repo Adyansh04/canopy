@@ -135,35 +135,58 @@ void ViewpointPlanner::travelFrom(
     std::priority_queue<Entry, std::vector<Entry>, std::greater<>> queue;
     const auto passable = [this](int x, int y) { return traversable_.at<std::uint8_t>(y, x) != 0; };
 
+    const auto straight = static_cast<float>(geometry.resolution);
+    const auto diagonal = static_cast<float>(geometry.resolution * std::numbers::sqrt2);
+
     // Standing a little too close to furniture still has to count as somewhere: seed from the
-    // passable cells within a metre, charged their distance.
-    const int reach = geometry.cellsFor(1.0);
-    for (int dy = -reach; dy <= reach; ++dy)
+    // passable cells a metre's walk away, over any cell not an obstacle, never through a wall.
+    const int          reach = geometry.cellsFor(1.0);
+    const int          side  = (2 * reach) + 1;
+    std::vector<float> walked(static_cast<std::size_t>(side) * side, kUnreachable);
+    const auto         local = [&](int x, int y) {
+        return (static_cast<std::size_t>(y - start.y + reach) * static_cast<std::size_t>(side)) +
+               static_cast<std::size_t>(x - start.x + reach);
+    };
+    const auto open = [this](int x, int y) { return clearance_.at<float>(y, x) > 0.0F; };
+    std::priority_queue<Entry, std::vector<Entry>, std::greater<>> near;
+    walked[local(start.x, start.y)] = 0.0F;
+    near.emplace(0.0F, geometry.index(start));
+    while (!near.empty())
     {
-        for (int dx = -reach; dx <= reach; ++dx)
+        const auto [cost, index] = near.top();
+        near.pop();
+        const int x = index % geometry.width;
+        const int y = index / geometry.width;
+        if (cost > walked[local(x, y)])
         {
-            const int x = start.x + dx;
-            const int y = start.y + dy;
-            if (!geometry.contains(x, y) || !passable(x, y))
+            continue;
+        }
+        if (passable(x, y) && cost < field[static_cast<std::size_t>(index)])
+        {
+            field[static_cast<std::size_t>(index)] = cost;
+            queue.emplace(cost, index);
+        }
+        for (int dy = -1; dy <= 1; ++dy)
+        {
+            for (int dx = -1; dx <= 1; ++dx)
             {
-                continue;
-            }
-            const auto distance = static_cast<float>(std::hypot(dx, dy) * geometry.resolution);
-            if (distance > 1.0F)
-            {
-                continue;
-            }
-            const int index = geometry.index(x, y);
-            if (distance < field[static_cast<std::size_t>(index)])
-            {
-                field[static_cast<std::size_t>(index)] = distance;
-                queue.emplace(distance, index);
+                const int nx = x + dx;
+                const int ny = y + dy;
+                if ((dx == 0 && dy == 0) || std::abs(nx - start.x) > reach ||
+                    std::abs(ny - start.y) > reach || !geometry.contains(nx, ny) || !open(nx, ny) ||
+                    (dx != 0 && dy != 0 && (!open(nx, y) || !open(x, ny))))
+                {
+                    continue;
+                }
+                const float next = cost + ((dx != 0 && dy != 0) ? diagonal : straight);
+                if (next <= 1.0F && next < walked[local(nx, ny)])
+                {
+                    walked[local(nx, ny)] = next;
+                    near.emplace(next, geometry.index(nx, ny));
+                }
             }
         }
     }
-
-    const auto straight = static_cast<float>(geometry.resolution);
-    const auto diagonal = static_cast<float>(geometry.resolution * std::numbers::sqrt2);
     while (!queue.empty())
     {
         const auto [cost, index] = queue.top();

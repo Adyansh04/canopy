@@ -730,6 +730,23 @@ TEST(ViewpointPlanner, KeepsGoingWhereTheMapLeadsOnAfterVisitsStall)
     EXPECT_EQ(planner.nextFrontier(cells, world.geometry, robot).status, PlanStatus::kDone);
 }
 
+TEST(ViewpointPlanner, WalksNoPathThroughAWallItStandsBeside)
+{
+    // Two rooms sealed from each other by a 0.1 m wall; the robot stands 0.4 m from it, where the
+    // gait's drift leaves it.
+    cv::Mat            cells(cellsOf(4.0), cellsOf(8.0), CV_8UC1, cv::Scalar(kFree));
+    const GridGeometry geometry{ kResolution, 0.0, 0.0, cells.cols, cells.rows };
+    cv::rectangle(cells, cv::Rect(0, 0, cells.cols, cells.rows), cv::Scalar(kOccupied), 2);
+    cells.colRange(cellsOf(4.0), cellsOf(4.1)).setTo(kOccupied);
+    ViewpointPlanner planner;
+    planner.prepare(cells, geometry, { 3.6, 2.0, 0.0 });
+    const std::vector<float>& travel = planner.travel();
+    EXPECT_TRUE(
+        std::isfinite(travel[static_cast<std::size_t>(geometry.index(geometry.toCell(2.0, 2.0)))]));
+    EXPECT_FALSE(
+        std::isfinite(travel[static_cast<std::size_t>(geometry.index(geometry.toCell(6.0, 2.0)))]));
+}
+
 TEST(ViewpointPlanner, ChargesNothingWhenSlamRegridsBeforeTheReport)
 {
     // Planned on one grid; SLAM grows the map a metre west while the robot walks there.
