@@ -409,7 +409,7 @@ TEST(WorldRender, TintsRoomsAndOutlinesObjects)
         cells,
         geometry,
         labels,
-        { { 1, "R1 office", 0.5, 0.5 }, { 2, "R2 bedroom", 1.5, 0.5 } },
+        { { "R1 office", 0.5, 0.5 }, { "R2 bedroom", 1.5, 0.5 } },
         { { { { 1.0, 0.5 }, { 0.6, 0.4 }, 0.0 }, "desk" } },
         4);
     ASSERT_EQ(image.cols, 160);

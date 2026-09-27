@@ -572,12 +572,10 @@ Segmentation segmentRooms(
     result.regions.resize(static_cast<std::size_t>(count));
     std::vector<double> sum_x(result.regions.size(), 0.0);
     std::vector<double> sum_y(result.regions.size(), 0.0);
-    std::vector<double> sum_clearance(result.regions.size(), 0.0);
     std::vector<int>    cell_count(result.regions.size(), 0);
     for (int y = 0; y < cells.rows; ++y)
     {
-        const int*  row      = result.labels.ptr<int>(y);
-        const auto* distance = clearance.ptr<float>(y);
+        const int* row = result.labels.ptr<int>(y);
         for (int x = 0; x < cells.cols; ++x)
         {
             if (row[x] == 0)
@@ -587,19 +585,17 @@ Segmentation segmentRooms(
             const auto slot = static_cast<std::size_t>(row[x] - 1);
             sum_x[slot] += geometry.centreX(x);
             sum_y[slot] += geometry.centreY(y);
-            sum_clearance[slot] += distance[x];
             ++cell_count[slot];
         }
     }
     for (std::size_t slot = 0; slot < result.regions.size(); ++slot)
     {
-        Region&    region     = result.regions[slot];
-        const auto cells_in   = static_cast<double>(std::max(cell_count[slot], 1));
-        region.label          = static_cast<int>(slot) + 1;
-        region.area           = cell_count[slot] * cell_area;
-        region.centroid_x     = sum_x[slot] / cells_in;
-        region.centroid_y     = sum_y[slot] / cells_in;
-        region.mean_clearance = sum_clearance[slot] / cells_in;
+        Region&    region   = result.regions[slot];
+        const auto cells_in = static_cast<double>(std::max(cell_count[slot], 1));
+        region.label        = static_cast<int>(slot) + 1;
+        region.area         = cell_count[slot] * cell_area;
+        region.centroid_x   = sum_x[slot] / cells_in;
+        region.centroid_y   = sum_y[slot] / cells_in;
         region.outline = outlineOf(result.labels, region.label, geometry, params.outline_tolerance);
 
         std::vector<cv::Point2f> points(region.outline.begin(), region.outline.end());

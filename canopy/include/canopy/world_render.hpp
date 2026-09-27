@@ -18,7 +18,6 @@ namespace canopy
 /// One room as drawn: its label in the room image, where to write it, and what to write.
 struct RenderRoom
 {
-    int         label = 0;
     std::string text;
     double      x = 0.0;  ///< Map frame, m.
     double      y = 0.0;

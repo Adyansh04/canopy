@@ -2100,8 +2100,7 @@ cv::Mat WorldModelNode::renderSemanticMap() const
     for (const RoomState& room : rooms_)
     {
         std::string text = room.id + " " + (room.type.empty() ? room.name : room.type);
-        rooms.push_back(
-            { room.region.label, std::move(text), room.region.centroid_x, room.region.centroid_y });
+        rooms.push_back({ std::move(text), room.region.centroid_x, room.region.centroid_y });
     }
     std::vector<RenderObject> objects;
     for (const MappedObject& object : objects_.objects())

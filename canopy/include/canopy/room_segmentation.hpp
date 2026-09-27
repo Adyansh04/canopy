@@ -55,13 +55,12 @@ struct RegionContact
 
 struct Region
 {
-    int    label          = 0;    ///< Value of its cells in Segmentation::labels.
-    double area           = 0.0;  ///< m^2.
-    double centroid_x     = 0.0;  ///< Map frame, m.
-    double centroid_y     = 0.0;
-    double mean_clearance = 0.0;  ///< Mean distance of its cells to the nearest obstacle, m.
-    double length         = 0.0;  ///< Long side of its minimum-area rectangle, m.
-    double width          = 0.0;  ///< Short side, m.
+    int    label      = 0;    ///< Value of its cells in Segmentation::labels.
+    double area       = 0.0;  ///< m^2.
+    double centroid_x = 0.0;  ///< Map frame, m.
+    double centroid_y = 0.0;
+    double length     = 0.0;  ///< Long side of its minimum-area rectangle, m.
+    double width      = 0.0;  ///< Short side, m.
 
     std::vector<cv::Point2d>   outline;  ///< Map frame, counter-clockwise.
     std::vector<RegionContact> contacts;

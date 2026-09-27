@@ -131,8 +131,6 @@ public:
     /// With none, coverage planning waits for one.
     void setCameras(std::vector<CameraModel> cameras) { cameras_ = std::move(cameras); }
 
-    [[nodiscard]] const std::vector<CameraModel>& cameras() const { return cameras_; }
-
     [[nodiscard]] const PlannerParams& params() const { return params_; }
 
     /// The frontier to walk to next, or kDone once none is reachable or, after visits that stopped
