@@ -60,7 +60,9 @@ Along the way:
 
 - Each detector mask, lifted with depth, becomes a small cloud of voxels.
 - It joins an existing object when they overlap and agree on label or embedding, which tolerates
-  a localiser's decimetre drift.
+  a localiser's decimetre drift. An embedding agrees only when close (`objects.kin_similarity`):
+  crops of unlike things still look alike to an image embedder, and a bowl must not join its
+  table.
 - **Two sightings confirm an object.** Two cameras catching the same instant count once; until the
   second sighting the object is hidden, and the camera pass goes back to look again.
 - Parts of one object seen from different sides merge when they touch.

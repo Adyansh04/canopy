@@ -305,6 +305,8 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
     objects.confirm_s    = declare_parameter<double>("objects.confirm_s", objects.confirm_s);
     objects.sighting_gap_s =
         declare_parameter<double>("objects.sighting_gap_s", objects.sighting_gap_s);
+    objects.kin_similarity =
+        declare_parameter<double>("objects.kin_similarity", objects.kin_similarity);
     second_look_reach_ = declare_parameter<double>("objects.second_look_reach", second_look_reach_);
     objects.support_labels = declare_parameter<std::vector<std::string>>(
         "objects.support_labels",

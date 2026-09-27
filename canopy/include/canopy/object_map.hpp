@@ -45,7 +45,7 @@ struct ObjectMapParams
     double position_tolerance = 0.35;  ///< Same label, this near the box: localisation drift, m.
     double merge_distance     = 1.5;   ///< Merge pass: centres this close are compared, m.
     double merge_overlap      = 0.5;   ///< And merged above this overlap, either way round.
-    double merge_similarity   = 0.8;   ///< Embedding cosine that stands in for a shared label.
+    double kin_similarity     = 0.85;  ///< Embedding cosine that stands in for a shared label.
     double merge_gap          = 0.10;  ///< Same label, boxes this close: sides of one object, m.
     double support_merge_gap  = 1.0;   ///< For tables and shelves, seen as legs and ends, m.
     double top_layer_share    = 0.2;   ///< Of the densest layer's voxels, the top layer has this...

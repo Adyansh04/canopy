@@ -564,6 +564,65 @@ TEST(ObjectMap, JoinsTwoGlimpsesOfATableBeforeDroppingEither)
     EXPECT_GT(byLabel(map, "table")->box_size.maxCoeff(), 2.5);
 }
 
+/// A unit embedding whose cosine with (1, 0, 0, 0) is @p cosine.
+TEST(ObjectMap, KeepsAMugApartFromTheTableAnImageEmbedderFindsAlike)
+{
+    // The mug's mask takes in the table top around it, as a real segmenter's does, and masked crops
+    // of unlike objects score 0.7 to 0.8 on an image embedder: not enough to make them one thing.
+    const Camera           camera;
+    const std::vector<Box> scene{ kTable, kMug, kWall };
+    const Box              bleeding{ "mug", { 2.4, 1.2, 0.7 }, { 2.68, 1.48, 0.85 } };
+    for (const double cosine : { 0.72, 0.82 })
+    {
+        ObjectMap map;
+        for (int step = 0; step < 3; ++step)
+        {
+            Frame frame = render(
+                camera,
+                camera.pose(2.6, 0.2, std::numbers::pi / 2.0),
+                scene,
+                { step == 0 ? kTable : bleeding },
+                1.0 + step);
+            for (MaskInput& input : frame.inputs)
+            {
+                input.embedding = embeddingAt(input.label == "table" ? 1.0 : cosine);
+            }
+            map.integrate(frame.inputs, frame.input);
+        }
+        map.mergeDuplicates();
+        ASSERT_EQ(countActive(map), 2) << cosine;
+        const MappedObject* mug = byLabel(map, "mug");
+        ASSERT_NE(mug, nullptr);
+        EXPECT_EQ(mug->support, byLabel(map, "table")->id);
+    }
+}
+
+TEST(ObjectMap, JoinsAViewUnderAnotherNameOnlyWhenTheEmbeddingsAgree)
+{
+    // A second view of a 3 m table, called a desk, overlaps the first by less than a strong match.
+    const Camera camera;
+    const Box    table{ "table", { 1.0, 1.0, 0.0 }, { 4.0, 1.8, 0.75 } };
+    const Box    near{ "table", { 1.0, 1.0, 0.0 }, { 2.5, 1.8, 0.75 } };
+    const Box    far{ "desk", { 1.9, 1.0, 0.0 }, { 4.0, 1.8, 0.75 } };
+    for (const auto& [cosine, objects] :
+         std::vector<std::pair<double, int>>{ { 0.92, 1 }, { 0.82, 2 } })
+    {
+        ObjectMap map;
+        for (const auto& [x, view] :
+             std::vector<std::pair<double, Box>>{ { 1.75, near }, { 2.95, far } })
+        {
+            Frame frame =
+                render(camera, camera.pose(x, 0.0, std::numbers::pi / 2.0), { table }, { view }, x);
+            for (MaskInput& input : frame.inputs)
+            {
+                input.embedding = embeddingAt(input.label == "table" ? 1.0 : cosine);
+            }
+            map.integrate(frame.inputs, frame.input);
+        }
+        EXPECT_EQ(countActive(map), objects) << cosine;
+    }
+}
+
 TEST(ObjectMap, KeepsABookApartFromTheShelfItStandsIn)
 {
     // An open shelf with a book on its lower tier. The shelf's mask takes in everything inside its

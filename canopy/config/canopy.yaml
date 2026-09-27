@@ -142,6 +142,10 @@
       # Detections closer together than this are one sighting, s: two cameras' frames of one
       # render arrive a few ms apart, a camera's next frame 100 ms later.
       sighting_gap_s: 0.05
+      # Embedding cosine at which two masks are the same kind of thing without sharing a label.
+      # SigLIP 2 on masked crops of the flat's objects: unlike kinds median 0.69, 95th percentile
+      # 0.80; at 0.85 1 % of unlike pairs pass. Lower, a bowl joins the table it stands on.
+      kin_similarity: 0.85
       # The camera pass goes back to where something was seen once, as far as this, m, and looks
       # at it again: the TV on its stand shows only a strip at the image's upper edge, and one
       # dwell caught it in a single frame.

@@ -612,9 +612,9 @@ ObjectMap::integrate(const std::vector<MaskInput>& masks, const FrameInput& fram
                 shared >= params_.strong_overlap &&
                 static_cast<double>(detection.voxels.size()) >=
                     params_.strong_share * static_cast<double>(object.voxels.size());
-            // Nothing says they are the same kind of thing: overlap alone would put a book on a
-            // shelf into the shelf, whose mask took in the book as well.
-            const bool kin = label_share > 0.0 || cosine >= 0.0;
+            // Without a shared label only a close embedding makes them one kind of thing:
+            // overlap alone would put a book on a shelf into the shelf whose mask took it in.
+            const bool kin = label_share > 0.0 || cosine >= params_.kin_similarity;
             if ((kin && score >= params_.min_match && geometric >= 0.15) || strong)
             {
                 pairs.push_back({ score + (strong ? 1.0 : 0.0), m, o });
@@ -833,7 +833,7 @@ int ObjectMap::mergeDuplicates()
                 continue;
             }
             const bool same = a.label() == b.label();
-            if (!same && similarity(a.embedding, b.embedding) < params_.merge_similarity)
+            if (!same && similarity(a.embedding, b.embedding) < params_.kin_similarity)
             {
                 continue;
             }
