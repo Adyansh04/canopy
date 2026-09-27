@@ -986,7 +986,9 @@ def _load_phrases(value):
 
         return list(
             # Whatever node the file is keyed for: /** or a name.
-            next(iter(yaml.safe_load(Path(value).read_text()).values()))["ros__parameters"]["phrases"]
+            next(iter(yaml.safe_load(Path(value).read_text()).values()))["ros__parameters"][
+                "phrases"
+            ]
         )
     return [phrase.strip() for phrase in value.split(",") if phrase.strip()]
 
