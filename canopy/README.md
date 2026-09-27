@@ -155,6 +155,9 @@ In `scripts/`; `ros2 run canopy <tool> --help` lists every option.
 | `track_run.py PREFIX` | A run's record: the robot's pose, each room's coverage over time, the rooms' outlines. |
 | `snapshot_map.py OUT.png` | SLAM's map as it stands, with the frontier cells the frontier pass plans on. |
 
+Both are Python, not C++: they sit beside a run at a few hertz or once, write CSV, YAML and PNG
+with the standard library and Pillow, and nothing the robot does waits on them.
+
 `doc/` holds a flat a simulated Unitree G1 explored, and pictures of it.
 
 ## Tests

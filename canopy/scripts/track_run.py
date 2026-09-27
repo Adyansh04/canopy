@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Records an exploration run for run_summary.py: the robot's pose on the map, each room's
+"""Records an exploration run for offline analysis: the robot's pose on the map, each room's
 coverage whenever the world model republishes its rooms, and the rooms' outlines at the end.
 
     ros2 run canopy track_run.py /data/runs/run52
