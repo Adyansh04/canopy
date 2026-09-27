@@ -1788,17 +1788,11 @@ std::vector<std::pair<const MappedObject*, double>> WorldModelNode::matchObjects
                 }
             }
         }
-        if (!query_embedding.empty() && query_embedding.size() == object.embedding.size())
-        {
-            double cosine = 0.0;
-            for (std::size_t i = 0; i < query_embedding.size(); ++i)
-            {
-                cosine += static_cast<double>(query_embedding[i]) * object.embedding[i];
-            }
-            score = std::max(
-                score,
-                std::clamp((cosine - search_embedding_floor_) / search_embedding_span_, 0.0, 1.0));
-        }
+        // No embedding on either side is -1, which scores nothing.
+        const double cosine = ObjectMap::similarity(query_embedding, object.embedding);
+        score               = std::max(
+            score,
+            std::clamp((cosine - search_embedding_floor_) / search_embedding_span_, 0.0, 1.0));
         if (object.state == ObjectState::kStale)
         {
             score *= 0.5;

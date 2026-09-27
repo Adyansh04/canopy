@@ -209,6 +209,9 @@ public:
     [[nodiscard]] std::uint64_t   keyOf(const Eigen::Vector3d& point) const;
     [[nodiscard]] Eigen::Vector3d centreOf(std::uint64_t key) const;
 
+    /// Cosine of two unit embeddings; -1 when either is missing or their sizes differ.
+    [[nodiscard]] static double similarity(const std::vector<float>& a, const std::vector<float>& b);
+
 private:
     struct Lifted
     {
@@ -221,10 +224,9 @@ private:
     [[nodiscard]] double
     overlap(const std::vector<std::uint64_t>& from, const std::vector<std::uint64_t>& into) const;
     [[nodiscard]] double proximity(const Lifted& detection, const MappedObject& object) const;
-    [[nodiscard]] static double similarity(const std::vector<float>& a, const std::vector<float>& b);
-    void absorb(
-        MappedObject& object, const Lifted& detection, const MaskInput& mask,
-        const FrameInput& frame, MaskOutcome& outcome);
+    void                 absorb(
+                        MappedObject& object, const Lifted& detection, const MaskInput& mask,
+                        const FrameInput& frame, MaskOutcome& outcome);
     void refreshShape(MappedObject& object) const;
     void mergeInto(MappedObject& keep, MappedObject& drop) const;
 
