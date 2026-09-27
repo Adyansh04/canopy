@@ -509,6 +509,8 @@ class ChainTest(Scratch):
         self.assertEqual((answer["name"], answer["confidence"]), ("cup", 0.0))
         room = ss.NoDescriber().describe("room", [], {"objects": [], "room_type": "Kitchen"})
         self.assertEqual(room["room_type"], "kitchen")
+        # No guess, no type: never 'other', which the world model would take as an answer.
+        self.assertEqual(ss.NoDescriber().describe("room", [], {"objects": {}})["room_type"], "")
 
 
 class ParseAnswerTest(unittest.TestCase):

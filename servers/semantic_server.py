@@ -61,6 +61,8 @@ import base64
 import contextlib
 import copy
 import fcntl
+import functools
+import http.client
 import io
 import json
 import math
@@ -99,7 +101,11 @@ DEFAULTS = {
         "half": True,
         "max_det": 100,
     },
-    "siglip2": {"model": "google/siglip2-base-patch16-256"},
+    # The revision servers/setup.sh downloads: another would move every saved embedding.
+    "siglip2": {
+        "model": "google/siglip2-base-patch16-256",
+        "revision": "3f9f96cb90da5dbc758b01813f2f6f1aee24c1ab",
+    },
     "gemini": {
         "key_file": "~/.config/canopy/gemini.env",
         "usage_file": "~/.config/canopy/gemini_usage.json",
@@ -127,7 +133,8 @@ DEFAULTS = {
             "gemma-4-26b-a4b-it",
         ],
     },
-    "openai": {"base_url": "http://127.0.0.1:8080/v1", "model": "qwen3.5-4b", "timeout_s": 60.0},
+    # After Gemini's 10 s, still inside the describer's 30 s wait.
+    "openai": {"base_url": "http://127.0.0.1:8080/v1", "model": "qwen3.5-4b", "timeout_s": 15.0},
 }
 
 # Mid grey is zero after SigLIP's normalisation, so masked-out pixels carry no signal.
@@ -137,17 +144,16 @@ MAX_IMAGE_SIDE = 512
 # Eight 512 px images are about 2k tokens, half of the local VLM's context.
 MAX_DESCRIBE_IMAGES = 8
 
-ROOM_TYPES = (
-    "kitchen",
-    "living room",
-    "dining room",
-    "bedroom",
-    "bathroom",
-    "office",
-    "storage room",
-    "hallway",
-    "other",
-)
+ROOM_TABLE = REPO / "canopy/config/room_types.yaml"
+
+
+@functools.cache
+def _room_types():
+    """The world model's room types: its table's, the hallway it types by shape, and 'other'."""
+    import yaml
+
+    return (*yaml.safe_load(ROOM_TABLE.read_text())["room_types"], "hallway", "other")
+
 ROOM_SYNONYMS = {
     "lounge": "living room",
     "family room": "living room",
@@ -308,15 +314,19 @@ def _build_yoloe(section, device, prompt_free):
 class Siglip2Embedder:
     """SigLIP 2: object crops and query text in one space, compared by dot product."""
 
-    def __init__(self, device, model_id):
+    def __init__(self, device, model_id, revision):
         import torch
         from transformers import AutoModel, AutoProcessor
 
         self.name = model_id
         self._device = device
         self._dtype = torch.float16 if device.startswith("cuda") else torch.float32
-        self._processor = AutoProcessor.from_pretrained(model_id)
-        self._model = AutoModel.from_pretrained(model_id, dtype=self._dtype).to(device).eval()
+        self._processor = AutoProcessor.from_pretrained(model_id, revision=revision)
+        self._model = (
+            AutoModel.from_pretrained(model_id, revision=revision, dtype=self._dtype)
+            .to(device)
+            .eval()
+        )
 
     def embed_text(self, texts):
         # Trained on lower-case text padded to 64 tokens; other shapes shift the embedding.
@@ -493,7 +503,7 @@ def http_post(url, headers, body, timeout):
             return response.status, response.read()
     except urllib.error.HTTPError as error:
         return error.code, error.read()
-    except OSError as error:  # refused, reset, timed out, DNS
+    except (OSError, http.client.HTTPException) as error:  # refused, reset, timed out, cut short
         raise Unavailable(f"{url.split('/')[2]} is unreachable: {error}") from error
 
 
@@ -555,7 +565,7 @@ def _prompt(task, n_images, context):
         f"A robot mapped one room of a home or office.{views} Objects found in it "
         f"(counts in brackets): {_listing(_votes(context, 'objects'))}.\n\n"
         "Answer in JSON:\n"
-        f"- room_type: one of {', '.join(ROOM_TYPES)}.\n"
+        f"- room_type: one of {', '.join(_room_types())}.\n"
         '- name: a short name for the room, 1 to 3 words, such as "home office".\n'
         "- caption: one sentence on what the room is used for.\n"
         + (
@@ -575,7 +585,7 @@ def _schema(task):
         "confidence": {"type": "number"},
     }
     if task == "room":
-        properties["room_type"] = {"type": "string", "enum": list(ROOM_TYPES)}
+        properties["room_type"] = {"type": "string", "enum": list(_room_types())}
     return {"type": "object", "properties": properties, "required": list(properties)}
 
 
@@ -602,7 +612,7 @@ def _noun(value):
 
 def _room_type(value):
     text = " ".join(str(value or "").lower().replace("_", " ").replace("-", " ").split())
-    for room in ROOM_TYPES[:-1]:  # not "other", which is inside words like "mother"
+    for room in _room_types()[:-1]:  # not "other", which is inside words like "mother"
         if room in text:
             return room
     for word, room in ROOM_SYNONYMS.items():
@@ -831,7 +841,9 @@ class NoDescriber:
                 raise ValueError("an object's context needs the detector's labels")
             name, room_type = next(iter(votes)), ""
         else:
-            name = room_type = _room_type(context.get("room_type"))
+            # With no guess to echo, an empty type leaves the room to its objects.
+            guess = context.get("room_type")
+            name = room_type = _room_type(guess) if guess else ""
         return {
             "model": "none",
             "name": name,
@@ -875,7 +887,9 @@ DETECTORS = {
     "yoloe-pf": lambda config, device: _build_yoloe(config["yoloe-pf"], device, prompt_free=True),
 }
 EMBEDDERS = {
-    "siglip2": lambda config, device: Siglip2Embedder(device, config["siglip2"]["model"]),
+    "siglip2": lambda config, device: Siglip2Embedder(
+        device, config["siglip2"]["model"], config["siglip2"]["revision"]
+    ),
     "none": lambda config, device: None,
 }
 DESCRIBERS = {

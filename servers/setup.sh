@@ -44,6 +44,7 @@ YOLOE_RELEASE="https://github.com/ultralytics/assets/releases/download/v8.4.0"
 YOLOE_FILES=(yoloe-26l-seg.pt yoloe-26l-seg-pf.pt mobileclip2_b.ts)
 
 SIGLIP="google/siglip2-base-patch16-256"
+# semantic_server.py's DEFAULTS["siglip2"]["revision"] loads the same one.
 SIGLIP_REVISION="3f9f96cb90da5dbc758b01813f2f6f1aee24c1ab"
 GGUF_REPO="unsloth/Qwen3.5-4B-GGUF"
 GGUF_REVISION="e87f176479d0855a907a41277aca2f8ee7a09523"
@@ -67,8 +68,10 @@ for wheel in "${TORCH_WHEEL}" "${VISION_WHEEL}"; do
         continue
     fi
     echo "    fetching ${name} (resumable; re-run this script if it stalls)"
-    curl -fL -C - --retry 20 --retry-all-errors -o "${WHEEL_CACHE}/${name}" \
+    # Into .part first, so an interrupted download is resumed rather than taken as done.
+    curl -fL -C - --retry 20 --retry-all-errors -o "${WHEEL_CACHE}/${name}.part" \
         "${TORCH_INDEX}/${wheel}"
+    mv "${WHEEL_CACHE}/${name}.part" "${WHEEL_CACHE}/${name}"
 done
 
 echo "==> virtualenv at ${CANOPY_HOME}/.venv"
@@ -91,8 +94,9 @@ for file in "${YOLOE_FILES[@]}"; do
         continue
     fi
     echo "    fetching ${file}"
-    curl -fL -C - --retry 20 --retry-all-errors -o "${WEIGHTS}/${file}" \
+    curl -fL -C - --retry 20 --retry-all-errors -o "${WEIGHTS}/${file}.part" \
         "${YOLOE_RELEASE}/${file}"
+    mv "${WEIGHTS}/${file}.part" "${WEIGHTS}/${file}"
 done
 
 echo "==> SigLIP 2 and Qwen3.5-4B GGUF in the Hugging Face cache"
