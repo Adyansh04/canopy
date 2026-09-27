@@ -1103,7 +1103,8 @@ std::map<int, Footprint> fitToMap(
     }
 
     // Voxels laid down before SLAM moved its map smear an object over floor the scan saw free.
-    const auto adrift = [&](const MappedObject& object) {
+    const cv::Mat free   = plan.empty() ? cv::Mat() : cv::Mat(plan == kFree);
+    const auto    adrift = [&](const MappedObject& object) {
         if (plan.empty())
         {
             return false;
@@ -1111,7 +1112,7 @@ std::map<int, Footprint> fitToMap(
         cv::Mat box(plan.size(), CV_8UC1, cv::Scalar(0));
         fillFootprint(box, geometry, object.box());
         const int area = cv::countNonZero(box);
-        return area > 0 && cv::countNonZero(box & (plan == kFree)) > params.adrift_free * area;
+        return area > 0 && cv::countNonZero(box & free) > params.adrift_free * area;
     };
     const double cell_area = geometry.resolution * geometry.resolution;
     for (const Owner& owner : owners)
