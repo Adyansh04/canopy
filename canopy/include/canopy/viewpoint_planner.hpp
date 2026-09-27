@@ -131,7 +131,8 @@ public:
 
     [[nodiscard]] const PlannerParams& params() const { return params_; }
 
-    /// The frontier to walk to next, or kDone once no reachable frontier is left.
+    /// The frontier to walk to next, or kDone once none is reachable or, after visits that stopped
+    /// growing the map, none leads on.
     Plan nextFrontier(const cv::Mat& cells, const GridGeometry& geometry, const Pose2D& robot);
 
     /**

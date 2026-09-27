@@ -693,7 +693,9 @@ TEST(ViewpointPlanner, KeepsGoingWhereTheMapLeadsOnAfterVisitsStall)
     coverage.setMap(cells, world.geometry);
     const Pose2D robot{ 2.5, 4.0, 0.0 };
 
-    ViewpointPlanner planner;
+    PlannerParams params;
+    params.frontier_seen_radius = 0.0;  // Only the way-on rule may take the corridor off the list.
+    ViewpointPlanner planner(params);
     for (int visit = 0; visit < 4; ++visit)
     {
         const Plan plan = planner.nextFrontier(cells, world.geometry, robot);
@@ -705,10 +707,12 @@ TEST(ViewpointPlanner, KeepsGoingWhereTheMapLeadsOnAfterVisitsStall)
     ASSERT_EQ(corridor.status, PlanStatus::kViewpoint) << corridor.reason;
     EXPECT_GT(corridor.viewpoint.x, 6.0);
 
-    // Stood at, and still nothing new: that was the last way on.
+    // Stood at, and still nothing new: that was the last way on, before SLAM has caught up and
+    // after.
     planner.report(coverage, corridor.viewpoint.id, true);
-    const Plan done = planner.nextFrontier(cells, world.geometry, robot);
-    EXPECT_EQ(done.status, PlanStatus::kDone) << done.reason;
+    EXPECT_EQ(planner.nextFrontier(cells, world.geometry, robot).status, PlanStatus::kDone);
+    planner.mapUpdated();
+    EXPECT_EQ(planner.nextFrontier(cells, world.geometry, robot).status, PlanStatus::kDone);
 }
 
 TEST(ViewpointPlanner, AvoidsAViewpointNavigationCouldNotReach)
