@@ -6,7 +6,7 @@ or CUDA. Not a ROS package (`COLCON_IGNORE`): canopy_perception's `detector` and
 
 | File | Does |
 |---|---|
-| `semantic_server.py` | Detection (YOLOE-26 over a word list, one forward pass for the whole list), image and text embeddings (SigLIP 2), and object and room descriptions (Gemini, falling back to a local VLM). REQ/REP on `tcp://127.0.0.1:5561`, msgpack bodies. |
+| `semantic_server.py` | Detection (YOLOE-26 over a word list, one forward pass for the whole list), image and text embeddings (SigLIP 2), and object and room descriptions (Gemini, falling back to a local VLM). REQ/REP on `tcp://127.0.0.1:5561`, and on 5562 for `describe`; msgpack bodies. |
 | `start-vlm.sh` | The local VLM behind the `openai` describer: Qwen3.5-4B in llama.cpp's server, in a container, on `127.0.0.1:8080`. |
 | `setup.sh` | A uv virtualenv with pinned torch and model libraries, the YOLOE weights, the Hugging Face downloads and the llama.cpp image. |
 | `test_semantic_server.py` | Unit tests with fake models: no GPU, no network, no weights. |
@@ -32,8 +32,9 @@ YOLOE-26l and SigLIP 2 take about 1.7 GB of VRAM together. Each backend is a fla
 | `embed_text`, `embed_image` | texts or images | unit vectors from the same model |
 | `describe` | `task` (object or room), up to 8 images, what the map believes | name, caption, `label_ok`, `room_type`, confidence |
 
-The server answers one request at a time, so a describe call of a few seconds delays the next
-segment by as much.
+`describe` has a port and thread of its own (5562): a call that waits seconds on Gemini holds up
+no segment request. Everything else is answered on 5561, one request at a time. Requests carrying
+pickled (object) arrays are refused, since unpickling would run the sender's code.
 
 ## Gemini
 

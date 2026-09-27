@@ -52,7 +52,8 @@ Wire protocol, msgpack with msgpack_numpy for the arrays. Any failure is {"error
       -> {"model", "backend", "name", "caption", "label_ok", "room_type", "confidence",
           "elapsed_ms"}
 
-One request at a time: a describe call of a few seconds delays the next segment by as much.
+describe is answered on port + 1 (5562), everything else on port (5561), ping on both: a describe
+call waits seconds on the network and must not hold up a segment request behind it.
 """
 
 import argparse
@@ -66,6 +67,7 @@ import math
 import os
 import re
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -877,7 +879,7 @@ class SemanticServer:
         self.device = device
         self.box_threshold = box_threshold
 
-    def handle(self, request):
+    def handle(self, request, endpoints=None):
         """A reply for every request, failures included: a dropped reply strands a REQ socket."""
         endpoint = request.get("endpoint") if isinstance(request, dict) else None
         handlers = {
@@ -890,6 +892,8 @@ class SemanticServer:
         try:
             if endpoint not in handlers:
                 raise ValueError(f"unknown endpoint {endpoint!r}")
+            if endpoints is not None and endpoint not in endpoints:
+                raise ValueError(f"{endpoint} is served on the other port")
             data = request.get("data") or {}
             if not isinstance(data, dict):
                 raise ValueError("data must be a map")
@@ -911,9 +915,7 @@ class SemanticServer:
 
     def _segment(self, data):
         image = _image(data.get("image"))
-        embed = bool(data.get("embed", False))
-        if embed and self.embedder is None:
-            raise ValueError("this server was started with --embedder none")
+        embed = bool(data.get("embed", False)) and self.embedder is not None
         # Stripped and deduplicated, so equal vocabularies hit the same cache entry.
         phrases = list(
             dict.fromkeys(
@@ -1022,38 +1024,63 @@ def build_server(config):
     return SemanticServer(detector, embedder, describer, device, float(config["box_threshold"]))
 
 
+def _decode(obj):
+    """msgpack_numpy's hook, minus object arrays: those are unpickled, which runs a peer's code."""
+    import msgpack_numpy as mnp
+
+    if isinstance(obj, dict) and obj.get(b"nd") and obj.get(b"kind") == b"O":
+        raise ValueError("object arrays are refused")
+    return mnp.decode(obj)
+
+
+def _answer(socket, server, endpoints):
+    """Answers `endpoints` on one REP socket until its context is terminated."""
+    import msgpack
+    import msgpack_numpy as mnp
+    import zmq
+
+    try:
+        while True:
+            message = socket.recv()
+            try:
+                request = msgpack.unpackb(message, object_hook=_decode, raw=False)
+            except Exception as error:  # noqa: BLE001 - a REP socket must answer every request
+                reply = {"error": f"undecodable request: {error}"}
+            else:
+                reply = server.handle(request, endpoints)
+            socket.send(msgpack.packb(reply, default=mnp.encode))
+    except zmq.ContextTerminated:
+        pass
+    finally:
+        socket.close(linger=0)
+
+
 def serve(server, config):
     try:
-        import msgpack
-        import msgpack_numpy as mnp
         import zmq
     except ImportError as error:
         sys.exit(f"{error}. {VENV_HINT}")
 
     context = zmq.Context()
-    socket = context.socket(zmq.REP)
-    socket.bind(f"tcp://{config['host']}:{config['port']}")
+    models, describe = context.socket(zmq.REP), context.socket(zmq.REP)
+    models.bind(f"tcp://{config['host']}:{config['port']}")
+    describe.bind(f"tcp://{config['host']}:{config['port'] + 1}")
+    # The describe thread touches no GPU model: Gemini is remote, the local VLM another process.
+    threading.Thread(
+        target=_answer, args=(describe, server, {"ping", "describe"}), daemon=True
+    ).start()
     embedder = server.embedder.name if server.embedder else "no embedder"
     print(
-        f"serving {server.detector.name}, {embedder}, describers "
-        f"{','.join(server.describer.names) or 'none'} on {server.device} at "
-        f"tcp://{config['host']}:{config['port']}",
+        f"serving {server.detector.name}, {embedder} on {server.device} at "
+        f"tcp://{config['host']}:{config['port']}, describers "
+        f"{','.join(server.describer.names) or 'none'} on port {config['port'] + 1}",
         flush=True,
     )
     try:
-        while True:
-            message = socket.recv()
-            try:
-                request = msgpack.unpackb(message, object_hook=mnp.decode, raw=False)
-            except Exception as error:  # noqa: BLE001 - a REP socket must answer every request
-                reply = {"error": f"undecodable request: {error}"}
-            else:
-                reply = server.handle(request)
-            socket.send(msgpack.packb(reply, default=mnp.encode))
+        _answer(models, server, {"ping", "segment", "embed_text", "embed_image"})
     except KeyboardInterrupt:
         pass
     finally:
-        socket.close(linger=0)
         context.term()
 
 

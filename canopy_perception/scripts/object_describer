@@ -24,7 +24,8 @@ from canopy_perception.host_clients import VisionClient
 class Describer(Node):
     def __init__(self):
         super().__init__("object_describer")
-        self._address = self.declare_parameter("server_address", "tcp://127.0.0.1:5561").value
+        # The server answers describe on its own port, so a slow answer holds up no detector.
+        self._address = self.declare_parameter("server_address", "tcp://127.0.0.1:5562").value
         timeout_ms = int(self.declare_parameter("zmq_timeout_ms", 30000).value)
         self._queue_limit = int(self.declare_parameter("queue_size", 50).value)
         # Newest request per subject: a better crop replaces the one still waiting.

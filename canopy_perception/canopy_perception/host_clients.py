@@ -10,6 +10,13 @@ import numpy as np
 import zmq
 
 
+def _decode(obj):
+    """msgpack_numpy's hook, minus object arrays: those are unpickled, which runs a peer's code."""
+    if isinstance(obj, dict) and obj.get(b"nd") and obj.get(b"kind") == b"O":
+        raise ValueError("object arrays are refused")
+    return mnp.decode(obj)
+
+
 class ReqClient:
     """One REQ socket, rebuilt after a failed request: a timed-out REQ socket cannot send again."""
 
@@ -32,7 +39,7 @@ class ReqClient:
     def _send(self, name, request):
         try:
             self._socket.send(msgpack.packb(request, default=mnp.encode))
-            reply = msgpack.unpackb(self._socket.recv(), object_hook=mnp.decode, raw=False)
+            reply = msgpack.unpackb(self._socket.recv(), object_hook=_decode, raw=False)
         except zmq.ZMQError as error:
             self._connect()
             raise RuntimeError(f"{name} did not complete: {error}") from error

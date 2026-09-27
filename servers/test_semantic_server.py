@@ -8,6 +8,7 @@ import base64
 import contextlib
 import io
 import json
+import pickle
 import sys
 import tempfile
 import time
@@ -183,6 +184,35 @@ PER_DAY = refusal("GenerateRequestsPerDayPerProjectPerModel-FreeTier")
 PER_MINUTE = refusal("GenerateRequestsPerMinutePerProjectPerModel-FreeTier")
 BUSY = b'{"error": {"code": 503, "message": "This model is currently experiencing high demand."}}'
 OBJECT = {"labels": {"cup": 3, "mug": 1}}
+
+
+class DecodeTest(unittest.TestCase):
+    def test_object_arrays_are_refused_before_they_run(self):
+        import msgpack
+
+        with tempfile.TemporaryDirectory() as directory:
+            marker = Path(directory) / "ran"
+
+            class Payload:
+                def __reduce__(self):
+                    return (open, (str(marker), "w"))
+
+            array = {b"nd": True, b"type": "|O", b"kind": b"O", b"shape": [1]}
+            data = {**array, b"data": pickle.dumps(Payload())}
+            message = msgpack.packb({"endpoint": "ping", "data": data})
+            with self.assertRaisesRegex(ValueError, "object arrays"):
+                msgpack.unpackb(message, object_hook=ss._decode, raw=False)
+            self.assertFalse(marker.exists())
+
+    def test_numeric_arrays_still_decode(self):
+        import msgpack
+        import msgpack_numpy as mnp
+
+        image = np.arange(12, dtype=np.uint8).reshape(2, 2, 3)
+        message = msgpack.packb({"image": image}, default=mnp.encode)
+        decoded = msgpack.unpackb(message, object_hook=ss._decode, raw=False)["image"]
+        np.testing.assert_array_equal(decoded, image)
+
 
 
 class Transport:
@@ -685,16 +715,19 @@ class ServerTest(unittest.TestCase):
         ):
             with self.subTest(request=request):
                 self.assertIn("error", self.server.handle(request))
+
+    def test_without_an_embedder_embed_is_ignored(self):
         self.server.embedder = None
-        self.assertIn(
-            "error",
-            self.server.handle(
-                {
-                    "endpoint": "segment",
-                    "data": {"image": self.image, "phrases": ["mug"], "embed": True},
-                }
-            ),
+        reply = self.server.handle(
+            {"endpoint": "segment", "data": {"image": self.image, "phrases": ["mug"], "embed": True}}
         )
+        self.assertNotIn("error", reply)
+        self.assertTrue(all("embedding" not in instance for instance in reply["instances"]))
+
+    def test_each_port_answers_only_its_endpoints(self):
+        request = {"endpoint": "embed_text", "data": {"texts": ["a mug"]}}
+        self.assertIn("other port", self.server.handle(request, {"ping", "describe"})["error"])
+        self.assertNotIn("error", self.server.handle(request, {"ping", "embed_text"}))
 
 
 class ConfigTest(Scratch):

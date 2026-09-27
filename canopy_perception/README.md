@@ -26,7 +26,7 @@ colcon build --symlink-install --packages-select canopy_perception
 | Node | Does |
 |---|---|
 | `detector` | Sends the newest camera frame and the phrase list to the model server and publishes the masks it answers with, one call per `detect_rate_hz`. With `embed` it also asks for an image embedding per instance. |
-| `object_describer` | Sends each `DescribeRequest` to the server's `describe` endpoint, one at a time, and publishes the answer. A refusal is logged and dropped: the world model asks again. |
+| `object_describer` | Sends each `DescribeRequest` to the server's `describe` endpoint (its own port, `tcp://127.0.0.1:5562` by default), one at a time, and publishes the answer. A refusal is logged and dropped: the world model asks again. |
 | `mock_detector` | Cuts masks out of ground-truth boxes against the rendered depth: every pixel whose depth lands inside a box. No GPU, no server. Simulation only. A phrase matches every numbered body of its class: "chair" finds `chair_1` to `chair_5`. |
 
 ## Interfaces
