@@ -37,9 +37,11 @@ std::optional<Pose2D> approachPose(
     const double s      = std::sin(target.yaw);
     const double half_x = 0.5 * target.size.x();
     const double half_y = 0.5 * target.size.y();
-    const double first  = standoff > 0.0 ? standoff : params.standoff;
+    const double first  = std::isfinite(standoff) && standoff > 0.0 ? standoff : params.standoff;
 
-    const int rings = static_cast<int>((params.max_standoff - first) / params.ring_step + 1e-9);
+    // A standoff past max_standoff is still tried, as the only ring.
+    const int rings =
+        std::max(0, static_cast<int>((params.max_standoff - first) / params.ring_step + 1e-9));
     for (int ring_index = 0; ring_index <= rings; ++ring_index)
     {
         const double ring = first + (ring_index * params.ring_step);

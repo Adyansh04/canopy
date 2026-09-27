@@ -146,6 +146,9 @@ TEST(ApproachPose, StandsClearOfATableAndFacesIt)
     EXPECT_LE(gap, 0.9);
     // It faces the table.
     EXPECT_NEAR(
+    // Asked to stand further off than max_standoff, it still finds a spot.
+    EXPECT_TRUE(
+        approachPose(planner.clearance(), planner.travel(), geometry, table, 2.0, {}).has_value());
         std::remainder(pose->yaw - std::atan2(3.0 - pose->y, 3.0 - pose->x), 2.0 * M_PI),
         0.0,
         1e-6);
