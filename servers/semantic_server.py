@@ -11,7 +11,8 @@ Each backend is chosen by a flag or by --config, and the replies name no model-s
   --detector   yoloe     YOLOE-26 prompted with the request's phrases (default)
                yoloe-pf  YOLOE-26 prompt-free: its built-in vocabulary; phrases are ignored
   --embedder   siglip2   SigLIP 2 image and text embeddings (default), or none
-  --describer  gemini    Gemini REST API, free tier: at most 5 requests a minute and 100 a day
+  --describer  gemini    Gemini REST API, free tier: each task's models in turn, each under its
+                         own caps a minute and a day (DEFAULTS["gemini"])
                openai    any OpenAI-compatible server; start-vlm.sh beside this file runs one
                none      echoes the detector's label at confidence 0, so describe never fails
                A list such as gemini,openai (the default) falls through in order when one is
@@ -21,7 +22,9 @@ Models:
   YOLOE-26l-seg, -seg-pf   https://docs.ultralytics.com/models/yoloe (arXiv 2503.07465)
   MobileCLIP2-B text       https://github.com/apple/ml-mobileclip (YOLOE's text encoder)
   SigLIP 2 B/16-256        https://huggingface.co/google/siglip2-base-patch16-256
-  Gemini 3.5 Flash-Lite    https://ai.google.dev/gemini-api/docs/models
+  Gemini 3.5 Flash-Lite    https://ai.google.dev/gemini-api/docs/models, as are 3.1 Flash-Lite,
+                           3.8 Flash and 3.6 Flash
+  Gemma 4 26B A4B          https://ai.google.dev/gemma, through the same API
   Qwen3.5-4B Q4_K_M        https://huggingface.co/Qwen/Qwen3.5-4B, GGUF from
                            https://huggingface.co/unsloth/Qwen3.5-4B-GGUF
 
@@ -66,7 +69,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -96,12 +99,28 @@ DEFAULTS = {
     },
     "siglip2": {"model": "google/siglip2-base-patch16-256"},
     "gemini": {
-        "model": "gemini-3.5-flash-lite",
         "key_file": "~/.config/canopy/gemini.env",
         "usage_file": "~/.config/canopy/gemini_usage.json",
-        "per_minute": 5,
-        "per_day": 100,
-        "timeout_s": 20.0,
+        # Short, because a fall-through to the next model has to fit inside the clients' timeouts.
+        "timeout_s": 10.0,
+        # Google limits each model separately, per Cloud project (AI Studio, Rate limits). The caps
+        # sit a little under those, since other apps may share the project.
+        "models": {
+            "gemini-3.5-flash-lite": {"per_minute": 14, "per_day": 480},
+            "gemma-4-26b-a4b-it": {"per_minute": 28, "per_day": 14000},
+            "gemini-3.1-flash-lite": {"per_minute": 14, "per_day": 480},
+            "gemini-3.8-flash": {"per_minute": 4, "per_day": 18, "thinking": "low"},
+            "gemini-3.6-flash": {"per_minute": 4, "per_day": 18, "thinking": "low"},
+        },
+        # Asked in order. Objects are many, so they go where the requests are; rooms are few and
+        # steer every search in them, so they go to the larger models first.
+        "object": ["gemini-3.5-flash-lite", "gemma-4-26b-a4b-it", "gemini-3.1-flash-lite"],
+        "room": [
+            "gemini-3.8-flash",
+            "gemini-3.6-flash",
+            "gemini-3.5-flash-lite",
+            "gemma-4-26b-a4b-it",
+        ],
     },
     "openai": {"base_url": "http://127.0.0.1:8080/v1", "model": "qwen3.5-4b", "timeout_s": 60.0},
 }
@@ -347,47 +366,60 @@ def padded_crop(image, roi, pad=0.1):
 # "label_ok", "room_type", "confidence"}, raising Unavailable (or anything) to fall through.
 
 PACIFIC = ZoneInfo("America/Los_Angeles")
-# Hard ceilings for the free tier; config may lower them, never raise them.
-GEMINI_MAX_PER_MINUTE = 5
-GEMINI_MAX_PER_DAY = 100
+
+
+def _next_pacific_day(now):
+    day = datetime.fromtimestamp(now, PACIFIC).date() + timedelta(days=1)
+    return datetime.combine(day, datetime.min.time(), PACIFIC).timestamp()
 
 
 class GeminiLimiter:
-    """Client-side caps on Gemini's free tier, shared by every process through a locked file.
+    """Client-side caps on each Gemini model, shared by every process through a locked file.
 
     The day is Google's quota day, which turns over at midnight Pacific. Every request counts,
     failed ones too, and the count is taken before the request is sent.
     """
 
-    def __init__(
-        self, path, per_minute=GEMINI_MAX_PER_MINUTE, per_day=GEMINI_MAX_PER_DAY, clock=time.time
-    ):
+    def __init__(self, path, models, clock=time.time):
         self._path = Path(path).expanduser()
-        self.per_minute = min(int(per_minute), GEMINI_MAX_PER_MINUTE)
-        self.per_day = min(int(per_day), GEMINI_MAX_PER_DAY)
+        self._caps = {
+            model: (int(caps["per_minute"]), int(caps["per_day"])) for model, caps in models.items()
+        }
         self._clock = clock
 
-    def acquire(self):
-        """Counts one request, or raises Unavailable without counting it."""
+    def acquire(self, model):
+        """Counts one request to `model`, or raises Unavailable without counting it."""
+        per_minute, per_day = self._caps[model]
 
         def take(state, now):
-            if state["exhausted"]:
-                raise Unavailable("Gemini's quota is exhausted until midnight Pacific")
-            if state["count"] >= self.per_day:
-                raise Unavailable(f"Gemini's cap of {self.per_day} requests a day is reached")
-            if len(state["recent"]) >= self.per_minute:
-                raise Unavailable(f"Gemini's cap of {self.per_minute} requests a minute is reached")
-            state["count"] += 1
-            state["recent"].append(now)
+            usage = state["models"].setdefault(
+                model, {"count": 0, "recent": [], "parked_until": 0.0}
+            )
+            if now < usage["parked_until"]:
+                raise Unavailable(f"parked for another {usage['parked_until'] - now:.0f} s")
+            if usage["count"] >= per_day:
+                raise Unavailable(f"its cap of {per_day} requests a day is reached")
+            if len(usage["recent"]) >= per_minute:
+                raise Unavailable(f"its cap of {per_minute} requests a minute is reached")
+            usage["count"] += 1
+            usage["recent"].append(now)
 
         self._update(take)
 
-    def mark_exhausted(self):
-        """No more requests until the next Pacific day: Google has refused on quota."""
-        self._update(lambda state, now: state.update(exhausted=True))
+    def park(self, model, seconds=None):
+        """No requests to `model` for `seconds`, or until the next Pacific day when None."""
+
+        def change(state, now):
+            usage = state["models"].setdefault(
+                model, {"count": 0, "recent": [], "parked_until": 0.0}
+            )
+            until = _next_pacific_day(now) if seconds is None else now + seconds
+            usage["parked_until"] = max(usage["parked_until"], until)
+
+        self._update(change)
 
     def usage(self):
-        return self._update(lambda state, now: dict(state))
+        return self._update(lambda state, now: copy.deepcopy(state))
 
     def _update(self, change):
         self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -407,18 +439,22 @@ class GeminiLimiter:
         today = datetime.fromtimestamp(now, PACIFIC).date().isoformat()
         try:
             state = json.loads(self._path.read_text())
-            recent = [float(stamp) for stamp in state.get("recent", []) if now - stamp < 60.0]
-            count, exhausted = int(state.get("count", 0)), bool(state.get("exhausted", False))
+            models = {
+                model: {
+                    "count": int(usage["count"]) if state.get("day") == today else 0,
+                    "recent": [float(stamp) for stamp in usage["recent"] if now - stamp < 60.0],
+                    "parked_until": float(usage["parked_until"]),
+                }
+                for model, usage in state.get("models", {}).items()
+            }
         except FileNotFoundError:
-            state, recent, count, exhausted = {}, [], 0, False
-        except (ValueError, TypeError, AttributeError) as error:
+            models = {}
+        except (ValueError, TypeError, AttributeError, KeyError) as error:
             # Fail closed: an unreadable count must not read as a fresh day.
             raise Unavailable(
                 f"{self._path} is unreadable ({error}); delete it to reset"
             ) from error
-        if state.get("day") != today:
-            return {"day": today, "count": 0, "exhausted": False, "recent": recent}
-        return {"day": today, "count": count, "exhausted": exhausted, "recent": recent}
+        return {"day": today, "models": models}
 
 
 def http_post(url, headers, body, timeout):
@@ -594,14 +630,31 @@ def _read_key(path):
     return None
 
 
+def _retry_after(error):
+    """Seconds a quota refusal asks for, or None when a daily quota is spent."""
+    try:
+        details = error.get("details") or []
+        quotas = [v.get("quotaId", "") for d in details for v in d.get("violations", [])]
+        if any("PerDay" in quota for quota in quotas):
+            return None
+        delays = [float(d["retryDelay"].rstrip("s")) for d in details if "retryDelay" in d]
+    except (AttributeError, TypeError, ValueError):
+        delays = []
+    return delays[0] if delays else 60.0
+
+
 class GeminiDescriber:
-    """Gemini's REST API with JSON output, behind the free-tier limiter."""
+    """Gemini's REST API with JSON output: the task's models in turn, each under its own caps."""
 
     name = "gemini"
     URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-    def __init__(self, model, key_file, limiter, timeout_s=20.0, transport=http_post):
-        self.model = model
+    def __init__(self, routes, models, key_file, limiter, timeout_s=10.0, transport=http_post):
+        for model in (model for route in routes.values() for model in route):
+            if model not in models:
+                raise ValueError(f"{model} is routed to but has no caps in gemini.models")
+        self._routes = routes
+        self._models = models
         self._key_file = key_file
         self._key = _read_key(key_file)
         self._limiter = limiter
@@ -612,25 +665,35 @@ class GeminiDescriber:
         if not self._key:
             raise Unavailable(f"no Gemini key in {self._key_file}")
         parts = [
-            {"inlineData": {"mimeType": "image/jpeg", "data": _jpeg_base64(image)}}
-            for image in images
+            *(
+                {"inlineData": {"mimeType": "image/jpeg", "data": _jpeg_base64(image)}}
+                for image in images
+            ),
+            {"text": _prompt(task, len(images), context)},
         ]
-        body = {
-            "contents": [
-                {"role": "user", "parts": [*parts, {"text": _prompt(task, len(images), context)}]}
-            ],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "responseSchema": _gemini_schema(_schema(task)),
-                "mediaResolution": "MEDIA_RESOLUTION_LOW",
-                "maxOutputTokens": 1024,
-            },
+        failures = []
+        for model in self._routes[task]:
+            try:
+                return self._ask(model, task, parts)
+            except (Unavailable, ValueError) as error:
+                failures.append(f"{model}: {error}")
+        raise Unavailable("; ".join(failures) or f"no model for the {task} task")
+
+    def _ask(self, model, task, parts):
+        config = {
+            "responseMimeType": "application/json",
+            "responseSchema": _gemini_schema(_schema(task)),
+            "mediaResolution": "MEDIA_RESOLUTION_LOW",
+            "maxOutputTokens": 1024,
         }
+        if self._models[model].get("thinking"):
+            config["thinkingConfig"] = {"thinkingLevel": self._models[model]["thinking"]}
+        body = {"contents": [{"role": "user", "parts": parts}], "generationConfig": config}
         # Last step before the network, and the request counts even if the call then fails.
-        self._limiter.acquire()
+        self._limiter.acquire(model)
         # The key goes in a header only: URLs end up in logs and error messages.
         status, reply = self._transport(
-            self.URL.format(model=self.model),
+            self.URL.format(model=model),
             {"x-goog-api-key": self._key, "Content-Type": "application/json"},
             json.dumps(body).encode(),
             self._timeout_s,
@@ -642,11 +705,14 @@ class GeminiDescriber:
                 error = {}
             detail = self._redact(f"{error.get('status', '')} {error.get('message', '')}".strip())
             if status == 429 or "RESOURCE_EXHAUSTED" in detail or "quota" in detail.lower():
-                self._limiter.mark_exhausted()
+                wait = _retry_after(error)
+                self._limiter.park(model, wait)
                 raise Unavailable(
-                    f"Gemini refused on quota (HTTP {status}): no more calls until midnight Pacific"
+                    f"refused on quota (HTTP {status}), parked "
+                    + ("until midnight Pacific" if wait is None else f"for {wait:.0f} s")
                 )
-            raise Unavailable(f"Gemini answered HTTP {status}: {detail[:200]}")
+            # Busy (503) or broken (500): worth asking again next time.
+            raise Unavailable(f"answered HTTP {status}: {detail[:200]}")
         data = json.loads(reply)
         candidate = (data.get("candidates") or [{}])[0]
         text = "".join(
@@ -655,7 +721,7 @@ class GeminiDescriber:
             if not part.get("thought")
         )
         answer = parse_answer(text, task)
-        answer["model"] = data.get("modelVersion", self.model)
+        answer["model"] = data.get("modelVersion", model)
         return answer
 
     def _redact(self, text):
@@ -765,13 +831,10 @@ EMBEDDERS = {
 }
 DESCRIBERS = {
     "gemini": lambda config: GeminiDescriber(
-        config["gemini"]["model"],
+        {task: config["gemini"][task] for task in ("object", "room")},
+        config["gemini"]["models"],
         config["gemini"]["key_file"],
-        GeminiLimiter(
-            config["gemini"]["usage_file"],
-            config["gemini"]["per_minute"],
-            config["gemini"]["per_day"],
-        ),
+        GeminiLimiter(config["gemini"]["usage_file"], config["gemini"]["models"]),
         config["gemini"]["timeout_s"],
     ),
     "openai": lambda config: OpenAIDescriber(
@@ -1061,7 +1124,7 @@ def main():
         action="append",
         default=[],
         metavar="SECTION.KEY=VALUE",
-        help="override one config value, e.g. gemini.model=gemini-3.5-flash",
+        help="override one config value, e.g. gemini.object=[gemma-4-26b-a4b-it]",
     )
     parser.add_argument("--host")
     parser.add_argument("--port", type=int)

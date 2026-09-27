@@ -33,6 +33,13 @@ class Clock:
         return self.now
 
 
+CAPS = {
+    "lite": {"per_minute": 5, "per_day": 100},
+    "flash": {"per_minute": 2, "per_day": 3, "thinking": "low"},
+}
+ROUTES = {"object": ["lite", "flash"], "room": ["flash"]}
+
+
 class Scratch(unittest.TestCase):
     """A temporary directory and a clock at noon Pacific (PDT) on 2026-09-24."""
 
@@ -43,45 +50,54 @@ class Scratch(unittest.TestCase):
         self.usage = self.dir / "gemini_usage.json"
         self.clock = Clock(utc(2026, 9, 24, 19, 0))
 
-    def limiter(self, **caps):
-        return ss.GeminiLimiter(self.usage, clock=self.clock, **caps)
+    def limiter(self, models=CAPS):
+        return ss.GeminiLimiter(self.usage, models, clock=self.clock)
 
 
 class LimiterTest(Scratch):
     def test_minute_window(self):
         limiter = self.limiter()
         for _ in range(5):
-            limiter.acquire()
+            limiter.acquire("lite")
         with self.assertRaisesRegex(ss.Unavailable, "a minute"):
-            limiter.acquire()
+            limiter.acquire("lite")
         self.clock.now += 59
         with self.assertRaises(ss.Unavailable):
-            limiter.acquire()
+            limiter.acquire("lite")
         self.clock.now += 2
-        limiter.acquire()
+        limiter.acquire("lite")
 
     def test_daily_cap(self):
         limiter = self.limiter()
         for _ in range(100):
-            limiter.acquire()
+            limiter.acquire("lite")
             self.clock.now += 13
         with self.assertRaisesRegex(ss.Unavailable, "a day"):
-            limiter.acquire()
-        self.assertEqual(limiter.usage()["count"], 100)
+            limiter.acquire("lite")
+        self.assertEqual(limiter.usage()["models"]["lite"]["count"], 100)
+
+    def test_models_are_counted_apart(self):
+        limiter = self.limiter()
+        for _ in range(3):
+            limiter.acquire("flash")
+            self.clock.now += 31
+        with self.assertRaisesRegex(ss.Unavailable, "3 requests a day"):
+            limiter.acquire("flash")
+        limiter.acquire("lite")
 
     def test_day_turns_over_at_midnight_pacific(self):
         self.clock.now = utc(2026, 9, 24, 23, 50)
-        limiter = self.limiter(per_day=2)
-        limiter.acquire()
-        limiter.acquire()
+        limiter = self.limiter({"lite": {"per_minute": 5, "per_day": 2}})
+        limiter.acquire("lite")
+        limiter.acquire("lite")
         self.clock.now = utc(2026, 9, 25, 0, 30)  # past midnight UTC, 17:30 in California
         with self.assertRaisesRegex(ss.Unavailable, "a day"):
-            limiter.acquire()
+            limiter.acquire("lite")
         self.clock.now = utc(2026, 9, 25, 6, 59)  # 23:59 PDT
         with self.assertRaises(ss.Unavailable):
-            limiter.acquire()
+            limiter.acquire("lite")
         self.clock.now = utc(2026, 9, 25, 7, 1)  # 00:01 PDT
-        limiter.acquire()
+        limiter.acquire("lite")
         self.assertEqual(limiter.usage()["day"], "2026-09-25")
 
     def test_day_follows_standard_time_in_winter(self):
@@ -90,60 +106,80 @@ class LimiterTest(Scratch):
         self.clock.now = utc(2026, 12, 2, 8, 1)
         self.assertEqual(self.limiter().usage()["day"], "2026-12-02")
 
-    def test_exhausted_until_the_next_pacific_day(self):
+    def test_parked_until_the_next_pacific_day(self):
         limiter = self.limiter()
-        limiter.mark_exhausted()
-        with self.assertRaisesRegex(ss.Unavailable, "exhausted"):
-            limiter.acquire()
+        limiter.park("lite")
+        with self.assertRaisesRegex(ss.Unavailable, "parked"):
+            limiter.acquire("lite")
+        limiter.acquire("flash")
+        self.clock.now = utc(2026, 9, 25, 6, 59)
+        with self.assertRaises(ss.Unavailable):
+            limiter.acquire("lite")
         self.clock.now = utc(2026, 9, 25, 7, 1)
-        limiter.acquire()
+        limiter.acquire("lite")
 
-    def test_ceilings_cannot_be_raised(self):
-        limiter = self.limiter(per_minute=50, per_day=1000)
-        self.assertEqual((limiter.per_minute, limiter.per_day), (5, 100))
-        for _ in range(5):
-            limiter.acquire()
-        with self.assertRaises(ss.Unavailable):
-            limiter.acquire()
-
-    def test_ceilings_can_be_lowered(self):
-        limiter = self.limiter(per_minute=2)
-        limiter.acquire()
-        limiter.acquire()
-        with self.assertRaises(ss.Unavailable):
-            limiter.acquire()
+    def test_parked_for_a_while(self):
+        limiter = self.limiter()
+        limiter.park("lite", 38)
+        with self.assertRaisesRegex(ss.Unavailable, "another 38 s"):
+            limiter.acquire("lite")
+        self.clock.now += 38
+        limiter.acquire("lite")
 
     def test_state_persists_across_instances(self):
         first, second = self.limiter(), self.limiter()
         for _ in range(3):
-            first.acquire()
-        second.acquire()
-        second.acquire()
+            first.acquire("lite")
+        second.acquire("lite")
+        second.acquire("lite")
         with self.assertRaises(ss.Unavailable):
-            first.acquire()
-        second.mark_exhausted()
+            first.acquire("lite")
+        second.park("lite")
         self.clock.now += 120
-        with self.assertRaisesRegex(ss.Unavailable, "exhausted"):
-            self.limiter().acquire()
-        self.assertEqual(self.limiter().usage()["count"], 5)
+        with self.assertRaisesRegex(ss.Unavailable, "parked"):
+            self.limiter().acquire("lite")
+        self.assertEqual(self.limiter().usage()["models"]["lite"]["count"], 5)
 
     def test_unreadable_state_fails_closed(self):
         self.usage.write_text("{not json")
         with self.assertRaisesRegex(ss.Unavailable, "unreadable"):
-            self.limiter().acquire()
+            self.limiter().acquire("lite")
 
 
-def gemini_reply(answer):
+def gemini_reply(answer, model="lite"):
     return json.dumps(
         {
-            "modelVersion": "gemini-3.5-flash-lite",
+            "modelVersion": model,
             "candidates": [{"content": {"parts": [{"text": json.dumps(answer)}]}}],
+        }
+    ).encode()
+
+
+def refusal(quota_id):
+    """A 429 as Google sends it: which quota ran out, and how long to wait."""
+    return json.dumps(
+        {
+            "error": {
+                "code": 429,
+                "status": "RESOURCE_EXHAUSTED",
+                "message": "You exceeded your current quota",
+                "details": [
+                    {
+                        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                        "violations": [{"quotaId": quota_id, "quotaValue": "20"}],
+                    },
+                    {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "38s"},
+                ],
+            }
         }
     ).encode()
 
 
 MUG = {"name": "Mug", "caption": "A white ceramic mug.", "label_ok": False, "confidence": 0.9}
 QUOTA = b'{"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "message": "Quota exceeded"}}'
+PER_DAY = refusal("GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+PER_MINUTE = refusal("GenerateRequestsPerMinutePerProjectPerModel-FreeTier")
+BUSY = b'{"error": {"code": 503, "message": "This model is currently experiencing high demand."}}'
 OBJECT = {"labels": {"cup": 3, "mug": 1}}
 
 
@@ -161,6 +197,10 @@ class Transport:
             raise reply
         return reply
 
+    @property
+    def models(self):
+        return [url.rsplit("/", 1)[1].split(":")[0] for url, _, _ in self.calls]
+
 
 class GeminiTest(Scratch):
     def setUp(self):
@@ -168,21 +208,23 @@ class GeminiTest(Scratch):
         self.key_file = self.dir / "gemini.env"
         self.key_file.write_text("GEMINI_API_KEY=test-key-123\n")
 
-    def describer(self, transport, limiter=None):
+    def describer(self, transport, routes=ROUTES, limiter=None):
         return ss.GeminiDescriber(
-            "gemini-3.5-flash-lite", self.key_file, limiter or self.limiter(), transport=transport
+            routes, CAPS, self.key_file, limiter or self.limiter(), transport=transport
         )
 
-    def describe(self, describer):
-        return describer.describe("object", [np.zeros((900, 600, 3), np.uint8)], OBJECT)
+    def describe(self, describer, task="object"):
+        context = OBJECT if task == "object" else {"objects": {"bed": 2}}
+        return describer.describe(task, [np.zeros((900, 600, 3), np.uint8)], context)
 
     def test_request(self):
         transport = Transport((200, gemini_reply(MUG)))
         answer = self.describe(self.describer(transport))
         self.assertEqual((answer["name"], answer["label_ok"]), ("mug", False))
-        self.assertEqual(answer["model"], "gemini-3.5-flash-lite")
+        self.assertEqual(answer["model"], "lite")
 
         url, headers, body = transport.calls[0]
+        self.assertTrue(url.endswith("/models/lite:generateContent"))
         self.assertNotIn("test-key-123", url)
         self.assertEqual(headers["x-goog-api-key"], "test-key-123")
         config = body["generationConfig"]
@@ -190,10 +232,19 @@ class GeminiTest(Scratch):
         self.assertEqual(config["mediaResolution"], "MEDIA_RESOLUTION_LOW")
         self.assertEqual(config["responseSchema"]["type"], "OBJECT")
         self.assertEqual(config["responseSchema"]["properties"]["label_ok"]["type"], "BOOLEAN")
+        self.assertNotIn("thinkingConfig", config)
         parts = body["contents"][0]["parts"]
         jpeg = base64.b64decode(parts[0]["inlineData"]["data"])
         self.assertEqual(Image.open(io.BytesIO(jpeg)).size, (341, 512))
         self.assertIn('called it "cup"', parts[-1]["text"])
+
+    def test_a_room_goes_to_its_own_models(self):
+        room = {"room_type": "bedroom", "name": "bedroom", "caption": "", "label_ok": True}
+        transport = Transport((200, gemini_reply({**room, "confidence": 0.9}, "flash")))
+        answer = self.describe(self.describer(transport), "room")
+        self.assertEqual((answer["room_type"], transport.models), ("bedroom", ["flash"]))
+        config = transport.calls[0][2]["generationConfig"]
+        self.assertEqual(config["thinkingConfig"], {"thinkingLevel": "low"})
 
     def test_bare_key(self):
         self.key_file.write_text("bare-key-456")
@@ -201,33 +252,68 @@ class GeminiTest(Scratch):
         self.describe(self.describer(transport))
         self.assertEqual(transport.calls[0][1]["x-goog-api-key"], "bare-key-456")
 
-    def test_quota_refusal_stops_calls_until_the_next_day(self):
-        transport = Transport((429, QUOTA), (200, gemini_reply(MUG)))
+    def test_a_daily_refusal_parks_the_model_until_the_next_day(self):
+        flash = (200, gemini_reply(MUG, "flash"))
+        transport = Transport((429, PER_DAY), flash, flash, (200, gemini_reply(MUG)))
         describer = self.describer(transport)
-        with self.assertRaisesRegex(ss.Unavailable, "quota"):
-            self.describe(describer)
-        with self.assertRaisesRegex(ss.Unavailable, "exhausted"):
-            self.describe(describer)
-        self.assertEqual(len(transport.calls), 1)
-        self.assertTrue(self.limiter().usage()["exhausted"])
+        self.assertEqual(self.describe(describer)["model"], "flash")
+        self.clock.now += 3600
+        self.assertEqual(self.describe(describer)["model"], "flash")
         self.clock.now = utc(2026, 9, 25, 7, 1)
-        self.assertEqual(self.describe(describer)["name"], "mug")
+        self.assertEqual(self.describe(describer)["model"], "lite")
+        self.assertEqual(transport.models, ["lite", "flash", "flash", "lite"])
+
+    def test_a_minute_refusal_parks_for_the_delay_google_names(self):
+        answer = (200, gemini_reply(MUG))
+        transport = Transport((429, PER_MINUTE), answer, answer, answer)
+        describer = self.describer(transport)
+        self.describe(describer)
+        self.clock.now += 37
+        self.describe(describer)
+        self.clock.now += 1
+        self.describe(describer)
+        self.assertEqual(transport.models, ["lite", "flash", "flash", "lite"])
+
+    def test_a_refusal_without_details_parks_for_a_minute(self):
+        transport = Transport((429, QUOTA), (200, gemini_reply(MUG, "flash")))
+        self.describe(self.describer(transport))
+        parked = self.limiter().usage()["models"]["lite"]["parked_until"]
+        self.assertEqual(parked, self.clock.now + 60.0)
 
     def test_quota_error_under_another_status(self):
         body = b'{"error": {"code": 403, "status": "PERMISSION_DENIED", "message": "quota for this key"}}'
-        with self.assertRaises(ss.Unavailable):
-            self.describe(self.describer(Transport((403, body))))
-        self.assertTrue(self.limiter().usage()["exhausted"])
+        transport = Transport((403, body), (200, gemini_reply(MUG, "flash")))
+        self.assertEqual(self.describe(self.describer(transport))["model"], "flash")
+        self.assertGreater(self.limiter().usage()["models"]["lite"]["parked_until"], self.clock.now)
 
-    def test_server_error_does_not_exhaust(self):
-        with self.assertRaisesRegex(ss.Unavailable, "HTTP 503"):
-            self.describe(self.describer(Transport((503, b'{"error": {"message": "busy"}}'))))
-        self.assertFalse(self.limiter().usage()["exhausted"])
-        self.assertEqual(self.limiter().usage()["count"], 1)
+    def test_a_busy_model_is_asked_again_next_time(self):
+        answer = (200, gemini_reply(MUG))
+        transport = Transport((503, BUSY), answer, answer)
+        describer = self.describer(transport)
+        self.describe(describer)
+        self.describe(describer)
+        self.assertEqual(transport.models, ["lite", "flash", "lite"])
+        usage = self.limiter().usage()["models"]["lite"]
+        self.assertEqual((usage["count"], usage["parked_until"]), (2, 0.0))
+
+    def test_an_unusable_answer_asks_the_next_model(self):
+        transport = Transport(
+            (200, gemini_reply({"caption": "?"})), (200, gemini_reply(MUG, "flash"))
+        )
+        self.assertEqual(self.describe(self.describer(transport))["model"], "flash")
+
+    def test_every_model_out_names_each_reason(self):
+        transport = Transport((429, PER_DAY), (503, BUSY))
+        with self.assertRaisesRegex(
+            ss.Unavailable,
+            "lite: refused on quota.*until midnight Pacific; flash: answered HTTP 503",
+        ):
+            self.describe(self.describer(transport))
 
     def test_limiter_refuses_before_any_network_io(self):
         transport = Transport((200, gemini_reply(MUG)))
-        describer = self.describer(transport, self.limiter(per_minute=1))
+        limiter = self.limiter({"lite": {"per_minute": 1, "per_day": 9}})
+        describer = self.describer(transport, {"object": ["lite"], "room": []}, limiter)
         self.describe(describer)
         with self.assertRaisesRegex(ss.Unavailable, "a minute"):
             self.describe(describer)
@@ -239,6 +325,10 @@ class GeminiTest(Scratch):
         with self.assertRaisesRegex(ss.Unavailable, "no Gemini key"):
             self.describe(self.describer(transport))
         self.assertEqual(transport.calls, [])
+
+    def test_a_model_without_caps_fails_at_start(self):
+        with self.assertRaisesRegex(ValueError, "no caps"):
+            self.describer(Transport(), {"object": ["lite", "nope"], "room": []})
 
 
 class FakeDescriber:
@@ -302,7 +392,11 @@ class ChainTest(Scratch):
         chain = ss.DescriberChain(
             [
                 ss.GeminiDescriber(
-                    "g", key_file, self.limiter(), transport=Transport((429, QUOTA))
+                    {"object": ["lite"], "room": []},
+                    CAPS,
+                    key_file,
+                    self.limiter(),
+                    transport=Transport((429, QUOTA)),
                 ),
                 ss.OpenAIDescriber("http://127.0.0.1:8080/v1", "qwen3.5-4b", transport=local),
             ]
@@ -583,7 +677,7 @@ class ConfigTest(Scratch):
             embedder=None,
             describer="openai",
             set=[
-                "gemini.per_day=500",
+                "gemini.object=[gemma-4-26b-a4b-it]",
                 "yoloe.imgsz=800",
                 f"gemini.key_file={self.dir}/none",
                 f"gemini.usage_file={self.usage}",
@@ -592,7 +686,7 @@ class ConfigTest(Scratch):
         config = ss.load_config(args)
         self.assertEqual((config["detector"], config["describer"]), ("yoloe-pf", "openai"))
         self.assertEqual((config["yoloe"]["imgsz"], config["yoloe"]["half"]), (800, True))
-        self.assertEqual(ss.DESCRIBERS["gemini"](config)._limiter.per_day, 100)
+        self.assertEqual(ss.DESCRIBERS["gemini"](config)._routes["object"], ["gemma-4-26b-a4b-it"])
 
 
 if __name__ == "__main__":

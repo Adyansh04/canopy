@@ -131,8 +131,8 @@ about 1.7 GB of VRAM):
   ${CANOPY_HOME}/.venv/bin/python servers/semantic_server.py
 
 Describers fall through in order, gemini,openai by default. Gemini reads its key from
-~/.config/canopy/gemini.env and stops at the free tier's 5 requests a minute and 100 a day. The
-local VLM (Qwen3.5-4B in llama.cpp, about 4 GB of VRAM) serves the openai describer:
+~/.config/canopy/gemini.env and keeps each model under its free tier's limits a minute and a
+day. The local VLM (Qwen3.5-4B in llama.cpp, about 4 GB of VRAM) serves the openai describer:
 
   ./servers/start-vlm.sh start      # stop when done: ./servers/start-vlm.sh stop
   ${CANOPY_HOME}/.venv/bin/python servers/semantic_server.py --describer openai

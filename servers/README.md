@@ -38,11 +38,39 @@ segment by as much.
 ## Gemini
 
 The `gemini` describer needs a free API key in `~/.config/canopy/gemini.env` (the bare key, or
-`NAME=key`). The key goes only in the `x-goog-api-key` header and is redacted from errors. The
-server caps its own use at the free tier's 5 requests a minute and 100 a day, counted in a file
-beside the key across processes and restarts, and stops for the rest of the Pacific day on any
-quota answer. One exploration of a six-room flat uses about 100 describe calls, so it falls through
-to the local VLM partway.
+`NAME=key`). The key goes only in the `x-goog-api-key` header and is redacted from errors.
+
+The free tier limits each model on its own, per Google Cloud project (AI Studio lists them under
+Rate limits), so the server spreads its calls over several:
+
+| Task | Models, in order | Free tier, each: a minute, a day |
+|---|---|---|
+| object | Gemini 3.5 Flash-Lite, Gemma 4 26B, Gemini 3.1 Flash-Lite | 15, 500; 30, 14,400; 15, 500 |
+| room | Gemini 3.8 Flash, 3.6 Flash, then the first two above | 5, 20 for the Flash models |
+
+- Each model has its own caps, a little under Google's, counted in a file beside the key across
+  processes and restarts. `DEFAULTS["gemini"]` in `semantic_server.py` holds them.
+- A model at its cap, refused or busy is skipped for the next. A refusal on the daily quota parks it
+  until midnight Pacific; one on the minute quota, for the delay Google names.
+- With every model out, the next describer answers: the local VLM by default.
+
+One exploration of a six-room flat makes 100 to 250 describe calls, at most 13 in a minute.
+
+How the models did on 12 crops of the flat's furniture, one per kind, with the object prompt:
+
+| Model | Named right | Typical time |
+|---|---|---|
+| Gemini 3.5 Flash-Lite | 9 of 12 | 1.1-1.7 s |
+| Gemini 3.1 Flash-Lite | 8 | 3 s, up to 14 s |
+| Gemma 4 26B A4B | 8 | 2 s |
+| Gemma 4 31B | 6 | 20-35 s, and HTTP 500s |
+| Gemini 3.8 Live, extended thinking | 7 | 2 s |
+
+The misses are mostly the same crops for every model: a daybed for the bed, a cabinet for the
+wardrobe. The Live models have no daily limit, but they answer only in speech. The JSON read back
+from the transcript was missing on 5 of those 12 (though on none of 20 retries), and each call
+costs about 3,400 tokens of the 65,000 a minute. Gemma's 14,400 a day are plenty, so Live is not
+used.
 
 ## Models and libraries
 
@@ -54,6 +82,7 @@ Each keeps its own license; follow the link.
 | MobileCLIP2-B | YOLOE's text encoder | https://github.com/apple/ml-mobileclip |
 | CLIP tokenizer (Ultralytics' fork) | YOLOE's text prompts | https://github.com/ultralytics/CLIP |
 | SigLIP 2 B/16-256 | embeddings | https://huggingface.co/google/siglip2-base-patch16-256 |
-| Gemini 3.5 Flash-Lite | describer | https://ai.google.dev/gemini-api/docs/models |
+| Gemini 3.5 and 3.1 Flash-Lite, 3.8 and 3.6 Flash | describer | https://ai.google.dev/gemini-api/docs/models |
+| Gemma 4 26B A4B, through the Gemini API | describer | https://ai.google.dev/gemma |
 | Qwen3.5-4B, Q4_K_M GGUF | local describer | https://huggingface.co/Qwen/Qwen3.5-4B, https://huggingface.co/unsloth/Qwen3.5-4B-GGUF |
 | llama.cpp server | runs the local VLM | https://github.com/ggml-org/llama.cpp |
