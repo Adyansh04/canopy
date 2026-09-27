@@ -106,7 +106,7 @@ private:
     void onDepth(CameraFeed& camera, sensor_msgs::msg::Image::ConstSharedPtr depth);
     static void
     onCameraInfo(CameraFeed& camera, const sensor_msgs::msg::CameraInfo::ConstSharedPtr& info);
-    static void
+    void
     onMasks(CameraFeed& camera, const canopy_msgs::msg::InstanceMaskArray::ConstSharedPtr& masks);
     void onOdometry(const nav_msgs::msg::Odometry::ConstSharedPtr& odometry);
     void onCloud(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& cloud);
@@ -280,7 +280,7 @@ private:
         int moving   = 0;
         int no_depth = 0;
         int no_pose  = 0;
-        int dropped  = 0;  // Depth pushed out of a full queue before its turn came.
+        int dropped  = 0;  // Pushed out of a full queue before its turn came.
     };
     FrameTally   depth_tally_;
     FrameTally   mask_tally_;

@@ -433,7 +433,7 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         camera.masks_sub = create_subscription<canopy_msgs::msg::InstanceMaskArray>(
             prefix + "instance_masks",
             rclcpp::QoS(rclcpp::KeepLast(4)).reliable(),
-            [&camera](const canopy_msgs::msg::InstanceMaskArray::ConstSharedPtr& masks) {
+            [this, &camera](const canopy_msgs::msg::InstanceMaskArray::ConstSharedPtr& masks) {
                 onMasks(camera, masks);
             });
     }
@@ -1100,6 +1100,7 @@ void WorldModelNode::onMasks(
     while (camera.pending_masks.size() > 16)
     {
         camera.pending_masks.pop_front();
+        ++mask_tally_.dropped;
     }
 }
 
@@ -1626,7 +1627,8 @@ void WorldModelNode::onNextViewpoint(
     RCLCPP_INFO(
         get_logger(),
         "viewpoint %u at (%.2f, %.2f), %zu headings, gain %.0f, cost %.1f s, planned in %.0f ms, "
-        "%.1f m2 mapped; mask frames since: %d used, %d moving, %d without depth, %d without pose",
+        "%.1f m2 mapped; mask frames since: %d used, %d moving, %d without depth, %d without pose, "
+        "%d dropped",
         viewpoint.id,
         viewpoint.x,
         viewpoint.y,
@@ -1638,7 +1640,8 @@ void WorldModelNode::onNextViewpoint(
         mask_tally_.used,
         mask_tally_.moving,
         mask_tally_.no_depth,
-        mask_tally_.no_pose);
+        mask_tally_.no_pose,
+        mask_tally_.dropped);
     mask_tally_   = {};
     depth_tally_  = {};
     predicted_on_ = geometry_;
