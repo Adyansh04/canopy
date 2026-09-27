@@ -204,13 +204,6 @@ void CoverageMap::setSurfaces(const std::vector<Surface>& surfaces)
     }
 }
 
-float CoverageMap::edgeWeight(double normalised_u, double normalised_v)
-{
-    const double rho    = std::min(1.0, std::max(std::abs(normalised_u), std::abs(normalised_v)));
-    const double square = rho * rho;
-    return static_cast<float>(1.0 - (square * square));
-}
-
 float CoverageMap::viewQuality(
     double range, double cos_incidence, double edge_weight, TargetKind kind) const
 {

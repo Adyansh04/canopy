@@ -15,7 +15,9 @@
  */
 
 #include <Eigen/Geometry>
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -136,8 +138,14 @@ public:
     [[nodiscard]] float
     viewQuality(double range, double cos_incidence, double edge_weight, TargetKind kind) const;
 
-    /// 1 at the image centre, 0 at the border: 1 - rho^4 of the larger normalised offset.
-    [[nodiscard]] static float edgeWeight(double normalised_u, double normalised_v);
+    /// 1 at the image centre, 0 at the border: 1 - rho^4 of the larger normalised offset. Inline:
+    /// the planner calls it for every predicted hit.
+    [[nodiscard]] static float edgeWeight(double normalised_u, double normalised_v)
+    {
+        const double rho = std::min(1.0, std::max(std::abs(normalised_u), std::abs(normalised_v)));
+        const double square = rho * rho;
+        return static_cast<float>(1.0 - (square * square));
+    }
 
     [[nodiscard]] TargetKind kind(int index) const
     {

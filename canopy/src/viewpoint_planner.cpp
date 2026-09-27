@@ -1206,8 +1206,7 @@ Plan ViewpointPlanner::nextCoverage(
                              ++h)
                         {
                             const Hit&  hit = view.hits[static_cast<std::size_t>(h)];
-                            const float rho = std::max(horizontal, std::abs(hit.rho_v));
-                            const float edge = 1.0F - (rho * rho * rho * rho);
+                            const float edge = CoverageMap::edgeWeight(horizontal, hit.rho_v);
                             if (hit.base * edge < well_seen)
                             {
                                 continue;
@@ -1346,8 +1345,7 @@ Plan ViewpointPlanner::nextCoverage(
             {
                 for (const Hit& hit : view.hits)
                 {
-                    const float rho = std::abs(hit.rho_v);
-                    if (hit.base * (1.0F - (rho * rho * rho * rho)) >= well_seen)
+                    if (hit.base * CoverageMap::edgeWeight(0.0, hit.rho_v) >= well_seen)
                     {
                         predicted_any[static_cast<std::size_t>(hit.target)] = 1;
                     }
