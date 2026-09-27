@@ -106,8 +106,10 @@ TEST(RoomTyping, ReadsOtherWordsAsTheTablesOwn)
     EXPECT_EQ(types.canonical("fridge"), "refrigerator");
     EXPECT_EQ(types.canonical("lamp"), "lamp");
     EXPECT_EQ(classifyRoom(types, { "fridge", "counter", "dustbin" }, 5.0, 4.0).type, "kitchen");
-    // Two words for one kind of object are one piece of evidence, so a hallway stays one.
-    EXPECT_EQ(classifyRoom(types, { "bookshelf", "shelf", "bookcase" }, 12.0, 1.8).type, "hallway");
+    // Two words for one kind of object are one piece of evidence, so a hallway stays one. At
+    // 4.4 times longer than wide the long-strip rule does not decide it; the object count does.
+    EXPECT_EQ(classifyRoom(types, { "bookshelf", "shelf", "bookcase" }, 8.0, 1.8).type, "hallway");
+    EXPECT_NE(classifyRoom(types, { "bookshelf", "chair", "desk" }, 8.0, 1.8).type, "hallway");
 }
 
 TEST(RoomTyping, ALongEmptyStripIsAHallway)
@@ -144,11 +146,11 @@ TEST(ApproachPose, StandsClearOfATableAndFacesIt)
         std::max(std::abs(pose->y - 3.0) - 0.4, 0.0));
     EXPECT_GE(gap, 0.55);
     EXPECT_LE(gap, 0.9);
-    // It faces the table.
-    EXPECT_NEAR(
     // Asked to stand further off than max_standoff, it still finds a spot.
     EXPECT_TRUE(
         approachPose(planner.clearance(), planner.travel(), geometry, table, 2.0, {}).has_value());
+    // It faces the table.
+    EXPECT_NEAR(
         std::remainder(pose->yaw - std::atan2(3.0 - pose->y, 3.0 - pose->x), 2.0 * M_PI),
         0.0,
         1e-6);
