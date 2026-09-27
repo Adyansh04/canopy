@@ -72,6 +72,21 @@ TEST(DepthHistory, HoldsNoMoreThanItsFrameCapInsideTheWindow)
     EXPECT_NE(history.at(100.2), nullptr);
 }
 
+TEST(DepthHistory, SpansItsWindowOnAFastCameraToo)
+{
+    // 30 Hz for 6 s into 64 frames at most one per 0.1 s: the oldest is still 6 s back.
+    DepthHistory history(6.0, 0.1, 64, 0.1);
+    int          kept = 0;
+    for (int tick = 0; tick <= 180; ++tick)
+    {
+        kept += static_cast<int>(history.push(frameAt(100.0 + (tick / 30.0))));
+    }
+    EXPECT_LE(history.size(), 64U);
+    EXPECT_EQ(kept, 61);
+    ASSERT_NE(history.at(100.02), nullptr);  // A frame dropped beside a kept one: its neighbour.
+    EXPECT_NE(history.at(105.95), nullptr);
+}
+
 TEST(DepthHistory, IsEmptyUntilSomethingArrives)
 {
     const DepthHistory history(3.0, 0.005);

@@ -11,10 +11,12 @@
 namespace canopy_perception
 {
 
-DepthHistory::DepthHistory(double history_s, double tolerance_s, std::size_t max_frames)
+DepthHistory::DepthHistory(
+    double history_s, double tolerance_s, std::size_t max_frames, double min_spacing_s)
   : history_s_(history_s)
   , tolerance_s_(tolerance_s)
   , max_frames_(max_frames)
+  , min_spacing_s_(min_spacing_s)
 {}
 
 double DepthHistory::stampSeconds(const std_msgs::msg::Header& header)
@@ -23,19 +25,25 @@ double DepthHistory::stampSeconds(const std_msgs::msg::Header& header)
            (static_cast<double>(header.stamp.nanosec) * 1e-9);
 }
 
-void DepthHistory::push(sensor_msgs::msg::Image::ConstSharedPtr frame)
+bool DepthHistory::push(sensor_msgs::msg::Image::ConstSharedPtr frame)
 {
     if (frame == nullptr)
     {
-        return;
+        return false;
     }
     const double newest = stampSeconds(frame->header);
+    // A millisecond of slack: stamps jitter, and a 30 Hz stream's third frame is 0.0999... s on.
+    if (!frames_.empty() && newest - stampSeconds(frames_.back()->header) < min_spacing_s_ - 1e-3)
+    {
+        return false;
+    }
     frames_.push_back(std::move(frame));
     while (!frames_.empty() && (newest - stampSeconds(frames_.front()->header) > history_s_ ||
                                 (max_frames_ > 0 && frames_.size() > max_frames_)))
     {
         frames_.pop_front();
     }
+    return true;
 }
 
 sensor_msgs::msg::Image::ConstSharedPtr DepthHistory::at(double stamp_s) const

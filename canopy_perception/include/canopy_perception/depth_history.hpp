@@ -23,11 +23,16 @@ public:
      * @param tolerance_s How closely a frame's stamp must match the mask's.
      * @param max_frames  Cap on frames held regardless of the window, 0 for none. Bounds memory
      *                    on a fast colour stream.
+     * @param min_spacing_s A frame this soon after the newest held is not kept, so max_frames
+     *                    spans the window on a fast camera too; 0 keeps every frame.
      */
-    DepthHistory(double history_s, double tolerance_s, std::size_t max_frames = 0);
+    DepthHistory(
+        double history_s, double tolerance_s, std::size_t max_frames = 0,
+        double min_spacing_s = 0.0);
 
-    /// Stores a frame, then drops the oldest past @p history_s behind it or past @p max_frames.
-    void push(sensor_msgs::msg::Image::ConstSharedPtr frame);
+    /// Stores a frame unless it comes within min_spacing_s of the newest held, then drops the
+    /// oldest past @p history_s behind it or past @p max_frames. Returns whether it was kept.
+    bool push(sensor_msgs::msg::Image::ConstSharedPtr frame);
 
     /// The frame captured at @p stamp_s, or nullptr when none is within the tolerance.
     [[nodiscard]] sensor_msgs::msg::Image::ConstSharedPtr at(double stamp_s) const;
@@ -44,6 +49,7 @@ private:
     double                                              history_s_;
     double                                              tolerance_s_;
     std::size_t                                         max_frames_;
+    double                                              min_spacing_s_;
     std::deque<sensor_msgs::msg::Image::ConstSharedPtr> frames_;
 };
 

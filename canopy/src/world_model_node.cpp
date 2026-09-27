@@ -572,15 +572,19 @@ void WorldModelNode::onMap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr& m
 WorldModelNode::CameraFeed::CameraFeed(std::string feed_name, bool credits_coverage, double history_s)
   : name(std::move(feed_name))
   , coverage(credits_coverage)
-  // Masks are used only from a still robot, so the depth frame beside a dropped one is the same
-  // view: a match within 0.1 s, not just the frame's own stamp.
-  , depth_history(history_s, 0.1, 64)
-  , color_history(history_s, 0.02, 64)
+  // At most a frame per 0.1 s, so the 64 held span history_s on a 30 Hz camera as on the 10 Hz
+  // simulator. Masks are used only from a still robot, so the frame kept beside a dropped one
+  // is the same view: a match within 0.1 s, not just the frame's own stamp.
+  , depth_history(history_s, 0.1, 64, 0.1)
+  , color_history(history_s, 0.1, 64, 0.1)
 {}
 
 void WorldModelNode::onDepth(CameraFeed& camera, sensor_msgs::msg::Image::ConstSharedPtr depth)
 {
-    camera.depth_history.push(depth);
+    if (!camera.depth_history.push(depth))
+    {
+        return;  // Coverage needs no more frames than masks do.
+    }
     camera.pending_depth.push_back(std::move(depth));
     while (camera.pending_depth.size() > 16)
     {
