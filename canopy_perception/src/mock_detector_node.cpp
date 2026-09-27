@@ -108,7 +108,13 @@ MockDetector::MockDetector(const rclcpp::NodeOptions& options)
 
 void MockDetector::onTruth(vision_msgs::msg::Detection3DArray::ConstSharedPtr truth)
 {
-    truth_ = std::move(truth);
+    truths_.push_back(std::move(truth));
+    const double newest = DepthHistory::stampSeconds(truths_.back()->header);
+    while (newest - DepthHistory::stampSeconds(truths_.front()->header) >
+           latency_s_ + kDepthHistoryHeadroomS)
+    {
+        truths_.pop_front();
+    }
 }
 
 void MockDetector::onDepth(sensor_msgs::msg::Image::ConstSharedPtr depth)
@@ -237,7 +243,7 @@ void MockDetector::publishMasks()
 {
     // Re-read every pass, as the real detector does, so a tree's writes to `phrases` apply.
     const std::vector<std::string> phrases = get_parameter("phrases").as_string_array();
-    if (truth_ == nullptr || camera_info_ == nullptr || phrases.empty())
+    if (truths_.empty() || camera_info_ == nullptr || phrases.empty())
     {
         return;
     }
@@ -249,6 +255,13 @@ void MockDetector::publishMasks()
     {
         return;
     }
+    // Where the objects were when that frame was taken, not now.
+    const double at = DepthHistory::stampSeconds(chosen->header);
+    const auto   truth =
+        std::min_element(truths_.begin(), truths_.end(), [at](const auto& a, const auto& b) {
+            return std::abs(DepthHistory::stampSeconds(a->header) - at) <
+                   std::abs(DepthHistory::stampSeconds(b->header) - at);
+        });
 
     canopy_msgs::msg::InstanceMaskArray masks;
     masks.header.stamp    = chosen->header.stamp;
@@ -257,7 +270,7 @@ void MockDetector::publishMasks()
     masks.image_height    = chosen->height;
     masks.model           = "mock";
 
-    for (const vision_msgs::msg::Detection3D& detection : truth_->detections)
+    for (const vision_msgs::msg::Detection3D& detection : (*truth)->detections)
     {
         if (detection.results.empty())
         {

@@ -10,6 +10,7 @@
  */
 
 #include <canopy_msgs/msg/instance_mask_array.hpp>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <rclcpp/rclcpp.hpp>
@@ -46,9 +47,10 @@ private:
     rclcpp::Publisher<canopy_msgs::msg::InstanceMaskArray>::SharedPtr   masks_pub_;
     rclcpp::TimerBase::SharedPtr                                        timer_;
 
-    DepthHistory                                       depth_frames_;
-    vision_msgs::msg::Detection3DArray::ConstSharedPtr truth_;
-    sensor_msgs::msg::CameraInfo::ConstSharedPtr       camera_info_;
+    DepthHistory depth_frames_;
+    /// Ground truth over the depth history's window: a delayed frame is cut against its own.
+    std::deque<vision_msgs::msg::Detection3DArray::ConstSharedPtr> truths_;
+    sensor_msgs::msg::CameraInfo::ConstSharedPtr                   camera_info_;
 
     double latency_s_{ 0.0 };
     double margin_m_{ 0.0 };
