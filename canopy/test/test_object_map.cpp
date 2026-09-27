@@ -572,7 +572,8 @@ TEST(ObjectMap, KeepsAMugApartFromTheTableAnImageEmbedderFindsAlike)
     const Camera           camera;
     const std::vector<Box> scene{ kTable, kMug, kWall };
     const Box              bleeding{ "mug", { 2.4, 1.2, 0.7 }, { 2.68, 1.48, 0.85 } };
-    for (const double cosine : { 0.72, 0.82 })
+    // And NaN, from an embedder that overflowed: no kinship.
+    for (const double cosine : { 0.72, 0.82, std::numeric_limits<double>::quiet_NaN() })
     {
         ObjectMap map;
         for (int step = 0; step < 3; ++step)
@@ -639,6 +640,28 @@ TEST(ObjectMap, TakesADetectorsCountertopForASupport)
         map.integrate(frame.inputs, frame.input);
     }
     EXPECT_FALSE(map.surfaces().empty());
+}
+
+TEST(ObjectMap, OffersALookAtAGlimpseBesideARemovedObject)
+{
+    // A chair seen twice and then carried off; another set down beside it and seen once.
+    const Camera            camera;
+    const Box               gone{ "chair", { 2.0, 1.0, 0.0 }, { 2.5, 1.5, 0.9 } };
+    const Box               set{ "chair", { 2.6, 1.0, 0.0 }, { 3.1, 1.5, 0.9 } };
+    const Eigen::Isometry3d view = camera.pose(2.6, 0.2, std::numbers::pi / 2.0);
+    ObjectMap               map;
+    for (int step = 0; step < 2; ++step)
+    {
+        Frame frame = render(camera, view, { gone, kWall }, { gone }, 1.0 + step);
+        map.integrate(frame.inputs, frame.input);
+    }
+    ASSERT_EQ(countActive(map), 1);
+    const int removed        = map.objects().front().id;
+    map.find(removed)->state = ObjectState::kRemoved;
+    Frame frame              = render(camera, view, { set, kWall }, { set }, 10.0);
+    map.integrate(frame.inputs, frame.input);
+    ASSERT_EQ(map.glimpses().size(), 1U);
+    EXPECT_NE(map.glimpses().front()->id, removed);
 }
 
 TEST(ObjectMap, KeepsABookApartFromTheShelfItStandsIn)

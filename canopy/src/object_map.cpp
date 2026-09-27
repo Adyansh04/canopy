@@ -676,7 +676,8 @@ ObjectMap::integrate(const std::vector<MaskInput>& masks, const FrameInput& fram
 
 void ObjectMap::checkAbsence(const FrameInput& frame, const std::vector<int>& matched)
 {
-    if (frame.depth.data == nullptr)
+    if (frame.depth.data == nullptr || frame.depth.width != frame.intrinsics.width ||
+        frame.depth.height != frame.intrinsics.height)
     {
         return;
     }
@@ -833,7 +834,7 @@ int ObjectMap::mergeDuplicates()
                 continue;
             }
             const bool same = a.label() == b.label();
-            if (!same && similarity(a.embedding, b.embedding) < params_.kin_similarity)
+            if (!same && !(similarity(a.embedding, b.embedding) >= params_.kin_similarity))
             {
                 continue;
             }
@@ -887,7 +888,8 @@ std::vector<const MappedObject*> ObjectMap::glimpses() const
             continue;
         }
         const bool piece = std::ranges::any_of(objects_, [&](const MappedObject& other) {
-            return confirmed(other) && other.label() == object.label() &&
+            return other.state != ObjectState::kRemoved && confirmed(other) &&
+                   other.label() == object.label() &&
                    touching(object, other, params_.position_tolerance);
         });
         if (!piece)
