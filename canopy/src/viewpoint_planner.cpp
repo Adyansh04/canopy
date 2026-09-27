@@ -262,7 +262,24 @@ void ViewpointPlanner::castRays(
             hits.push_back({ target, base, static_cast<float>(rho_v), kind });
         };
 
-    const double step = 0.5 * geometry.resolution;
+    const double step  = 0.5 * geometry.resolution;
+    const int    steps = static_cast<int>(reach / step);
+    // A floor cell's view depends on its distance alone: one prediction per step, shared by every
+    // ray. A base of 0 is a step no heading sees well.
+    std::vector<std::pair<float, float>> floor_views(
+        static_cast<std::size_t>(steps) + 1,
+        { 0.0F, 0.0F });
+    for (int n = 1; n <= steps; ++n)
+    {
+        const double along = n * step;
+        const double rho_v = std::tan(std::atan2(height, along) - camera.pitch) / tan_half;
+        const double range = std::hypot(along, height);
+        const float  base  = coverage.viewQuality(range, height / range, 1.0, TargetKind::kFloor);
+        if (std::abs(rho_v) < 1.0 && base >= measure.well_seen)
+        {
+            floor_views[static_cast<std::size_t>(n)] = { base, static_cast<float>(rho_v) };
+        }
+    }
     offsets.assign(static_cast<std::size_t>(params_.ray_count) + 1, 0);
     for (int ray = 0; ray < params_.ray_count; ++ray)
     {
@@ -273,7 +290,6 @@ void ViewpointPlanner::castRays(
         int          last                      = -1;
         CellIndex    last_cell{ -1, -1 };
         bool         floor_hidden = false;
-        const int    steps        = static_cast<int>(reach / step);
         for (int n = 1; n <= steps; ++n)
         {
             const double    along = n * step;
@@ -363,7 +379,11 @@ void ViewpointPlanner::castRays(
             }
             if (!floor_hidden && along >= floor_near && coverage.pending(index))
             {
-                predict(along, height, height / std::hypot(along, height), TargetKind::kFloor, index);
+                const auto [base, rho_v] = floor_views[static_cast<std::size_t>(n)];
+                if (base > 0.0F)
+                {
+                    hits.push_back({ index, base, rho_v, TargetKind::kFloor });
+                }
             }
         }
     }
