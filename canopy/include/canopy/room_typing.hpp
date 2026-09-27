@@ -1,5 +1,5 @@
-#ifndef G1_WORLD_MODEL__ROOM_TYPING_HPP_
-#define G1_WORLD_MODEL__ROOM_TYPING_HPP_
+#ifndef CANOPY__ROOM_TYPING_HPP_
+#define CANOPY__ROOM_TYPING_HPP_
 
 /**
  * @file room_typing.hpp
@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-namespace g1_world_model
+namespace canopy
 {
 
 struct RoomTypeTable
@@ -52,6 +52,6 @@ struct RoomTyping
 RoomTyping classifyRoom(
     const RoomTypeTable& table, const std::vector<std::string>& labels, double length, double width);
 
-}  // namespace g1_world_model
+}  // namespace canopy
 
-#endif  // G1_WORLD_MODEL__ROOM_TYPING_HPP_
+#endif  // CANOPY__ROOM_TYPING_HPP_

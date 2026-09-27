@@ -1,5 +1,5 @@
-#ifndef G1_WORLD_MODEL__VIEWPOINT_PLANNER_HPP_
-#define G1_WORLD_MODEL__VIEWPOINT_PLANNER_HPP_
+#ifndef CANOPY__VIEWPOINT_PLANNER_HPP_
+#define CANOPY__VIEWPOINT_PLANNER_HPP_
 
 /**
  * @file viewpoint_planner.hpp
@@ -23,10 +23,10 @@
 #include <string>
 #include <vector>
 
-#include "g1_world_model/coverage_map.hpp"
-#include "g1_world_model/grid.hpp"
+#include "canopy/coverage_map.hpp"
+#include "canopy/grid.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 
 /// A camera's mount, as far as prediction needs it. Read from TF and camera_info.
@@ -306,6 +306,6 @@ private:
     std::uint32_t              heading_value_ = 0;
 };
 
-}  // namespace g1_world_model
+}  // namespace canopy
 
-#endif  // G1_WORLD_MODEL__VIEWPOINT_PLANNER_HPP_
+#endif  // CANOPY__VIEWPOINT_PLANNER_HPP_

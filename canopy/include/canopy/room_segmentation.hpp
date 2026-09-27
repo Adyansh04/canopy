@@ -1,5 +1,5 @@
-#ifndef G1_WORLD_MODEL__ROOM_SEGMENTATION_HPP_
-#define G1_WORLD_MODEL__ROOM_SEGMENTATION_HPP_
+#ifndef CANOPY__ROOM_SEGMENTATION_HPP_
+#define CANOPY__ROOM_SEGMENTATION_HPP_
 
 /**
  * @file room_segmentation.hpp
@@ -25,9 +25,9 @@
 #include <opencv2/core.hpp>
 #include <vector>
 
-#include "g1_world_model/grid.hpp"
+#include "canopy/grid.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 
 struct RoomSegmentationParams
@@ -127,6 +127,6 @@ cv::Mat resampleLabels(const cv::Mat& labels, const GridGeometry& from, const Gr
  */
 [[nodiscard]] cv::Mat claimUnlabelledFloor(const cv::Mat& labels, const cv::Mat& cells);
 
-}  // namespace g1_world_model
+}  // namespace canopy
 
-#endif  // G1_WORLD_MODEL__ROOM_SEGMENTATION_HPP_
+#endif  // CANOPY__ROOM_SEGMENTATION_HPP_

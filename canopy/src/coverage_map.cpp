@@ -3,7 +3,7 @@
  * @brief Target extraction, depth integration and per-room tallies.
  */
 
-#include "g1_world_model/coverage_map.hpp"
+#include "canopy/coverage_map.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -11,7 +11,7 @@
 #include <numbers>
 #include <opencv2/imgproc.hpp>
 
-namespace g1_world_model
+namespace canopy
 {
 
 namespace
@@ -588,4 +588,4 @@ bool CoverageMap::restoreLayers(
     return true;
 }
 
-}  // namespace g1_world_model
+}  // namespace canopy

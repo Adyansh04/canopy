@@ -10,9 +10,9 @@
 #include <limits>
 #include <numbers>
 
-#include "g1_world_model/object_map.hpp"
+#include "canopy/object_map.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 namespace
 {
@@ -874,4 +874,4 @@ TEST(ObjectMap, KeysRoundTrip)
 }
 
 }  // namespace
-}  // namespace g1_world_model
+}  // namespace canopy

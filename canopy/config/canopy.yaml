@@ -1,6 +1,10 @@
 # The world model: rooms, camera coverage and objects over the SLAM map. Loaded by
 # launch/world_model.launch.py; every value here has the same default in the node.
-g1_world_model:
+#
+# Tuned on a Unitree G1 exploring a simulated six-room flat, which the run numbers below refer to.
+# The robot's own values (planner.robot_radius and the clearances, travel_speed, turn_speed,
+# dwell_time) belong in a params file of the robot's, passed as params_file.
+/**:
   ros__parameters:
     map_frame: "map"
     base_frame: "base_footprint"
@@ -24,7 +28,7 @@ g1_world_model:
     # world_model.launch.py wires each to its driver's topics. Height, pitch and heading come from
     # TF and camera_info, so cameras are added, moved or dropped here and in the launch alone.
     # camera.N.coverage: false keeps a camera for objects and room views only.
-    cameras: ["head"]
+    cameras: ["camera"]
     resegment_period_s: 5.0
 
     coverage:
@@ -135,8 +139,8 @@ g1_world_model:
       # later viewpoint in the same room to confirm what one at the edge of view caught once.
       min_observations: 2
       confirm_s: 120.0
-      # Detections closer together than this are one sighting, s: the head and chest frames of
-      # one render arrive a few ms apart, a camera's next frame 100 ms later.
+      # Detections closer together than this are one sighting, s: two cameras' frames of one
+      # render arrive a few ms apart, a camera's next frame 100 ms later.
       sighting_gap_s: 0.05
       # The camera pass goes back to where something was seen once, as far as this, m, and looks
       # at it again: the TV on its stand shows only a strip at the image's upper edge, and one

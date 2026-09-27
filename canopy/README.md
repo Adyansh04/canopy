@@ -1,11 +1,11 @@
-# g1_world_model
+# canopy
 
-What the robot knows about its surroundings on top of the SLAM map: the rooms and their doorways,
-the objects in them, and how much of each room the head camera has actually seen. It plans the
-viewpoints that finish the job, and answers "where is the dustbin" and "how do I get there" for
-the behavior tree, so missions name targets instead of carrying coordinates.
+What a robot knows about its surroundings on top of the SLAM map: the rooms and their doorways,
+the objects in them, and how much of each room its cameras have actually seen. It plans the
+viewpoints that finish the job, and answers "where is the dustbin" and "how do I get there", so
+missions name targets instead of carrying coordinates.
 
-## Node: `g1_world_model`
+## Node: `canopy` (executable `world_model`)
 
 | | Name | Type |
 |---|---|---|
@@ -27,15 +27,14 @@ the behavior tree, so missions name targets instead of carrying coordinates.
 | Srv | `~/find_objects`, `~/get_approach_pose` | queries for missions |
 | Srv | `~/save` | `std_srvs/Trigger`: writes the world to `world_dir` (also every minute) |
 
-Parameters and their reasons are in `config/g1_world_model.yaml`; room type likelihoods in
-`config/room_types.yaml`.
+Parameters and their reasons are in `config/canopy.yaml`; room type likelihoods, and the synonyms
+that map other words onto the detector's, in `config/room_types.yaml`.
 
 Cameras are configuration only: `cameras` lists them, each reads the four topics above under
 `camera.<name>.prefix` (`<name>/` by default), and its height, pitch, heading and field of view
 come from TF and `camera_info`. Every camera whose `camera.<name>.coverage` is true credits
-coverage, and the planner scores each heading by what all of them see. `world_model.launch.py
-cameras:=head,chest` wires the simulator's head and chest cameras; another robot needs only its
-own topic remaps.
+coverage, and the planner scores each heading by what all of them see. The camera pass waits
+until TF has given at least one camera's mount.
 
 ## How it works
 
@@ -50,8 +49,8 @@ own topic remaps.
   off at the image's top edge, and its highest voxel is no top. A top is the highest voxel layer
   dense enough to be the furniture, not the mug on it its mask took in. Every depth sample credits the
   target it lands on with a quality from range, incidence and distance from the image centre. Only
-  frames taken after the base has been still for `settle_s` count, because the relay stamps images
-  on arrival. When SLAM redraws a wall a cell or two off, as after a loop closure, its faces keep
+  frames taken after the base has been still for `settle_s` count, because a simulator's relay can
+  stamp images on arrival. When SLAM redraws a wall a cell or two off, as after a loop closure, its faces keep
   the credit of the old ones beside them.
 - **Viewpoints** (`viewpoint_planner`): frontier mode walks to the edge of the known map, where the
   known map opens onto real unknown space rather than the shadow behind a sofa. Unknown the robot
@@ -65,7 +64,7 @@ own topic remaps.
   the floor behind a wardrobe or a notch in a wall, from the few spots that see their edges, so
   their walls close in the map.
 - **Objects** (`object_map`): masks lifted with depth into voxels and matched to mapped objects on
-  overlap, label votes and embeddings, tolerant of AMCL's decimetre drift. Parts of one object
+  overlap, label votes and embeddings, tolerant of a localiser's decimetre drift. Parts of one object
   seen from different sides merge when they touch, and only then is a sighting nothing confirmed
   within two minutes dropped (a sighting is an instant: two cameras catching one moment count
   once); until a second sighting confirms it, it is neither published nor
@@ -91,52 +90,53 @@ Everything but the node itself is plain C++ with no ROS dependency, so it is uni
 
 A later run with the same `world_dir` on the same map picks all of it up and carries on.
 
-## Running it in simulation
-
-`mode:=mapping` explores from no map at all: slam_toolbox builds it while the tree walks to
-frontiers, then the camera pass runs on it. `mode:=localization` uses the committed map instead.
+## Running it
 
 ```bash
-ros2 launch g1_bringup bringup.launch.py mode:=mapping nav:=true world:=apartment headless:=true
-ros2 run canopy_perception mock_detector --ros-args -r __node:=g1_detector \
-  -p "phrases:=['sofa','dustbin','bed','desk','chair']" \
-  -r object_poses:=/g1_sensor_relay/object_poses \
-  -r depth/image_raw:=/camera/aligned_depth_to_color/image_raw \
-  -r camera_info:=/camera/color/camera_info -r "~/instance_masks:=/g1_perception/instance_masks"
-ros2 launch g1_world_model world_model.launch.py world_dir:=/root/data/worlds/apartment rviz:=true
-ros2 run g1_orchestration g1_bt_executor --ros-args \
-  -p tree_file:=$(ros2 pkg prefix g1_orchestration)/share/g1_orchestration/trees/explore.xml
+ros2 launch canopy world_model.launch.py world_dir:=/data/worlds/home rviz:=true \
+  cameras:=head=/camera,chest=/chest_camera odom_topic:=/odom cloud_topic:=/lidar/points \
+  detector:=true describe:=true params_file:=my_robot_canopy.yaml
 ```
 
-With the real detector, start canopy's `servers/semantic_server.py` on the host and run canopy_perception's
-`detector` with its `config/detector.yaml`; add `describe:=true` to name
-objects through the server's VLM, and to type the rooms whose objects leave their type in doubt
-from a few whole frames taken where the robot stood in them.
+- `cameras` names each camera and its RealSense-style driver namespace. Masks come from
+  `/detector_<name>/instance_masks`: `detector:=true` starts canopy_perception's detector there,
+  against the host model server in `servers/` (start it first); a simulator can run
+  `mock_detector` under that name instead.
+- `params_file` carries the robot's own values over `config/canopy.yaml`: its footprint radius,
+  walking and turning speeds, and how long to dwell for the detector.
+- The robot needs a latched `/map` (a SLAM node's or `map_server`'s), TF from `map` to its base
+  and cameras, and something to walk it: the exploration loop below.
 
-## Debugging tools
+### The exploration loop
 
-In `scripts/`, run with `ros2 run g1_world_model <tool> --help` for every option. Python,
-because they read logs and saved worlds offline or are small ROS probes; none runs in the loop.
+Whatever drives the robot (a behavior tree, a state machine, an agent) repeats:
+
+1. `~/next_viewpoint` with mode `frontier` until it answers done, walking to each pose it returns
+   and facing each heading, then `~/report_viewpoint` with whether the pose was reached.
+2. The same with mode `coverage`, dwelling a couple of seconds per heading for the detector.
+3. `~/save`.
+
+Nav2's `NavigateToPose` and `Spin` are enough for the walking; grove-g1's `explore.xml` is one such
+tree.
+
+## Tools
+
+In `scripts/`, run with `ros2 run canopy <tool> --help` for every option. Python, because they
+are small ROS probes; none runs in the loop.
 
 | Tool | What it gives |
 |---|---|
-| `track_run.py PREFIX` | Records a run for `run_summary.py`: the robot's pose, each room's coverage over time, the rooms' outlines. |
+| `track_run.py PREFIX` | Records a run: the robot's pose, each room's coverage over time, the rooms' outlines. |
 | `snapshot_map.py OUT.png` | SLAM's map as it stands, with the frontier cells the frontier pass plans on. |
-| `run_summary.py LOG` | Where a run's time went; with `--track`, the walks back into rooms and the longest walks; with `--plot`, the walk over the saved floor plan. |
-| `compare_truth.py WORLD` | Each floor object's box against the truth, scored as the acceptance test scores it; with `--overlay`, the scene's walls and furniture drawn over the saved floor plan. |
 
-`doc/` holds a world saved by the acceptance test and pictures of it made with these tools.
+`doc/` holds a six-room flat a simulated Unitree G1 explored, and pictures of it.
 
 ## Tests
 
-- Unit (CI): `test_room_segmentation` (hand-drawn plans and the committed facility and apartment
-  maps), `test_viewpoint_planner` (a ray-cast camera covering two rooms and a corridor),
-  `test_object_map`, `test_world_parts`.
-- Simulation (`-L simulator`): `test_world_model_explore` explores the apartment on the committed
-  map and scores rooms, coverage, objects and how well the boxes fit, against
-  `g1_bringup/worlds/apartment.truth.yaml`, then walks to an object by name.
-  `test_world_model_explore_mapping` does the same from no map, on the one SLAM builds; truth is
-  moved into that map by fitting the robot's positions on it to its true ones over the run.
+Unit tests only, no ROS graph: `test_room_segmentation` (hand-drawn plans and two saved maps in
+`test/maps`), `test_viewpoint_planner` (a ray-cast camera covering two rooms and a corridor),
+`test_object_map` and `test_world_parts`. The end-to-end acceptance run lives with a robot:
+grove-g1 explores its simulated flat and scores rooms, coverage and objects against ground truth.
 
 ## Credits
 

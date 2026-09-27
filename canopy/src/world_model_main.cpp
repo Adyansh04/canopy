@@ -6,12 +6,12 @@
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 
-#include "g1_world_model/world_model_node.hpp"
+#include "canopy/world_model_node.hpp"
 
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<g1_world_model::WorldModelNode>();
+    auto node = std::make_shared<canopy::WorldModelNode>();
     rclcpp::spin(node);
     // Destroyed before shutdown so its final save still has a logger.
     node.reset();

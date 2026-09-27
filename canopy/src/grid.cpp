@@ -3,7 +3,7 @@
  * @brief Occupancy classification and grid fingerprints.
  */
 
-#include "g1_world_model/grid.hpp"
+#include "canopy/grid.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-namespace g1_world_model
+namespace canopy
 {
 
 namespace
@@ -333,4 +333,4 @@ cv::Mat classifyOccupancy(
     return cells;
 }
 
-}  // namespace g1_world_model
+}  // namespace canopy

@@ -3,7 +3,7 @@
  * @brief ROS plumbing around the world model: inputs, services, publishing and persistence.
  */
 
-#include "g1_world_model/world_model_node.hpp"
+#include "canopy/world_model_node.hpp"
 
 #include <algorithm>
 #include <array>
@@ -22,7 +22,7 @@
 #include <std_msgs/msg/color_rgba.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 
-namespace g1_world_model
+namespace canopy
 {
 
 namespace
@@ -149,7 +149,7 @@ constexpr double kTrailSpacing = 0.1;
 }  // namespace
 
 WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
-  : rclcpp::Node("g1_world_model", options)
+  : rclcpp::Node("canopy", options)
   , tf_buffer_(get_clock())
   , tf_listener_(tf_buffer_)
 {
@@ -1476,11 +1476,20 @@ void WorldModelNode::onNextViewpoint(
         resegment();
     }
     const bool frontier = request->mode == canopy_msgs::srv::NextViewpoint::Request::MODE_FRONTIER;
-    const auto started  = std::chrono::steady_clock::now();
-    std::optional<Viewpoint> look = frontier ? std::nullopt : secondLook(*robot);
-    Plan                     plan = look ? Plan{ PlanStatus::kViewpoint, std::move(*look), {} } :
-                                    frontier ? planner_.nextFrontier(cells_, geometry_, *robot) :
-                                               planner_.nextCoverage(coverage_, room_labels_, *robot);
+    // The camera pass predicts what each camera will see, so it waits for their real mounts.
+    if (!frontier && std::ranges::none_of(cameras_, [](const CameraFeed& camera) {
+            return camera.model.has_value();
+        }))
+    {
+        response->status  = Response::STATUS_UNAVAILABLE;
+        response->message = "no camera mount on TF yet";
+        return;
+    }
+    const auto               started = std::chrono::steady_clock::now();
+    std::optional<Viewpoint> look    = frontier ? std::nullopt : secondLook(*robot);
+    Plan                     plan    = look ? Plan{ PlanStatus::kViewpoint, std::move(*look), {} } :
+                                       frontier ? planner_.nextFrontier(cells_, geometry_, *robot) :
+                                                  planner_.nextCoverage(coverage_, room_labels_, *robot);
     // The frontier pass leaves corners of the map too small to walk to, behind a wardrobe or in a
     // notch of a room, and the camera pass maps most of them on its way: the rest get a look.
     if (!frontier && plan.status == PlanStatus::kDone)
@@ -2548,4 +2557,4 @@ void WorldModelNode::requestDescriptions()
     }
 }
 
-}  // namespace g1_world_model
+}  // namespace canopy

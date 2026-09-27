@@ -1,5 +1,5 @@
-#ifndef G1_WORLD_MODEL__COVERAGE_MAP_HPP_
-#define G1_WORLD_MODEL__COVERAGE_MAP_HPP_
+#ifndef CANOPY__COVERAGE_MAP_HPP_
+#define CANOPY__COVERAGE_MAP_HPP_
 
 /**
  * @file coverage_map.hpp
@@ -22,9 +22,9 @@
 #include <opencv2/core.hpp>
 #include <vector>
 
-#include "g1_world_model/grid.hpp"
+#include "canopy/grid.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 
 enum class TargetKind : std::uint8_t
@@ -309,6 +309,6 @@ private:
     std::vector<PixelRay> rays_;
 };
 
-}  // namespace g1_world_model
+}  // namespace canopy
 
-#endif  // G1_WORLD_MODEL__COVERAGE_MAP_HPP_
+#endif  // CANOPY__COVERAGE_MAP_HPP_

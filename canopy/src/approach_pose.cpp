@@ -3,14 +3,14 @@
  * @brief Ring sampling around a footprint for a reachable, clear, facing pose.
  */
 
-#include "g1_world_model/approach_pose.hpp"
+#include "canopy/approach_pose.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <numbers>
 
-namespace g1_world_model
+namespace canopy
 {
 
 namespace
@@ -85,4 +85,4 @@ std::optional<Pose2D> approachPose(
     return std::nullopt;
 }
 
-}  // namespace g1_world_model
+}  // namespace canopy

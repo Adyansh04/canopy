@@ -1,5 +1,5 @@
-#ifndef G1_WORLD_MODEL__GRID_HPP_
-#define G1_WORLD_MODEL__GRID_HPP_
+#ifndef CANOPY__GRID_HPP_
+#define CANOPY__GRID_HPP_
 
 /**
  * @file grid.hpp
@@ -16,7 +16,7 @@
 #include <opencv2/core.hpp>
 #include <vector>
 
-namespace g1_world_model
+namespace canopy
 {
 
 /// Occupancy classes, as stored in a CV_8U image.
@@ -183,6 +183,6 @@ cv::Mat classifyOccupancy(
     const std::int8_t* data, const GridGeometry& geometry, int free_below = 25,
     int occupied_above = 65);
 
-}  // namespace g1_world_model
+}  // namespace canopy
 
-#endif  // G1_WORLD_MODEL__GRID_HPP_
+#endif  // CANOPY__GRID_HPP_

@@ -1,5 +1,5 @@
-#ifndef G1_WORLD_MODEL__OBJECT_MAP_HPP_
-#define G1_WORLD_MODEL__OBJECT_MAP_HPP_
+#ifndef CANOPY__OBJECT_MAP_HPP_
+#define CANOPY__OBJECT_MAP_HPP_
 
 /**
  * @file object_map.hpp
@@ -22,9 +22,9 @@
 #include <utility>
 #include <vector>
 
-#include "g1_world_model/coverage_map.hpp"
+#include "canopy/coverage_map.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 
 struct ObjectMapParams
@@ -286,6 +286,6 @@ void settleSides(
     std::map<int, Footprint>& fitted, const cv::Mat& plan, const cv::Mat& walls,
     const GridGeometry& geometry, const MapFitParams& params = {});
 
-}  // namespace g1_world_model
+}  // namespace canopy
 
-#endif  // G1_WORLD_MODEL__OBJECT_MAP_HPP_
+#endif  // CANOPY__OBJECT_MAP_HPP_

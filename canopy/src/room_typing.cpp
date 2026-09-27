@@ -3,7 +3,7 @@
  * @brief Naive Bayes room typing and its YAML table.
  */
 
-#include "g1_world_model/room_typing.hpp"
+#include "canopy/room_typing.hpp"
 
 #include <yaml-cpp/yaml.h>
 
@@ -12,7 +12,7 @@
 #include <cmath>
 #include <set>
 
-namespace g1_world_model
+namespace canopy
 {
 
 namespace
@@ -127,4 +127,4 @@ RoomTyping classifyRoom(
     return { table.types[best], score[best] / total };
 }
 
-}  // namespace g1_world_model
+}  // namespace canopy

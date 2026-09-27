@@ -3,7 +3,7 @@
  * @brief Frontier and coverage viewpoints: travel field, ray prediction, heading selection.
  */
 
-#include "g1_world_model/viewpoint_planner.hpp"
+#include "canopy/viewpoint_planner.hpp"
 
 #include <algorithm>
 #include <array>
@@ -16,7 +16,7 @@
 #include <queue>
 #include <utility>
 
-namespace g1_world_model
+namespace canopy
 {
 
 namespace
@@ -1587,4 +1587,4 @@ void ViewpointPlanner::report(CoverageMap& coverage, std::uint32_t id, bool reac
     issued_.erase(issued);
 }
 
-}  // namespace g1_world_model
+}  // namespace canopy

@@ -1,5 +1,5 @@
-#ifndef G1_WORLD_MODEL__WORLD_STORE_HPP_
-#define G1_WORLD_MODEL__WORLD_STORE_HPP_
+#ifndef CANOPY__WORLD_STORE_HPP_
+#define CANOPY__WORLD_STORE_HPP_
 
 /**
  * @file world_store.hpp
@@ -16,9 +16,9 @@
 #include <string>
 #include <vector>
 
-#include "g1_world_model/object_map.hpp"
+#include "canopy/object_map.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 
 /// What survives about a room; its geometry is re-segmented from the map on load.
@@ -77,6 +77,6 @@ std::string saveOccupancy(
  */
 std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string& error);
 
-}  // namespace g1_world_model
+}  // namespace canopy
 
-#endif  // G1_WORLD_MODEL__WORLD_STORE_HPP_
+#endif  // CANOPY__WORLD_STORE_HPP_

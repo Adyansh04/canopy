@@ -1,5 +1,5 @@
-#ifndef G1_WORLD_MODEL__WORLD_MODEL_NODE_HPP_
-#define G1_WORLD_MODEL__WORLD_MODEL_NODE_HPP_
+#ifndef CANOPY__WORLD_MODEL_NODE_HPP_
+#define CANOPY__WORLD_MODEL_NODE_HPP_
 
 /**
  * @file world_model_node.hpp
@@ -44,17 +44,17 @@
 #include <vector>
 #include <visualization_msgs/msg/marker_array.hpp>
 
+#include "canopy/approach_pose.hpp"
+#include "canopy/coverage_map.hpp"
+#include "canopy/object_map.hpp"
+#include "canopy/room_segmentation.hpp"
+#include "canopy/room_typing.hpp"
+#include "canopy/viewpoint_planner.hpp"
+#include "canopy/world_render.hpp"
+#include "canopy/world_store.hpp"
 #include "canopy_perception/depth_history.hpp"
-#include "g1_world_model/approach_pose.hpp"
-#include "g1_world_model/coverage_map.hpp"
-#include "g1_world_model/object_map.hpp"
-#include "g1_world_model/room_segmentation.hpp"
-#include "g1_world_model/room_typing.hpp"
-#include "g1_world_model/viewpoint_planner.hpp"
-#include "g1_world_model/world_render.hpp"
-#include "g1_world_model/world_store.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 
 class WorldModelNode : public rclcpp::Node
@@ -312,6 +312,6 @@ private:
     rclcpp::TimerBase::SharedPtr autosave_timer_;
 };
 
-}  // namespace g1_world_model
+}  // namespace canopy
 
-#endif  // G1_WORLD_MODEL__WORLD_MODEL_NODE_HPP_
+#endif  // CANOPY__WORLD_MODEL_NODE_HPP_

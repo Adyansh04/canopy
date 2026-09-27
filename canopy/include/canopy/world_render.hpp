@@ -1,5 +1,5 @@
-#ifndef G1_WORLD_MODEL__WORLD_RENDER_HPP_
-#define G1_WORLD_MODEL__WORLD_RENDER_HPP_
+#ifndef CANOPY__WORLD_RENDER_HPP_
+#define CANOPY__WORLD_RENDER_HPP_
 
 /**
  * @file world_render.hpp
@@ -10,9 +10,9 @@
 #include <string>
 #include <vector>
 
-#include "g1_world_model/grid.hpp"
+#include "canopy/grid.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 
 /// One room as drawn: its label in the room image, where to write it, and what to write.
@@ -60,6 +60,6 @@ struct RenderObject
     const cv::Mat& cells, const GridGeometry& geometry, const cv::Mat& room_labels,
     const std::vector<RenderRoom>& rooms, const std::vector<RenderObject>& objects, int scale = 4);
 
-}  // namespace g1_world_model
+}  // namespace canopy
 
-#endif  // G1_WORLD_MODEL__WORLD_RENDER_HPP_
+#endif  // CANOPY__WORLD_RENDER_HPP_

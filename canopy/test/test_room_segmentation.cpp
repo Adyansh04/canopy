@@ -9,9 +9,9 @@
 #include <opencv2/imgproc.hpp>
 #include <set>
 
-#include "g1_world_model/room_segmentation.hpp"
+#include "canopy/room_segmentation.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 namespace
 {
@@ -196,8 +196,9 @@ TEST(RoomSegmentation, MatchesRoomsAcrossResegmentation)
 /// A map_server trinary PGM as Cell values, rows flipped so row y grows with map y.
 cv::Mat loadMap(const std::string& name)
 {
-    const cv::Mat image = cv::imread(std::string(G1_MAPS_DIR) + "/" + name, cv::IMREAD_GRAYSCALE);
-    cv::Mat       cells(image.size(), CV_8UC1, cv::Scalar(kUnknown));
+    const cv::Mat image =
+        cv::imread(std::string(CANOPY_TEST_MAPS) + "/" + name, cv::IMREAD_GRAYSCALE);
+    cv::Mat cells(image.size(), CV_8UC1, cv::Scalar(kUnknown));
     cells.setTo(kFree, image >= 250);
     cells.setTo(kOccupied, image <= 50);
     cv::flip(cells, cells, 0);
@@ -283,4 +284,4 @@ TEST(RoomSegmentation, GivesFloorOutsideEveryRoomToTheRoomItBordersMost)
 }
 
 }  // namespace
-}  // namespace g1_world_model
+}  // namespace canopy

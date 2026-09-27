@@ -3,7 +3,7 @@
 and frontier cells (free beside unknown) red. Prints the cell counts. It shows what the frontier
 pass plans on, and is best taken as it ends.
 
-    ros2 run g1_world_model snapshot_map.py /tmp/map.png
+    ros2 run canopy snapshot_map.py /tmp/map.png
 """
 
 import argparse

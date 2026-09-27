@@ -1,7 +1,7 @@
 # The apartment, explored
 
-`apartment/` is the world the acceptance test saved after exploring the apartment from no map,
-with both cameras:
+`apartment/` is the world grove-g1's acceptance test saved after a simulated Unitree G1 explored a
+six-room flat from no map, with a head and a chest camera:
 - `map.pgm` and `map.yaml`: the floor plan.
 - `semantic_map.png`: a picture of it with the rooms and objects drawn in.
 - `world.yaml`: every room and object.
@@ -9,13 +9,8 @@ with both cameras:
   replays load.
 
 The object crops are left out. Its map lies in the simulator's world at (0.46, -0.02) m, -5.5°,
-as the test's "map to world" line printed it:
-
-```bash
-ros2 run g1_world_model compare_truth.py src/g1_world_model/doc/apartment --frame 0.46 -0.02 -5.5
-```
-
-The pictures:
+as the test's "map to world" line printed it. The pictures, made with grove-g1's
+`g1_bringup` tools:
 - `apartment_truth.png` draws the scene's walls (blue) and furniture (orange) over the saved floor
   plan (`compare_truth.py --overlay`).
 - `apartment_wardrobe.png` is the corner behind the bedroom's wardrobe, from the same command with

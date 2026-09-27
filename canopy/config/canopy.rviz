@@ -27,7 +27,7 @@ Visualization Manager:
     Name: Floor plan (walls closed, furniture solid)
     Enabled: true
     Topic:
-      Value: /g1_world_model/floor_plan
+      Value: /canopy/floor_plan
       Depth: 1
       Durability Policy: Transient Local
       Reliability Policy: Reliable
@@ -42,7 +42,7 @@ Visualization Manager:
       Name: Camera coverage (red = still to see, cyan = written off)
       Enabled: true
       Topic:
-        Value: /g1_world_model/coverage
+        Value: /canopy/coverage
         Depth: 1
         Durability Policy: Volatile
         Reliability Policy: Reliable
@@ -53,7 +53,7 @@ Visualization Manager:
       Name: Walls the rooms are cut on
       Enabled: false
       Topic:
-        Value: /g1_world_model/walls
+        Value: /canopy/walls
         Depth: 1
         Durability Policy: Transient Local
         Reliability Policy: Reliable
@@ -76,7 +76,7 @@ Visualization Manager:
         glimpses: true
         camera_view: true
       Topic:
-        Value: /g1_world_model/markers
+        Value: /canopy/markers
         Depth: 1
         Durability Policy: Volatile
         History Policy: Keep Last
@@ -94,7 +94,7 @@ Visualization Manager:
     Name: Robot's trail
     Enabled: true
     Topic:
-      Value: /g1_world_model/trail
+      Value: /canopy/trail
       Depth: 1
       Durability Policy: Transient Local
       Reliability Policy: Reliable

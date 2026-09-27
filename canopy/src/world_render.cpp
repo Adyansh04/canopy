@@ -3,7 +3,7 @@
  * @brief The saved picture of the semantic map.
  */
 
-#include "g1_world_model/world_render.hpp"
+#include "canopy/world_render.hpp"
 
 #include <algorithm>
 #include <array>
@@ -14,7 +14,7 @@
 #include <opencv2/imgproc.hpp>
 #include <string>
 
-namespace g1_world_model
+namespace canopy
 {
 
 cv::Vec3f roomColour(std::size_t index)
@@ -223,4 +223,4 @@ cv::Mat renderWorld(
     return image;
 }
 
-}  // namespace g1_world_model
+}  // namespace canopy

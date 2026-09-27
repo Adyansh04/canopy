@@ -3,7 +3,7 @@
  * @brief YAML and binary persistence of rooms, objects and coverage.
  */
 
-#include "g1_world_model/world_store.hpp"
+#include "canopy/world_store.hpp"
 
 #include <yaml-cpp/yaml.h>
 
@@ -12,13 +12,13 @@
 #include <fstream>
 #include <sstream>
 
-namespace g1_world_model
+namespace canopy
 {
 
 namespace
 {
 
-constexpr std::uint32_t kMagic   = 0x4D573147U;  // "G1WM"
+constexpr std::uint32_t kMagic   = 0x4D573147U;  // "G1WM", from its first home; older saves load.
 constexpr std::uint32_t kVersion = 1;
 
 const char* stateName(ObjectState state)
@@ -408,4 +408,4 @@ std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string
     return snapshot;
 }
 
-}  // namespace g1_world_model
+}  // namespace canopy

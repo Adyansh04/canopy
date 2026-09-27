@@ -3,7 +3,7 @@
  * @brief Lifting, association, merging and absence checks for the object layer.
  */
 
-#include "g1_world_model/object_map.hpp"
+#include "canopy/object_map.hpp"
 
 #include <algorithm>
 #include <array>
@@ -14,7 +14,7 @@
 #include <opencv2/imgproc.hpp>
 #include <utility>
 
-namespace g1_world_model
+namespace canopy
 {
 
 namespace
@@ -1232,4 +1232,4 @@ void settleSides(
     }
 }
 
-}  // namespace g1_world_model
+}  // namespace canopy

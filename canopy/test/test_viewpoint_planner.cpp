@@ -11,11 +11,11 @@
 #include <limits>
 #include <opencv2/imgproc.hpp>
 
-#include "g1_world_model/coverage_map.hpp"
-#include "g1_world_model/room_segmentation.hpp"
-#include "g1_world_model/viewpoint_planner.hpp"
+#include "canopy/coverage_map.hpp"
+#include "canopy/room_segmentation.hpp"
+#include "canopy/viewpoint_planner.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 namespace
 {
@@ -1094,4 +1094,4 @@ TEST(ViewpointPlanner, WritesOffWhatNoPoseCanSeeWhenCandidatesAreCapped)
 }
 
 }  // namespace
-}  // namespace g1_world_model
+}  // namespace canopy

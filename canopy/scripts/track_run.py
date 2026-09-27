@@ -2,7 +2,7 @@
 """Records an exploration run for run_summary.py: the robot's pose on the map, each room's
 coverage whenever the world model republishes its rooms, and the rooms' outlines at the end.
 
-    ros2 run g1_world_model track_run.py /root/data/runs/run52
+    ros2 run canopy track_run.py /data/runs/run52
 
 writes run52.csv (t, x, y, yaw), run52_coverage.csv (t, room, floor, faces) and, on Ctrl-C or
 SIGTERM, run52_rooms.yaml. Start it before the exploration tree.
@@ -15,11 +15,12 @@ import sys
 
 import rclpy
 import yaml
-from canopy_msgs.msg import RoomArray
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.time import Time
 from rclpy.utilities import remove_ros_args
 from tf2_ros import Buffer, TransformException, TransformListener
+
+from canopy_msgs.msg import RoomArray
 
 
 def main():
@@ -30,7 +31,7 @@ def main():
     parser.add_argument("--rate", type=float, default=5.0, help="pose samples per second")
     parser.add_argument("--map-frame", default="map")
     parser.add_argument("--base-frame", default="base_footprint")
-    parser.add_argument("--rooms-topic", default="/g1_world_model/rooms")
+    parser.add_argument("--rooms-topic", default="/canopy/rooms")
     args = parser.parse_args(remove_ros_args(sys.argv)[1:])
 
     rclpy.init()

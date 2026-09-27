@@ -3,7 +3,7 @@
  * @brief Persistence of clearance peaks, region merging, outlines and contacts.
  */
 
-#include "g1_world_model/room_segmentation.hpp"
+#include "canopy/room_segmentation.hpp"
 
 #include <algorithm>
 #include <array>
@@ -13,7 +13,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace g1_world_model
+namespace canopy
 {
 
 namespace
@@ -763,4 +763,4 @@ cv::Mat claimUnlabelledFloor(const cv::Mat& labels, const cv::Mat& cells)
     return claimed;
 }
 
-}  // namespace g1_world_model
+}  // namespace canopy

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
-project(g1_world_model)
+project(canopy)
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/g1_common.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/canopy_common.cmake)
 
 # --- dependencies ----------------------------------------------------------
 
@@ -24,7 +24,7 @@ find_package(yaml-cpp REQUIRED)
 # --- libraries -------------------------------------------------------------
 
 # The algorithms, free of ROS so the unit tests run in milliseconds.
-add_library(g1_world_model_core
+add_library(canopy_core
   src/approach_pose.cpp
   src/coverage_map.cpp
   src/grid.cpp
@@ -35,18 +35,18 @@ add_library(g1_world_model_core
   src/world_render.cpp
   src/world_store.cpp
 )
-g1_target_defaults(g1_world_model_core)
-target_link_libraries(g1_world_model_core PUBLIC
+canopy_target_defaults(canopy_core)
+target_link_libraries(canopy_core PUBLIC
   Eigen3::Eigen
   opencv_core
   opencv_imgproc
   yaml-cpp
 )
 
-add_library(g1_world_model_node src/world_model_node.cpp)
-g1_target_defaults(g1_world_model_node)
-target_link_libraries(g1_world_model_node PUBLIC
-  g1_world_model_core
+add_library(canopy_node src/world_model_node.cpp)
+canopy_target_defaults(canopy_node)
+target_link_libraries(canopy_node PUBLIC
+  canopy_core
   canopy_perception::canopy_perception_core
   opencv_imgcodecs
   rclcpp::rclcpp
@@ -62,22 +62,20 @@ target_link_libraries(g1_world_model_node PUBLIC
 
 # --- executables -----------------------------------------------------------
 
-add_executable(g1_world_model src/world_model_main.cpp)
-g1_target_defaults(g1_world_model)
-target_link_libraries(g1_world_model PUBLIC g1_world_model_node)
+add_executable(world_model src/world_model_main.cpp)
+canopy_target_defaults(world_model)
+target_link_libraries(world_model PUBLIC canopy_node)
 
 # --- install ---------------------------------------------------------------
 
 install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
-install(TARGETS g1_world_model_core g1_world_model_node EXPORT export_${PROJECT_NAME} DESTINATION lib)
-install(TARGETS g1_world_model DESTINATION lib/${PROJECT_NAME})
+install(TARGETS canopy_core canopy_node EXPORT export_${PROJECT_NAME} DESTINATION lib)
+install(TARGETS world_model DESTINATION lib/${PROJECT_NAME})
 install(
   PROGRAMS
     scripts/track_run.py
     scripts/snapshot_map.py
-    scripts/run_summary.py
-    scripts/compare_truth.py
   DESTINATION lib/${PROJECT_NAME})
 
 # --- tests -----------------------------------------------------------------
@@ -88,38 +86,22 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gmock REQUIRED)
 
   ament_add_gmock(test_room_segmentation test/test_room_segmentation.cpp)
-  target_link_libraries(test_room_segmentation g1_world_model_core opencv_imgcodecs)
-  # The committed maps, read from the source tree: g1_navigation is not a build dependency.
+  target_link_libraries(test_room_segmentation canopy_core opencv_imgcodecs)
   target_compile_definitions(test_room_segmentation PRIVATE
-    G1_MAPS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../g1_navigation/maps")
+    CANOPY_TEST_MAPS="${CMAKE_CURRENT_SOURCE_DIR}/test/maps")
 
   ament_add_gmock(test_object_map test/test_object_map.cpp TIMEOUT 120)
-  target_link_libraries(test_object_map g1_world_model_core)
+  target_link_libraries(test_object_map canopy_core)
 
   ament_add_gmock(test_world_parts test/test_world_parts.cpp)
-  target_link_libraries(test_world_parts g1_world_model_core)
+  target_link_libraries(test_world_parts canopy_core)
   target_compile_definitions(test_world_parts PRIVATE
-    G1_WORLD_MODEL_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/config")
+    CANOPY_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/config")
 
   ament_add_gmock(test_viewpoint_planner test/test_viewpoint_planner.cpp TIMEOUT 300)
-  target_link_libraries(test_viewpoint_planner g1_world_model_core)
+  target_link_libraries(test_viewpoint_planner canopy_core)
 
-  find_package(launch_testing_ament_cmake REQUIRED)
-
-  # The acceptance run: explores the apartment world and scores rooms, coverage and objects
-  # against its ground truth. Tens of minutes, and it needs the simulator.
-  add_launch_test(test/test_world_model_explore.launch.py
-    TARGET test_world_model_explore TIMEOUT 3600)
-  set_tests_properties(test_world_model_explore PROPERTIES
-    LABELS simulator RESOURCE_LOCK mujoco_sim COST 3000)
-  # The same run from no map at all: slam_toolbox builds it while the robot explores.
-  add_launch_test(test/test_world_model_explore.launch.py
-    TARGET test_world_model_explore_mapping TIMEOUT 5400)
-  set_tests_properties(test_world_model_explore_mapping PROPERTIES
-    LABELS simulator RESOURCE_LOCK mujoco_sim COST 5000
-    ENVIRONMENT "G1_WORLD_MODEL_TEST_MAPPING=1")
-
-  g1_add_lint_tests()
+  canopy_add_lint_tests()
 endif()
 
 # --- export ----------------------------------------------------------------

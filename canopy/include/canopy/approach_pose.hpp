@@ -1,5 +1,5 @@
-#ifndef G1_WORLD_MODEL__APPROACH_POSE_HPP_
-#define G1_WORLD_MODEL__APPROACH_POSE_HPP_
+#ifndef CANOPY__APPROACH_POSE_HPP_
+#define CANOPY__APPROACH_POSE_HPP_
 
 /**
  * @file approach_pose.hpp
@@ -16,10 +16,10 @@
 #include <optional>
 #include <vector>
 
-#include "g1_world_model/grid.hpp"
-#include "g1_world_model/viewpoint_planner.hpp"
+#include "canopy/grid.hpp"
+#include "canopy/viewpoint_planner.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 
 struct ApproachParams
@@ -46,6 +46,6 @@ std::optional<Pose2D> approachPose(
     const cv::Mat& clearance, const std::vector<float>& travel, const GridGeometry& geometry,
     const Footprint& target, double standoff, const ApproachParams& params);
 
-}  // namespace g1_world_model
+}  // namespace canopy
 
-#endif  // G1_WORLD_MODEL__APPROACH_POSE_HPP_
+#endif  // CANOPY__APPROACH_POSE_HPP_

@@ -11,20 +11,20 @@
 #include <numbers>
 #include <opencv2/imgproc.hpp>
 
-#include "g1_world_model/approach_pose.hpp"
-#include "g1_world_model/grid.hpp"
-#include "g1_world_model/room_typing.hpp"
-#include "g1_world_model/world_render.hpp"
-#include "g1_world_model/world_store.hpp"
+#include "canopy/approach_pose.hpp"
+#include "canopy/grid.hpp"
+#include "canopy/room_typing.hpp"
+#include "canopy/world_render.hpp"
+#include "canopy/world_store.hpp"
 
-namespace g1_world_model
+namespace canopy
 {
 namespace
 {
 
 RoomTypeTable table()
 {
-    return RoomTypeTable::fromYaml(std::string(G1_WORLD_MODEL_CONFIG_DIR) + "/room_types.yaml");
+    return RoomTypeTable::fromYaml(std::string(CANOPY_CONFIG_DIR) + "/room_types.yaml");
 }
 
 /// Folded difference of two wall axes, rad: 89 deg and 1 deg are 2 deg apart.
@@ -168,7 +168,7 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     snapshot.directions      = { 0, 0, 7 };
 
     const std::string directory =
-        (std::filesystem::temp_directory_path() / "g1_world_store_test").string();
+        (std::filesystem::temp_directory_path() / "canopy_world_store_test").string();
     std::filesystem::remove_all(directory);
     ASSERT_EQ(saveWorld(directory, snapshot), "");
 
@@ -202,7 +202,7 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
 TEST(WorldStore, ReportsAMissingWorld)
 {
     std::string error;
-    EXPECT_FALSE(loadWorld("/nonexistent/g1_world", error).has_value());
+    EXPECT_FALSE(loadWorld("/nonexistent/canopy_world", error).has_value());
     EXPECT_FALSE(error.empty());
 }
 
@@ -321,7 +321,8 @@ TEST(WorldStore, SavesTheMapAsMapServerReadsIt)
     // 3 x 2: free, occupied, unknown on the bottom row; unknown, free, occupied on the top.
     const GridGeometry             geometry{ 0.05, -1.0, 2.0, 3, 2 };
     const std::vector<std::int8_t> data{ 0, 100, -1, -1, 0, 100 };
-    const std::string directory = (std::filesystem::temp_directory_path() / "g1_map_save").string();
+    const std::string              directory =
+        (std::filesystem::temp_directory_path() / "canopy_map_save").string();
     ASSERT_EQ(saveOccupancy(directory, data, geometry), "");
 
     std::ifstream pgm(directory + "/map.pgm", std::ios::binary);
@@ -395,4 +396,4 @@ TEST(WorldRender, TintsRoomsAndOutlinesObjects)
 }
 
 }  // namespace
-}  // namespace g1_world_model
+}  // namespace canopy
