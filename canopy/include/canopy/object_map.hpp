@@ -221,8 +221,8 @@ private:
     };
 
     [[nodiscard]] std::optional<Lifted> lift(const MaskInput& mask, const FrameInput& frame) const;
-    [[nodiscard]] double
-    overlap(const std::vector<std::uint64_t>& from, const std::vector<std::uint64_t>& into) const;
+    [[nodiscard]] static double
+    overlap(const std::vector<std::uint64_t>& from, const std::vector<std::uint64_t>& into);
     [[nodiscard]] double proximity(const Lifted& detection, const MappedObject& object) const;
     void                 absorb(
                         MappedObject& object, const Lifted& detection, const MaskInput& mask,

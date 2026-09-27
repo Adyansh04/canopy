@@ -22,6 +22,16 @@ namespace
 
 constexpr std::int64_t  kKeyOffset = std::int64_t{ 1 } << 20;
 constexpr std::uint64_t kKeyMask   = (std::uint64_t{ 1 } << 21) - 1;
+
+/// The key of the voxel @p dx, @p dy, @p dz voxels from @p key's.
+std::uint64_t shiftedKey(std::uint64_t key, int dx, int dy, int dz)
+{
+    const auto step = [](std::uint64_t bits, int delta) {
+        return static_cast<std::uint64_t>(static_cast<std::int64_t>(bits & kKeyMask) + delta) &
+               kKeyMask;
+    };
+    return (step(key >> 42U, dx) << 42U) | (step(key >> 21U, dy) << 21U) | step(key, dz);
+}
 /// Of a box's extent, the most one side comes in for the scan's blur: a dustbin would vanish.
 constexpr double kMaxBleedShare = 0.1;
 
@@ -244,13 +254,6 @@ ObjectMap::lift(const MaskInput& mask, const FrameInput& frame) const
         }
         return node;
     };
-    const auto shifted = [](std::uint64_t key, int dx, int dy, int dz) {
-        const auto step = [](std::uint64_t bits, int delta) {
-            return static_cast<std::uint64_t>(static_cast<std::int64_t>(bits & kKeyMask) + delta) &
-                   kKeyMask;
-        };
-        return (step(key >> 42U, dx) << 42U) | (step(key >> 21U, dy) << 21U) | step(key, dz);
-    };
     for (std::size_t i = 0; i < keys.size(); ++i)
     {
         for (int dx = -1; dx <= 1; ++dx)
@@ -259,7 +262,7 @@ ObjectMap::lift(const MaskInput& mask, const FrameInput& frame) const
             {
                 for (int dz = -1; dz <= 1; ++dz)
                 {
-                    const std::uint64_t neighbour = shifted(keys[i], dx, dy, dz);
+                    const std::uint64_t neighbour = shiftedKey(keys[i], dx, dy, dz);
                     if (neighbour <= keys[i])
                     {
                         continue;  // Each pair once, from its lower key.
@@ -316,8 +319,8 @@ ObjectMap::lift(const MaskInput& mask, const FrameInput& frame) const
     return lifted;
 }
 
-double ObjectMap::overlap(
-    const std::vector<std::uint64_t>& from, const std::vector<std::uint64_t>& into) const
+double
+ObjectMap::overlap(const std::vector<std::uint64_t>& from, const std::vector<std::uint64_t>& into)
 {
     if (from.empty() || into.empty())
     {
@@ -328,16 +331,16 @@ double ObjectMap::overlap(
     int                              near   = 0;
     for (const std::uint64_t key : sample)
     {
-        bool found = false;
+        // Its own voxel first: most samples of a match are in it.
+        bool found = std::binary_search(into.begin(), into.end(), key);
         for (int dx = -1; dx <= 1 && !found; ++dx)
         {
             for (int dy = -1; dy <= 1 && !found; ++dy)
             {
                 for (int dz = -1; dz <= 1 && !found; ++dz)
                 {
-                    const Eigen::Vector3d centre =
-                        centreOf(key) + (params_.voxel * Eigen::Vector3d(dx, dy, dz));
-                    found = std::binary_search(into.begin(), into.end(), keyOf(centre));
+                    found =
+                        std::binary_search(into.begin(), into.end(), shiftedKey(key, dx, dy, dz));
                 }
             }
         }
