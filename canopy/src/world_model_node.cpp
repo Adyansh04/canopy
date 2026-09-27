@@ -28,6 +28,12 @@ namespace canopy
 namespace
 {
 
+/// The heading of a quaternion about z.
+double yawOf(const geometry_msgs::msg::Quaternion& q)
+{
+    return std::atan2(2.0 * ((q.w * q.z) + (q.x * q.y)), 1.0 - (2.0 * ((q.y * q.y) + (q.z * q.z))));
+}
+
 rclcpp::QoS sensorQos()
 {
     return rclcpp::QoS(rclcpp::KeepLast(2)).best_effort().durability_volatile();
@@ -377,8 +383,9 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         latchedQos(),
         [this](const nav_msgs::msg::OccupancyGrid::ConstSharedPtr& map) { onMap(map); });
     const double history_s = declare_parameter<double>("frame_history_s", 6.0);
-    for (const std::string& name :
-         declare_parameter<std::vector<std::string>>("cameras", std::vector<std::string>{ "head" }))
+    for (const std::string& name : declare_parameter<std::vector<std::string>>(
+             "cameras",
+             std::vector<std::string>{ "camera" }))
     {
         const auto prefix =
             declare_parameter<std::string>("camera." + name + ".prefix", name + "/");
@@ -603,9 +610,21 @@ void WorldModelNode::onCameraInfo(
 void WorldModelNode::onOdometry(const nav_msgs::msg::Odometry::ConstSharedPtr& odometry)
 {
     const auto& twist  = odometry->twist.twist;
-    const bool  moving = std::hypot(twist.linear.x, twist.linear.y) > still_linear_ ||
-                        std::abs(twist.angular.z) > still_angular_;
+    bool        moving = std::hypot(twist.linear.x, twist.linear.y) > still_linear_ ||
+                  std::abs(twist.angular.z) > still_angular_;
     const double stamp = seconds(odometry->header.stamp);
+    // From the pose as well: FAST-LIO's odometry, for one, leaves the twist at zero.
+    const auto&  where = odometry->pose.pose;
+    const Pose2D pose{ where.position.x, where.position.y, yawOf(where.orientation) };
+    if (last_odometry_ && stamp - last_odometry_->first > 1e-3)
+    {
+        const Pose2D& last = last_odometry_->second;
+        const double  span = stamp - last_odometry_->first;
+        moving = moving || std::hypot(pose.x - last.x, pose.y - last.y) / span > still_linear_ ||
+                 std::abs(std::remainder(pose.yaw - last.yaw, 2.0 * std::numbers::pi)) / span >
+                     still_angular_;
+    }
+    last_odometry_ = std::pair{ stamp, pose };
     motion_.emplace_back(stamp, moving);
     while (!motion_.empty() && motion_.front().first < stamp - 30.0)
     {
@@ -887,12 +906,9 @@ std::optional<Pose2D> WorldModelNode::robotPose() const
     {
         const auto transform =
             tf_buffer_.lookupTransform(map_frame_, base_frame_, tf2::TimePointZero);
-        const auto& q = transform.transform.rotation;
-        return Pose2D{
-            transform.transform.translation.x,
-            transform.transform.translation.y,
-            std::atan2(2.0 * ((q.w * q.z) + (q.x * q.y)), 1.0 - (2.0 * ((q.y * q.y) + (q.z * q.z))))
-        };
+        return Pose2D{ transform.transform.translation.x,
+                       transform.transform.translation.y,
+                       yawOf(transform.transform.rotation) };
     }
     catch (const tf2::TransformException&)
     {
@@ -918,6 +934,11 @@ std::optional<DepthImage> WorldModelNode::depthView(const sensor_msgs::msg::Imag
     if (image.encoding == "16UC1")
     {
         // The real D435i: millimetres, 0 for no return.
+        if (image.step < 2U * image.width ||
+            image.data.size() < static_cast<std::size_t>(image.step) * image.height)
+        {
+            return std::nullopt;
+        }
         depth_scratch_.resize(pixels);
         for (std::uint32_t v = 0; v < image.height; ++v)
         {
@@ -1052,11 +1073,8 @@ void WorldModelNode::onMasks(
     CameraFeed& camera, const canopy_msgs::msg::InstanceMaskArray::ConstSharedPtr& masks)
 {
     // Held like depth: a fast detector answers before its frame's transform, or the frame itself,
-    // has arrived here.
-    if (!masks->instances.empty())
-    {
-        camera.pending_masks.push_back(masks);
-    }
+    // has arrived here. Empty ones too: finding nothing is how an object that has gone is noticed.
+    camera.pending_masks.push_back(masks);
     while (camera.pending_masks.size() > 16)
     {
         camera.pending_masks.pop_front();
@@ -1931,7 +1949,9 @@ void WorldModelNode::onSave(
 {
     if (world_dir_.empty())
     {
-        response->message = "world_dir is not set";
+        // Saving is switched off, not failing: a mission that ends by saving has still succeeded.
+        response->success = true;
+        response->message = "world_dir is not set; nothing saved";
         return;
     }
     const std::string failure = saveNow();
