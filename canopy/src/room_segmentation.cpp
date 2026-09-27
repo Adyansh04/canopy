@@ -683,24 +683,10 @@ std::vector<int> matchRegions(
 
 cv::Mat resampleLabels(const cv::Mat& labels, const GridGeometry& from, const GridGeometry& to)
 {
-    cv::Mat out = cv::Mat::zeros(to.height, to.width, CV_32S);
-    if (labels.empty())
-    {
-        return out;
-    }
-    for (int y = 0; y < to.height; ++y)
-    {
-        int* row = out.ptr<int>(y);
-        for (int x = 0; x < to.width; ++x)
-        {
-            const CellIndex source = from.toCell(to.centreX(x), to.centreY(y));
-            if (from.contains(source))
-            {
-                row[x] = labels.at<int>(source.y, source.x);
-            }
-        }
-    }
-    return out;
+    // remapLayer's rule, which regrids the coverage and structure layers too, and its size guard.
+    const std::vector<int> flat(labels.begin<int>(), labels.end<int>());
+    std::vector<int>       out = remapLayer(flat, from, to, 0);
+    return cv::Mat(to.height, to.width, CV_32S, out.data()).clone();
 }
 
 cv::Mat claimUnlabelledFloor(const cv::Mat& labels, const cv::Mat& cells)
