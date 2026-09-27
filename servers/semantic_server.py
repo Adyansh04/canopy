@@ -106,6 +106,8 @@ DEFAULTS = {
         # One budget for a whole route: canopy_perception's detector waits 20 s for this server, its
         # describer 30, and a describe call holds up every segment behind it.
         "timeout_s": 10.0,
+        # Less of the budget than a model needs to answer, and it is not asked: the request counts.
+        "min_attempt_s": 2.0,
         # Google limits each model separately, per Cloud project (AI Studio, Rate limits). The caps
         # sit a little under those, since other apps may share the project.
         "models": {
@@ -373,6 +375,16 @@ def padded_crop(image, roi, pad=0.1):
 # "label_ok", "room_type", "confidence"}, raising Unavailable (or anything) to fall through.
 
 PACIFIC = ZoneInfo("America/Los_Angeles")
+# Google's free tier per model, [a minute, a day], from AI Studio's rate-limit page (2026-09-27).
+# Config may lower a model's caps, never raise them; an unlisted model gets the smallest limits.
+FREE_TIER = {
+    "gemini-3.5-flash-lite": (15, 500),
+    "gemini-3.1-flash-lite": (15, 500),
+    "gemini-2.5-flash-lite": (10, 20),
+    "gemma-4-26b-a4b-it": (30, 14400),
+    "gemma-4-31b-it": (30, 14400),
+}
+FREE_TIER_UNLISTED = (5, 20)
 
 
 def _next_pacific_day(now):
@@ -389,9 +401,10 @@ class GeminiLimiter:
 
     def __init__(self, path, models, clock=time.time):
         self._path = Path(path).expanduser()
-        self._caps = {
-            model: (int(caps["per_minute"]), int(caps["per_day"])) for model, caps in models.items()
-        }
+        self._caps = {}
+        for model, caps in models.items():
+            minute, day = FREE_TIER.get(model, FREE_TIER_UNLISTED)
+            self._caps[model] = (min(int(caps["per_minute"]), minute), min(int(caps["per_day"]), day))
         self._clock = clock
 
     def acquire(self, model):
@@ -454,6 +467,14 @@ class GeminiLimiter:
                 }
                 for model, usage in state.get("models", {}).items()
             }
+            if "models" not in state and state.get("day") == today:
+                # Written before per-model caps: its one count and refusal hold for every model.
+                old = {
+                    "count": int(state.get("count", 0)),
+                    "recent": [float(stamp) for stamp in state.get("recent", []) if now - stamp < 60.0],
+                    "parked_until": _next_pacific_day(now) if state.get("exhausted") else 0.0,
+                }
+                models = {model: copy.deepcopy(old) for model in self._caps}
         except FileNotFoundError:
             models = {}
         except (ValueError, TypeError, AttributeError, KeyError) as error:
@@ -638,15 +659,16 @@ def _read_key(path):
 
 
 def _retry_after(error):
-    """Seconds a quota refusal asks for, or None when a daily quota is spent."""
+    """Seconds a quota refusal asks to wait, or None for the rest of the Pacific day: any refusal
+    that does not name only per-minute quotas, which is how the free tier was guarded before."""
     try:
         details = error.get("details") or []
         quotas = [v.get("quotaId", "") for d in details for v in d.get("violations", [])]
-        if any("PerDay" in quota for quota in quotas):
-            return None
         delays = [float(d["retryDelay"].rstrip("s")) for d in details if "retryDelay" in d]
     except (AttributeError, TypeError, ValueError):
-        delays = []
+        return None
+    if not quotas or not all("PerMinute" in quota for quota in quotas):
+        return None
     return delays[0] if delays else 60.0
 
 
@@ -656,7 +678,16 @@ class GeminiDescriber:
     name = "gemini"
     URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-    def __init__(self, routes, models, key_file, limiter, timeout_s=10.0, transport=http_post):
+    def __init__(
+        self,
+        routes,
+        models,
+        key_file,
+        limiter,
+        timeout_s=10.0,
+        min_attempt_s=2.0,
+        transport=http_post,
+    ):
         for model in (model for route in routes.values() for model in route):
             if model not in models:
                 raise ValueError(f"{model} is routed to but has no caps in gemini.models")
@@ -666,6 +697,7 @@ class GeminiDescriber:
         self._key = _read_key(key_file)
         self._limiter = limiter
         self._timeout_s = float(timeout_s)
+        self._min_attempt_s = float(min_attempt_s)
         self._transport = transport
 
     def describe(self, task, images, context):
@@ -682,7 +714,7 @@ class GeminiDescriber:
         deadline = time.monotonic() + self._timeout_s
         for model in self._routes[task]:
             remaining = deadline - time.monotonic()
-            if remaining <= 0.0:
+            if remaining < self._min_attempt_s:
                 failures.append(f"{model}: out of time")
                 break
             try:
@@ -853,6 +885,7 @@ DESCRIBERS = {
         config["gemini"]["key_file"],
         GeminiLimiter(config["gemini"]["usage_file"], config["gemini"]["models"]),
         config["gemini"]["timeout_s"],
+        config["gemini"]["min_attempt_s"],
     ),
     "openai": lambda config: OpenAIDescriber(
         config["openai"]["base_url"], config["openai"]["model"], config["openai"]["timeout_s"]

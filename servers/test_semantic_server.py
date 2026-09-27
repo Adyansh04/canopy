@@ -41,6 +41,7 @@ CAPS = {
     "flash": {"per_minute": 2, "per_day": 3, "thinking": "low"},
 }
 ROUTES = {"object": ["lite", "flash"], "room": ["flash"]}
+ss.FREE_TIER.update(lite=(15, 500), flash=(5, 20))
 
 
 class Scratch(unittest.TestCase):
@@ -142,6 +143,24 @@ class LimiterTest(Scratch):
         with self.assertRaisesRegex(ss.Unavailable, "parked"):
             self.limiter().acquire("lite")
         self.assertEqual(self.limiter().usage()["models"]["lite"]["count"], 5)
+
+    def test_config_cannot_raise_the_free_tier(self):
+        limiter = self.limiter({"flash": {"per_minute": 50, "per_day": 999}})
+        for _ in range(5):
+            limiter.acquire("flash")
+        with self.assertRaisesRegex(ss.Unavailable, "5 requests a minute"):
+            limiter.acquire("flash")
+        unlisted = self.limiter({"gemini-9-pro": {"per_minute": 50, "per_day": 999}})
+        self.assertEqual(unlisted._caps["gemini-9-pro"], ss.FREE_TIER_UNLISTED)
+
+    def test_a_file_from_before_per_model_caps_holds_every_model(self):
+        self.usage.write_text(
+            json.dumps({"day": "2026-09-24", "count": 20, "exhausted": True, "recent": []})
+        )
+        with self.assertRaisesRegex(ss.Unavailable, "parked"):
+            self.limiter().acquire("flash")
+        self.clock.now = utc(2026, 9, 25, 7, 1)
+        self.limiter().acquire("flash")
 
     def test_unreadable_state_fails_closed(self):
         self.usage.write_text("{not json")
@@ -306,11 +325,11 @@ class GeminiTest(Scratch):
         self.describe(describer)
         self.assertEqual(transport.models, ["lite", "flash", "flash", "lite"])
 
-    def test_a_refusal_without_details_parks_for_a_minute(self):
+    def test_a_refusal_that_names_no_minute_quota_parks_for_the_day(self):
         transport = Transport((429, QUOTA), (200, gemini_reply(MUG, "flash")))
         self.describe(self.describer(transport))
         parked = self.limiter().usage()["models"]["lite"]["parked_until"]
-        self.assertEqual(parked, self.clock.now + 60.0)
+        self.assertEqual(parked, utc(2026, 9, 25, 7, 0))
 
     def test_quota_error_under_another_status(self):
         body = b'{"error": {"code": 403, "status": "PERMISSION_DENIED", "message": "quota for this key"}}'
@@ -364,7 +383,13 @@ class GeminiTest(Scratch):
             raise ss.Unavailable("timed out")
 
         describer = ss.GeminiDescriber(
-            ROUTES, CAPS, self.key_file, self.limiter(), timeout_s=0.05, transport=hung
+            ROUTES,
+            CAPS,
+            self.key_file,
+            self.limiter(),
+            timeout_s=0.05,
+            min_attempt_s=0.01,
+            transport=hung,
         )
         with self.assertRaisesRegex(ss.Unavailable, "lite: timed out; flash: out of time"):
             self.describe(describer)
