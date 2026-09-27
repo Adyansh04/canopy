@@ -166,7 +166,13 @@ void CoverageMap::setSurfaces(const std::vector<Surface>& surfaces)
             const CellIndex cell = geometry_.toCell(corner.x, corner.y);
             polygon.emplace_back(cell.x, cell.y);
         }
-        mask.setTo(0);
+        // Only the polygon's bounds are cleared, drawn and scanned: the grid can be large.
+        const cv::Rect bounds = cv::boundingRect(polygon) & cv::Rect(0, 0, mask.cols, mask.rows);
+        if (bounds.empty())
+        {
+            continue;
+        }
+        mask(bounds).setTo(0);
         cv::fillConvexPoly(mask, polygon, cv::Scalar(255));
         const int slot = static_cast<int>(surface_height_.size());
         surface_height_.push_back(surface.height);
@@ -178,10 +184,10 @@ void CoverageMap::setSurfaces(const std::vector<Surface>& surfaces)
         {
             top->second = surface.height;
         }
-        for (int y = 0; y < mask.rows; ++y)
+        for (int y = bounds.y; y < bounds.y + bounds.height; ++y)
         {
             const std::uint8_t* row = mask.ptr<std::uint8_t>(y);
-            for (int x = 0; x < mask.cols; ++x)
+            for (int x = bounds.x; x < bounds.x + bounds.width; ++x)
             {
                 if (row[x] != 0)
                 {
