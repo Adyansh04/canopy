@@ -27,6 +27,35 @@ constexpr double kTwoPi       = 2.0 * std::numbers::pi;
 
 double wrapAngle(double angle) { return std::remainder(angle, kTwoPi); }
 
+/// A frontier reached twice and still open is dropped; its failures count within this, m.
+constexpr double kExhaustedFrontierRadius = 0.75;
+/// Issued viewpoints kept for their reports: only the recent past is ever reported on.
+constexpr std::size_t kIssuedKept = 16;
+
+/// The yaw the robot arrives at (@p x, @p y) with: facing along its walk, or as it stands.
+double arrivalYaw(const Pose2D& robot, double x, double y)
+{
+    return std::hypot(x - robot.x, y - robot.y) > 0.3 ? std::atan2(y - robot.y, x - robot.x) :
+                                                        robot.yaw;
+}
+
+/// Counts a failure at (@p x, @p y) on the entry within @p radius of it, or starts one.
+template <typename Entries>
+void countFailure(Entries& entries, double x, double y, double radius)
+{
+    const auto entry = std::find_if(entries.begin(), entries.end(), [&](const auto& e) {
+        return std::hypot(e.x - x, e.y - y) < radius;
+    });
+    if (entry == entries.end())
+    {
+        entries.push_back({ x, y, 1 });
+    }
+    else
+    {
+        ++entry->failures;
+    }
+}
+
 /// Clears each frontier cell with an unknown neighbour some trail point had in plain view, across
 /// free cells only, within @p radius.
 void dropSeenFrontier(
@@ -390,6 +419,16 @@ void ViewpointPlanner::castRays(
     offsets[static_cast<std::size_t>(params_.ray_count)] = static_cast<int>(hits.size());
 }
 
+void ViewpointPlanner::issue(Viewpoint& viewpoint)
+{
+    viewpoint.id = next_id_++;
+    issued_.push_back(viewpoint);
+    if (issued_.size() > kIssuedKept)
+    {
+        issued_.erase(issued_.begin());
+    }
+}
+
 double ViewpointPlanner::blacklistFactor(double x, double y) const
 {
     double factor = 1.0;
@@ -594,8 +633,8 @@ Plan ViewpointPlanner::nextFrontier(
             exhausted_frontiers_.begin(),
             exhausted_frontiers_.end(),
             [&](const auto& entry) {
-                return entry.failures >= 2 &&
-                       std::hypot(entry.x - target_x, entry.y - target_y) < 0.75;
+                return entry.failures >= 2 && std::hypot(entry.x - target_x, entry.y - target_y) <
+                                                  kExhaustedFrontierRadius;
             });
         if (exhausted)
         {
@@ -645,9 +684,7 @@ Plan ViewpointPlanner::nextFrontier(
         }
         std::vector<double> headings{ std::atan2(target_y - goal_y, target_x - goal_x) };
         const double travel_time = travel_[static_cast<std::size_t>(goal)] / params_.travel_speed;
-        const double arrival     = std::hypot(goal_x - robot.x, goal_y - robot.y) > 0.3 ?
-                                       std::atan2(goal_y - robot.y, goal_x - robot.x) :
-                                       robot.yaw;
+        const double arrival     = arrivalYaw(robot, goal_x, goal_y);
         const double cost =
             (travel_time + turnTime(arrival, headings) + params_.goal_overhead) * factor;
         const double gain    = size * geometry.resolution;
@@ -683,18 +720,13 @@ Plan ViewpointPlanner::nextFrontier(
                                 "no reachable frontier left";
         return plan;
     }
-    plan.viewpoint.id = next_id_++;
+    issue(plan.viewpoint);
     frontier_known_.push_back(known_area);
     // Kept so a frontier that survives two visits is dropped, and an unreachable goal avoided.
     issued_frontiers_.push_back({ plan.viewpoint.id, best_target_x, best_target_y });
-    issued_.push_back(plan.viewpoint);
-    if (issued_frontiers_.size() > 16)
+    if (issued_frontiers_.size() > kIssuedKept)
     {
         issued_frontiers_.erase(issued_frontiers_.begin());
-    }
-    if (issued_.size() > 16)
-    {
-        issued_.erase(issued_.begin());
     }
     return plan;
 }
@@ -901,26 +933,18 @@ Plan ViewpointPlanner::nextPocketLook(
     // the flat and back.
     const auto next = pocket_looks_->begin() +
                       static_cast<std::ptrdiff_t>(reachable[shortestWalkStart(stops, geometry)]);
-    const double travel = travel_[static_cast<std::size_t>(
+    const double travel  = travel_[static_cast<std::size_t>(
         geometry.index(geometry.toCell(next->view.x, next->view.y)))];
-    plan.status         = PlanStatus::kViewpoint;
-    plan.viewpoint      = next->view;
-    plan.viewpoint.gain = static_cast<double>(unknown_edge(*next));
-    const double arrival =
-        std::hypot(plan.viewpoint.x - robot.x, plan.viewpoint.y - robot.y) > 0.3 ?
-            std::atan2(plan.viewpoint.y - robot.y, plan.viewpoint.x - robot.x) :
-            robot.yaw;
-    plan.viewpoint.cost = (travel / params_.travel_speed) +
+    plan.status          = PlanStatus::kViewpoint;
+    plan.viewpoint       = next->view;
+    plan.viewpoint.gain  = static_cast<double>(unknown_edge(*next));
+    const double arrival = arrivalYaw(robot, plan.viewpoint.x, plan.viewpoint.y);
+    plan.viewpoint.cost  = (travel / params_.travel_speed) +
                           turnTime(arrival, plan.viewpoint.headings) + params_.dwell_time +
                           params_.goal_overhead;
     pocket_looks_->erase(next);
-    plan.reason       = std::format("{} more planned", pocket_looks_->size());
-    plan.viewpoint.id = next_id_++;
-    issued_.push_back(plan.viewpoint);
-    if (issued_.size() > 16)
-    {
-        issued_.erase(issued_.begin());
-    }
+    plan.reason = std::format("{} more planned", pocket_looks_->size());
+    issue(plan.viewpoint);
     return plan;
 }
 
@@ -1293,9 +1317,7 @@ Plan ViewpointPlanner::nextCoverage(
 
             const double travel_time =
                 travel_[static_cast<std::size_t>(candidate.index)] / params_.travel_speed;
-            const double arrival = std::hypot(x - robot.x, y - robot.y) > 0.3 ?
-                                                   std::atan2(y - robot.y, x - robot.x) :
-                                                   robot.yaw;
+            const double arrival = arrivalYaw(robot, x, y);
             double       cost    = travel_time + turnTime(arrival, headings) +
                           (static_cast<double>(headings.size()) * params_.dwell_time) +
                           params_.goal_overhead;
@@ -1408,14 +1430,8 @@ Plan ViewpointPlanner::nextCoverage(
         plan.viewpoint = std::move(*first);
     }
     coverage.setPlanned(predicted_any);
-    plan.viewpoint.id       = next_id_++;
     plan.viewpoint.coverage = true;
-    issued_.push_back(plan.viewpoint);
-    // Only the recent past matters for reports; keep the list short.
-    if (issued_.size() > 16)
-    {
-        issued_.erase(issued_.begin());
-    }
+    issue(plan.viewpoint);
     return plan;
 }
 
@@ -1595,20 +1611,11 @@ void ViewpointPlanner::report(CoverageMap& coverage, std::uint32_t id, bool reac
     if (frontier != issued_frontiers_.end() && reached)
     {
         // Twice reached and still a frontier: glass, a mirror, or space the LiDAR cannot see.
-        auto entry = std::find_if(
-            exhausted_frontiers_.begin(),
-            exhausted_frontiers_.end(),
-            [&](const Blacklisted& e) {
-                return std::hypot(e.x - frontier->target_x, e.y - frontier->target_y) < 0.75;
-            });
-        if (entry == exhausted_frontiers_.end())
-        {
-            exhausted_frontiers_.push_back({ frontier->target_x, frontier->target_y, 1 });
-        }
-        else
-        {
-            ++entry->failures;
-        }
+        countFailure(
+            exhausted_frontiers_,
+            frontier->target_x,
+            frontier->target_y,
+            kExhaustedFrontierRadius);
     }
     if (frontier != issued_frontiers_.end())
     {
@@ -1644,17 +1651,7 @@ void ViewpointPlanner::report(CoverageMap& coverage, std::uint32_t id, bool reac
     }
     if (!reached)
     {
-        auto entry = std::find_if(blacklist_.begin(), blacklist_.end(), [&](const Blacklisted& e) {
-            return std::hypot(e.x - issued->x, e.y - issued->y) < params_.blacklist_radius;
-        });
-        if (entry == blacklist_.end())
-        {
-            blacklist_.push_back({ issued->x, issued->y, 1 });
-        }
-        else
-        {
-            ++entry->failures;
-        }
+        countFailure(blacklist_, issued->x, issued->y, params_.blacklist_radius);
     }
     // Indices into another grid, once SLAM has redrawn it, would charge unrelated targets.
     else if (coverage.geometry() == issued->grid)

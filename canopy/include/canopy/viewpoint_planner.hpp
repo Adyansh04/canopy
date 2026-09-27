@@ -273,6 +273,8 @@ private:
         const CoverageMap& coverage, const CameraModel& camera, double x, double y,
         std::vector<Hit>& hits, std::vector<int>& offsets) const;
     [[nodiscard]] double blacklistFactor(double x, double y) const;
+    /// Numbers @p viewpoint and keeps it for its report.
+    void                 issue(Viewpoint& viewpoint);
     [[nodiscard]] double turnTime(double from_yaw, std::vector<double>& headings) const;
     /// Greedy cover of the pockets' edge by spots; needs clearance_ and travel_.
     [[nodiscard]] std::vector<PocketLook>
