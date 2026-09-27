@@ -169,6 +169,10 @@ class Unavailable(Exception):
     """A describer that cannot answer now: rate limited, out of quota, or unreachable."""
 
 
+class Capped(Unavailable):
+    """Held back by the client's own caps, before any request was sent."""
+
+
 # Detectors: `name` and segment(image, phrases, box_threshold, text_threshold) -> instances. A
 # grounding segmenter (Grounding DINO with SAM 2, or SAM 3) fits as it is, given a DETECTORS entry.
 
@@ -396,11 +400,11 @@ class GeminiLimiter:
                 model, {"count": 0, "recent": [], "parked_until": 0.0}
             )
             if now < usage["parked_until"]:
-                raise Unavailable(f"parked for another {usage['parked_until'] - now:.0f} s")
+                raise Capped(f"parked for another {usage['parked_until'] - now:.0f} s")
             if usage["count"] >= per_day:
-                raise Unavailable(f"its cap of {per_day} requests a day is reached")
+                raise Capped(f"its cap of {per_day} requests a day is reached")
             if len(usage["recent"]) >= per_minute:
-                raise Unavailable(f"its cap of {per_minute} requests a minute is reached")
+                raise Capped(f"its cap of {per_minute} requests a minute is reached")
             usage["count"] += 1
             usage["recent"].append(now)
 
@@ -677,6 +681,9 @@ class GeminiDescriber:
                 return self._ask(model, task, parts)
             except (Unavailable, ValueError) as error:
                 failures.append(f"{model}: {error}")
+                # A model at its cap is routine; one that was asked and failed is worth a line.
+                if not isinstance(error, Capped):
+                    print(f"  {model}: {error}", file=sys.stderr, flush=True)
         raise Unavailable("; ".join(failures) or f"no model for the {task} task")
 
     def _ask(self, model, task, parts):

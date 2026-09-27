@@ -5,6 +5,7 @@ $CANOPY_HOME/.venv/bin/python -m unittest servers/test_semantic_server.py
 
 import argparse
 import base64
+import contextlib
 import io
 import json
 import sys
@@ -309,6 +310,14 @@ class GeminiTest(Scratch):
             "lite: refused on quota.*until midnight Pacific; flash: answered HTTP 503",
         ):
             self.describe(self.describer(transport))
+
+    def test_a_model_that_failed_is_logged_one_at_its_cap_is_not(self):
+        limiter = self.limiter({"lite": {"per_minute": 0, "per_day": 9}, "flash": CAPS["flash"]})
+        log = io.StringIO()
+        with contextlib.redirect_stderr(log), self.assertRaises(ss.Unavailable):
+            self.describe(self.describer(Transport((503, BUSY)), limiter=limiter))
+        self.assertNotIn("lite", log.getvalue())
+        self.assertIn("flash: answered HTTP 503", log.getvalue())
 
     def test_limiter_refuses_before_any_network_io(self):
         transport = Transport((200, gemini_reply(MUG)))
