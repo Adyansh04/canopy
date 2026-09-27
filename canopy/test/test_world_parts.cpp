@@ -116,6 +116,16 @@ TEST(RoomTyping, ALongEmptyStripIsAHallway)
     EXPECT_EQ(classifyRoom(table(), {}, 4.0, 4.0).type, "");
 }
 
+TEST(RoomTyping, AStripSixTimesLongerThanWideIsAHallwayWhateverStandsInIt)
+{
+    const RoomTypeTable types = table();
+    EXPECT_EQ(
+        classifyRoom(types, { "chair", "trash can", "book", "window" }, 11.9, 2.0).type,
+        "hallway");
+    // Only three and a half times longer: its objects decide.
+    EXPECT_NE(classifyRoom(types, { "chair", "trash can", "book" }, 7.0, 2.0).type, "hallway");
+}
+
 TEST(ApproachPose, StandsClearOfATableAndFacesIt)
 {
     // A 6 x 6 m room with a 1.2 x 0.8 m table in the middle.

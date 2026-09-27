@@ -22,6 +22,9 @@ namespace
 constexpr double      kHallwayWidth       = 2.2;
 constexpr double      kHallwayAspect      = 3.0;
 constexpr std::size_t kHallwayMostObjects = 2;
+/// This many times longer than wide is a hallway whatever stands in it: a real detector's strays
+/// along a corridor's walls must not turn it into a room.
+constexpr double kCorridorAspect = 5.0;
 
 std::string lowered(std::string text)
 {
@@ -81,8 +84,9 @@ RoomTyping classifyRoom(
     {
         distinct.insert(table.canonical(label));
     }
-    if (width > 0.0 && width < kHallwayWidth && length > kHallwayAspect * width &&
-        distinct.size() <= kHallwayMostObjects)
+    const bool narrow = width > 0.0 && width < kHallwayWidth;
+    if (narrow && (length > kCorridorAspect * width ||
+                   (length > kHallwayAspect * width && distinct.size() <= kHallwayMostObjects)))
     {
         return { "hallway", 0.8 };
     }
