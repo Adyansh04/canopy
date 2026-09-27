@@ -271,8 +271,9 @@ void ViewpointPlanner::castRays(
         const double dx                        = std::cos(angle);
         const double dy                        = std::sin(angle);
         int          last                      = -1;
-        bool         floor_hidden              = false;
-        const int    steps                     = static_cast<int>(reach / step);
+        CellIndex    last_cell{ -1, -1 };
+        bool         floor_hidden = false;
+        const int    steps        = static_cast<int>(reach / step);
         for (int n = 1; n <= steps; ++n)
         {
             const double    along = n * step;
@@ -286,7 +287,16 @@ void ViewpointPlanner::castRays(
             {
                 continue;
             }
+            // A diagonal step between two obstacle cells is a thin wall drawn corner to corner,
+            // not a gap: the ray stops there.
+            if (last >= 0 && cell.x != last_cell.x && cell.y != last_cell.y &&
+                cells.at<std::uint8_t>(last_cell.y, cell.x) == kOccupied &&
+                cells.at<std::uint8_t>(cell.y, last_cell.x) == kOccupied)
+            {
+                break;
+            }
             last                 = index;
+            last_cell            = cell;
             const auto occupancy = cells.at<std::uint8_t>(cell.y, cell.x);
             if (occupancy == kUnknown)
             {
@@ -337,7 +347,12 @@ void ViewpointPlanner::castRays(
                     }
                 }
                 face_hit();
-                // The camera looks over a table, but the floor behind it is in its shadow.
+                // Where the top stands above all the camera sees at this range, the ray meets the
+                // furniture's side; lower, the camera looks over it, the floor behind in shadow.
+                if (coverage.surfaceHeight(slot) >= height - (along * tan_high))
+                {
+                    break;
+                }
                 floor_hidden = true;
                 continue;
             }
