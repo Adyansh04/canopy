@@ -251,12 +251,12 @@ bool worldFits(
            (snapshot.plan.size() == snapshot.cells.size() && agree_with(snapshot.plan));
 }
 
-std::string saveOccupancy(
-    const std::string& directory, const std::vector<std::int8_t>& data, const GridGeometry& geometry)
+std::string
+saveOccupancy(const std::string& directory, const cv::Mat& cells, const GridGeometry& geometry)
 {
-    if (data.size() != geometry.cellCount())
+    if (cells.type() != CV_8UC1 || cells.rows != geometry.height || cells.cols != geometry.width)
     {
-        return "the map's data does not match its size";
+        return "the map's cells do not match its size";
     }
     const std::filesystem::path root(directory);
     std::error_code             error;
@@ -275,13 +275,11 @@ std::string saveOccupancy(
         // PGM rows run from the top, the map's highest y.
         const std::size_t row =
             header + (static_cast<std::size_t>(geometry.height - 1 - y) * geometry.width);
+        const auto* cell = cells.ptr<std::uint8_t>(y);
         for (int x = 0; x < geometry.width; ++x)
         {
-            const auto cell = static_cast<std::size_t>(geometry.index(x, y));
-            // Signed by definition: -1 is unknown.
-            const int value = data[cell];  // NOLINT(bugprone-signed-char-misuse)
             image[row + static_cast<std::size_t>(x)] =
-                static_cast<char>(value < 0 ? 205 : (value >= 65 ? 0 : (value <= 25 ? 254 : 205)));
+                static_cast<char>(cell[x] == kFree ? 254 : (cell[x] == kOccupied ? 0 : 205));
         }
     }
     std::string failure =

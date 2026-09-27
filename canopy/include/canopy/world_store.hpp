@@ -64,15 +64,14 @@ bool worldFits(
     double min_agreement = 0.97);
 
 /**
- * @brief Writes an occupancy grid as map.pgm and map.yaml, as map_saver would, so the map the
- * world was built on is kept beside it and map_server can serve it back.
+ * @brief Writes a map as map.pgm and map.yaml, as map_saver would, so the map the world was built
+ * on is kept beside it and map_server can serve it back.
  *
- * @param data nav_msgs values on @p geometry: -1 unknown, 0..100 occupied percent.
+ * @param cells Cell classes on @p geometry, CV_8UC1.
  * @return An empty string on success, else what failed.
  */
-std::string saveOccupancy(
-    const std::string& directory, const std::vector<std::int8_t>& data,
-    const GridGeometry& geometry);
+std::string
+saveOccupancy(const std::string& directory, const cv::Mat& cells, const GridGeometry& geometry);
 
 /**
  * @brief Reads a snapshot written by saveWorld().

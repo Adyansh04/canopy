@@ -2032,7 +2032,7 @@ std::string WorldModelNode::saveNow()
                 static_cast<std::streamsize>(jpeg.size()));
         }
         // The map the world was built on, and a picture of both, beside it.
-        failure = saveOccupancy(world_dir_, gridMessage(plan).data, geometry_);
+        failure = saveOccupancy(world_dir_, plan, geometry_);
         if (failure.empty() && !cv::imwrite(
                                    (std::filesystem::path(world_dir_) / "semantic_map.png").string(),
                                    renderSemanticMap()))
@@ -2427,14 +2427,14 @@ void WorldModelNode::appendRunMarkers(
         for (std::size_t i = 0; i < ring.size(); ++i)
         {
             const Eigen::Vector2d& from = ring.at(i);
-            frame.points.push_back(point(from.x(), from.y(), glimpse->z_min));
-            frame.points.push_back(point(from.x(), from.y(), glimpse->z_max));
             const Eigen::Vector2d& to   = ring.at((i + 1) % ring.size());
             for (const double z : { glimpse->z_min, glimpse->z_max })
             {
                 frame.points.push_back(point(from.x(), from.y(), z));
                 frame.points.push_back(point(to.x(), to.y(), z));
             }
+            frame.points.push_back(point(from.x(), from.y(), glimpse->z_min));
+            frame.points.push_back(point(from.x(), from.y(), glimpse->z_max));
         }
         markers.markers.push_back(frame);
         auto label = base("glimpses", visualization_msgs::msg::Marker::TEXT_VIEW_FACING);

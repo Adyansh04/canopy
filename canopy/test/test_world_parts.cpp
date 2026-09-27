@@ -371,11 +371,12 @@ TEST(Grid, KeepsTheFloorBehindAWardrobeFreeButFillsWhatTheCameraMapped)
 TEST(WorldStore, SavesTheMapAsMapServerReadsIt)
 {
     // 3 x 2: free, occupied, unknown on the bottom row; unknown, free, occupied on the top.
-    const GridGeometry             geometry{ 0.05, -1.0, 2.0, 3, 2 };
-    const std::vector<std::int8_t> data{ 0, 100, -1, -1, 0, 100 };
-    const std::string              directory =
+    const GridGeometry geometry{ 0.05, -1.0, 2.0, 3, 2 };
+    const cv::Mat      cells =
+        (cv::Mat_<std::uint8_t>(2, 3) << kFree, kOccupied, kUnknown, kUnknown, kFree, kOccupied);
+    const std::string directory =
         (std::filesystem::temp_directory_path() / "canopy_map_save").string();
-    ASSERT_EQ(saveOccupancy(directory, data, geometry), "");
+    ASSERT_EQ(saveOccupancy(directory, cells, geometry), "");
 
     std::ifstream pgm(directory + "/map.pgm", std::ios::binary);
     const std::string bytes((std::istreambuf_iterator<char>(pgm)), std::istreambuf_iterator<char>());
