@@ -603,7 +603,7 @@ ObjectMap::integrate(const std::vector<MaskInput>& masks, const FrameInput& fram
                 std::max(shared, label_share > 0.0 ? proximity(detection, object) : 0.0);
             const double cosine = similarity(masks[m].embedding, object.embedding);
             const double semantic =
-                cosine >= 0.0 ? std::clamp((cosine - 0.5) / 0.4, 0.0, 1.0) : label_share;
+                std::max(label_share, std::clamp((cosine - 0.5) / 0.4, 0.0, 1.0));
             const double score =
                 (params_.geometry_weight * geometric) + (params_.semantic_weight * semantic);
             // Overlap alone decides only between comparable sizes: a mug's few voxels all sit

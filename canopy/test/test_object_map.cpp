@@ -9,6 +9,7 @@
 #include <functional>
 #include <limits>
 #include <numbers>
+#include <tuple>
 
 #include "canopy/object_map.hpp"
 
@@ -339,6 +340,36 @@ TEST(ObjectMap, ToleratesLocalisationDriftBetweenVisits)
     map.integrate(again.inputs, again.input);
 
     EXPECT_EQ(countActive(map), 2);
+}
+
+std::vector<float> embeddingAt(double cosine)
+{
+    return { static_cast<float>(cosine),
+             static_cast<float>(std::sqrt(1.0 - (cosine * cosine))),
+             0.0F,
+             0.0F };
+}
+
+TEST(ObjectMap, LetsASharedLabelJoinWhatAWeakEmbeddingAloneWouldNot)
+{
+    // Crops of one table from two visits can score 0.6 on an image embedder; the shared label
+    // still joins the second sighting, which drift has put 0.15 m past the table's end.
+    const Camera            camera;
+    const std::vector<Box>  scene{ kTable, kWall };
+    const Eigen::Isometry3d view = camera.pose(2.6, 0.2, std::numbers::pi / 2.0);
+    ObjectMap               map;
+    for (const auto& [stamp, cosine, drift] :
+         std::vector<std::tuple<double, double, double>>{ { 1.0, 1.0, 0.0 }, { 2.0, 0.6, 0.75 } })
+    {
+        Frame frame = render(camera, view, scene, { kTable }, stamp);
+        for (MaskInput& input : frame.inputs)
+        {
+            input.embedding = embeddingAt(cosine);
+        }
+        frame.input.map_from_camera.translation() += Eigen::Vector3d(drift, 0.0, 0.0);
+        map.integrate(frame.inputs, frame.input);
+    }
+    EXPECT_EQ(countActive(map), 1);
 }
 
 TEST(ObjectMap, ForgetsAnObjectThatIsGone)
