@@ -13,8 +13,8 @@
     world_dir: ""
     autosave_period_s: 60.0
 
-    # Frames count only after the base has been still this long: the relay stamps images on
-    # arrival, so a frame taken mid-turn would land degrees off.
+    # Frames count only after the base has been still this long: mid-turn, a frame whose stamp
+    # trails its capture, as a driver stamping arrival leaves it, lands degrees off.
     require_stillness: true
     still_linear: 0.05
     still_angular: 0.05

@@ -6,8 +6,8 @@
  * @brief The world model on ROS: rooms, camera coverage and objects over the SLAM map.
  *
  * Inputs are the occupancy grid, aligned depth and colour, the detector's instance masks and
- * odometry. Frames count only when the base had been still for a while before they were taken:
- * the relay stamps images on arrival, so a frame taken while turning lands degrees off. Rooms are
+ * odometry. Frames count only when the base had been still for a while before they were taken: a
+ * frame whose stamp trails its capture lands degrees off if it was taken while turning. Rooms are
  * segmented on the walls alone: LiDAR returns in a band above tables, sofas and beds mark what is
  * structure, and furniture that never reaches it stops cutting rooms into pieces. Outputs
  * are latched room and object arrays, a coverage grid, RViz markers, and the services the
