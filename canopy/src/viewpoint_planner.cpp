@@ -391,12 +391,12 @@ Plan ViewpointPlanner::nextFrontier(
     const bool stalled =
         frontier_known_.size() >= stall &&
         known_area - frontier_known_[frontier_known_.size() - stall] < params_.min_frontier_growth;
-    const auto stood_near = [this](double x, double y) {
-        const auto near = [&](const cv::Point2d& p) {
+    const auto stood_near = [this](const std::vector<cv::Point2d>& stood, double x, double y) {
+        return std::ranges::any_of(stood, [&](const cv::Point2d& p) {
             return std::hypot(p.x - x, p.y - y) < params_.way_on_distance;
-        };
-        return std::ranges::any_of(trail_, near) || std::ranges::any_of(pending_trail_, near);
+        });
     };
+    bool awaiting_map = false;
     // A young SLAM map is known only along each beam a few metres out: close the gaps between
     // beams, never over a wall, or every gap is a frontier and none is a place to go.
     cv::Mat known = cells.clone();
@@ -523,8 +523,13 @@ Plan ViewpointPlanner::nextFrontier(
         const double target_x = geometry.centreX(anchor[static_cast<std::size_t>(component)].x);
         const double target_y = geometry.centreY(anchor[static_cast<std::size_t>(component)].y);
         if (stalled && (opens_onto[static_cast<std::size_t>(component)] < way_on_cells ||
-                        stood_near(target_x, target_y)))
+                        stood_near(trail_, target_x, target_y)))
         {
+            continue;
+        }
+        if (stalled && stood_near(pending_trail_, target_x, target_y))
+        {
+            awaiting_map = true;
             continue;
         }
         const bool exhausted = std::any_of(
@@ -603,6 +608,12 @@ Plan ViewpointPlanner::nextFrontier(
         }
     }
 
+    if (plan.status != PlanStatus::kViewpoint && awaiting_map)
+    {
+        plan.status = PlanStatus::kUnavailable;
+        plan.reason = "the map has not caught up with the last viewpoint yet";
+        return plan;
+    }
     if (plan.status != PlanStatus::kViewpoint)
     {
         plan.status = PlanStatus::kDone;

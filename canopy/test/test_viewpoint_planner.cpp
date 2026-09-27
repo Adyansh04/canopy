@@ -722,10 +722,10 @@ TEST(ViewpointPlanner, KeepsGoingWhereTheMapLeadsOnAfterVisitsStall)
     ASSERT_EQ(corridor.status, PlanStatus::kViewpoint) << corridor.reason;
     EXPECT_GT(corridor.viewpoint.x, 6.0);
 
-    // Stood at, and still nothing new: that was the last way on, before SLAM has caught up and
-    // after.
+    // Stood at: until SLAM has caught up with what the robot saw there, it waits rather than
+    // ending the pass; then, with still nothing new, that was the last way on.
     planner.report(coverage, corridor.viewpoint.id, true);
-    EXPECT_EQ(planner.nextFrontier(cells, world.geometry, robot).status, PlanStatus::kDone);
+    EXPECT_EQ(planner.nextFrontier(cells, world.geometry, robot).status, PlanStatus::kUnavailable);
     planner.mapUpdated();
     EXPECT_EQ(planner.nextFrontier(cells, world.geometry, robot).status, PlanStatus::kDone);
 }
