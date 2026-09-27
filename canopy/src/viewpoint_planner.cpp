@@ -1341,7 +1341,8 @@ Plan ViewpointPlanner::nextCoverage(
         plan.viewpoint = std::move(*first);
     }
     coverage.setPlanned(predicted_any);
-    plan.viewpoint.id = next_id_++;
+    plan.viewpoint.id       = next_id_++;
+    plan.viewpoint.coverage = true;
     issued_.push_back(plan.viewpoint);
     // Only the recent past matters for reports; keep the list short.
     if (issued_.size() > 16)
@@ -1488,9 +1489,12 @@ bool ViewpointPlanner::stuck(const Pose2D& robot, Plan& plan)
     if (!stuck_at_)
     {
         // The failures say nothing about the rooms they were in: none of them count there.
-        const auto recent =
-            std::min(outcomes_.size(), static_cast<std::size_t>(failures_in_a_row_));
-        outcomes_.resize(outcomes_.size() - recent);
+        for (int left = failures_in_a_row_;
+             left > 0 && !outcomes_.empty() && !outcomes_.back().reached;
+             --left)
+        {
+            outcomes_.pop_back();
+        }
         stuck_at_ = robot;
     }
     if (std::hypot(robot.x - stuck_at_->x, robot.y - stuck_at_->y) >= params_.blacklist_radius)
@@ -1552,14 +1556,19 @@ void ViewpointPlanner::report(CoverageMap& coverage, std::uint32_t id, bool reac
     {
         return;
     }
-    outcomes_.push_back({ issued->x, issued->y, reached });
+    // A frontier or pocket-look walk Nav2 refused on a young map says nothing of a room's camera
+    // viewpoints, which is what outcomes decide on.
+    if (issued->coverage)
+    {
+        outcomes_.push_back({ issued->x, issued->y, reached });
+        if (outcomes_.size() > 256)
+        {
+            outcomes_.erase(outcomes_.begin());
+        }
+    }
     if (reached)
     {
         recordPose({ issued->x, issued->y, 0.0 });
-    }
-    if (outcomes_.size() > 256)
-    {
-        outcomes_.erase(outcomes_.begin());
     }
     if (!reached)
     {

@@ -94,6 +94,7 @@ struct Viewpoint
     double              cost = 0.0;  ///< Predicted time, s.
     std::vector<int>    predicted;   ///< Target cells it should see; surfaces offset by cells.
     GridGeometry        grid;        ///< The grid `predicted` indexes.
+    bool                coverage = false;  ///< Of the camera pass, whose outcomes rooms count.
 };
 
 enum class PlanStatus : std::uint8_t
