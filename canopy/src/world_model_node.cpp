@@ -256,6 +256,10 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         declare_parameter<int>("planner.frontier_stall_visits", planner.frontier_stall_visits));
     planner.min_frontier_growth =
         declare_parameter<double>("planner.min_frontier_growth", planner.min_frontier_growth);
+    planner.way_on_unknown =
+        declare_parameter<double>("planner.way_on_unknown", planner.way_on_unknown);
+    planner.way_on_distance =
+        declare_parameter<double>("planner.way_on_distance", planner.way_on_distance);
     planner.max_attempts =
         static_cast<int>(declare_parameter<int>("planner.max_attempts", planner.max_attempts));
     planner.max_room_failures = static_cast<int>(

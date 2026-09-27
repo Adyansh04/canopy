@@ -71,7 +71,9 @@ struct PlannerParams
     double min_frontier_unknown  = 4.0;   ///< Unknown area a frontier must open onto, m2.
     double frontier_seen_radius  = 1.5;  ///< Unknown seen this near and still unknown is shadow, m.
     int    frontier_stall_visits = 4;    ///< Frontier visits over which the map has to grow...
-    double min_frontier_growth   = 12.0;  ///< ...by this much known area, m2, or the pass ends.
+    double min_frontier_growth   = 12.0;  ///< ...by this much known area, m2, or the pass ends...
+    double way_on_unknown        = 20.0;  ///< ...unless one opens onto this much unknown, m2,
+    double way_on_distance       = 4.0;   ///< ...this far from every place the robot stood, m.
     double pocket_min_area       = 0.1;   ///< Unknown inside the building this big gets a look, m2.
     double pocket_look_range     = 3.0;   ///< Farthest a pocket is looked into from, m.
     double pocket_min_edge       = 0.4;   ///< Pocket edge a look sees that no other look does, m.

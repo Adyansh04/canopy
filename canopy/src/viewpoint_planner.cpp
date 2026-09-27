@@ -383,21 +383,20 @@ Plan ViewpointPlanner::nextFrontier(
     {
         return plan;
     }
-    // Once the rooms are found the frontiers left are corners behind furniture: stop when the
-    // last few visits added next to nothing, and let the camera pass fill them in.
+    // Once the rooms are found the frontiers left are corners behind furniture: after visits that
+    // added next to nothing, only a way on into space the robot has not been near is worth a walk.
     const double known_area = static_cast<double>(cv::countNonZero(cells != kUnknown)) *
                               geometry.resolution * geometry.resolution;
     const auto stall = static_cast<std::size_t>(std::max(1, params_.frontier_stall_visits));
-    if (frontier_known_.size() >= stall &&
-        known_area - frontier_known_[frontier_known_.size() - stall] < params_.min_frontier_growth)
-    {
-        plan.status = PlanStatus::kDone;
-        plan.reason = std::format(
-            "the last {} frontiers added under {:.0f} m2 of map",
-            stall,
-            params_.min_frontier_growth);
-        return plan;
-    }
+    const bool stalled =
+        frontier_known_.size() >= stall &&
+        known_area - frontier_known_[frontier_known_.size() - stall] < params_.min_frontier_growth;
+    const auto stood_near = [this](double x, double y) {
+        const auto near = [&](const cv::Point2d& p) {
+            return std::hypot(p.x - x, p.y - y) < params_.way_on_distance;
+        };
+        return std::ranges::any_of(trail_, near) || std::ranges::any_of(pending_trail_, near);
+    };
     // A young SLAM map is known only along each beam a few metres out: close the gaps between
     // beams, never over a wall, or every gap is a frontier and none is a place to go.
     cv::Mat known = cells.clone();
@@ -477,6 +476,8 @@ Plan ViewpointPlanner::nextFrontier(
     }
     const double min_unknown_cells =
         params_.min_frontier_unknown / (geometry.resolution * geometry.resolution);
+    const double way_on_cells =
+        params_.way_on_unknown / (geometry.resolution * geometry.resolution);
 
     // Each frontier's own cell nearest its centroid: the centroid of a curved frontier can lie
     // out in the unknown, where nothing stands.
@@ -519,9 +520,14 @@ Plan ViewpointPlanner::nextFrontier(
         {
             continue;
         }
-        const double target_x  = geometry.centreX(anchor[static_cast<std::size_t>(component)].x);
-        const double target_y  = geometry.centreY(anchor[static_cast<std::size_t>(component)].y);
-        const bool   exhausted = std::any_of(
+        const double target_x = geometry.centreX(anchor[static_cast<std::size_t>(component)].x);
+        const double target_y = geometry.centreY(anchor[static_cast<std::size_t>(component)].y);
+        if (stalled && (opens_onto[static_cast<std::size_t>(component)] < way_on_cells ||
+                        stood_near(target_x, target_y)))
+        {
+            continue;
+        }
+        const bool exhausted = std::any_of(
             exhausted_frontiers_.begin(),
             exhausted_frontiers_.end(),
             [&](const auto& entry) {
@@ -600,7 +606,12 @@ Plan ViewpointPlanner::nextFrontier(
     if (plan.status != PlanStatus::kViewpoint)
     {
         plan.status = PlanStatus::kDone;
-        plan.reason = "no reachable frontier left";
+        plan.reason = stalled ? std::format(
+                                    "the last {} frontiers added under {:.0f} m2 of map, and none "
+                                    "left leads on",
+                                    stall,
+                                    params_.min_frontier_growth) :
+                                "no reachable frontier left";
         return plan;
     }
     plan.viewpoint.id = next_id_++;

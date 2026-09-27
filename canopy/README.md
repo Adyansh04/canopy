@@ -44,7 +44,9 @@ tested on its own. The node only wires it to topics and services.
 The robot explores in two passes, then tidies up:
 
 1. **Frontier pass**: walk to the edges of the known map until the LiDAR map is closed. Shadows
-   behind furniture that the robot has already looked past are ignored.
+   behind furniture that the robot has already looked past are ignored. Once a few visits in a
+   row add little map, only a frontier that leads on, far from anywhere the robot has stood, is
+   still walked to.
 2. **Camera pass**: sample spots the robot can stand on, predict what each heading would show,
    and go where the most still-unseen area per second of walking, turning and waiting is.
 3. **Pockets**: look into the unknown corners left inside the building, such as the floor behind

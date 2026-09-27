@@ -98,6 +98,11 @@
       # to 4.5 m2 each.
       frontier_stall_visits: 4
       min_frontier_growth: 12.0
+      # Once stalled, a frontier that leads on is still visited: one opening onto this much
+      # unknown, m2, this far from every place the robot stood, m. Pockets behind furniture open
+      # onto a few m2; run 59's hallway, 6 m from anywhere the robot had been, onto 169.
+      way_on_unknown: 20.0
+      way_on_distance: 4.0
       # The frontier pass ignores unknown under min_frontier_unknown, so corners of rooms (the
       # floor behind the bedroom's wardrobe, a notch in a wall) were never scanned and their
       # walls never closed. After the camera pass, which maps most of them on its way, the robot

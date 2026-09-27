@@ -673,6 +673,44 @@ TEST(ViewpointPlanner, EndsTheFrontierPassWhenVisitsStopGrowingTheMap)
     EXPECT_EQ(refused.nextFrontier(cells, world.geometry, robot).status, PlanStatus::kViewpoint);
 }
 
+TEST(ViewpointPlanner, KeepsGoingWhereTheMapLeadsOnAfterVisitsStall)
+{
+    // Run 59: four visits to one room's corners added next to nothing while a corridor, never
+    // walked, led on to the unexplored half of the flat.
+    World world;
+    world.heights = cv::Mat(cellsOf(8.2), cellsOf(16.2), CV_32F, cv::Scalar(kWallHeight));
+    world.box(0.1, 0.1, 6.0, 8.1, 0.0F);
+    world.box(6.0, 3.0, 16.1, 5.0, 0.0F);   // The corridor.
+    world.box(10.0, 0.1, 16.1, 8.1, 0.0F);  // The room at its end.
+    world.finish();
+    cv::Mat cells                                                           = world.cells.clone();
+    cells(cv::Rect(cellsOf(8.0), 0, cells.cols - cellsOf(8.0), cells.rows)) = kUnknown;
+    for (const double y : { 0.1, 3.0, 5.9 })  // Pockets behind furniture along the west wall.
+    {
+        cells(cv::Rect(cellsOf(0.1), cellsOf(y), cellsOf(2.2), cellsOf(2.2))) = kUnknown;
+    }
+    CoverageMap coverage;
+    coverage.setMap(cells, world.geometry);
+    const Pose2D robot{ 2.5, 4.0, 0.0 };
+
+    ViewpointPlanner planner;
+    for (int visit = 0; visit < 4; ++visit)
+    {
+        const Plan plan = planner.nextFrontier(cells, world.geometry, robot);
+        ASSERT_EQ(plan.status, PlanStatus::kViewpoint) << visit;
+        EXPECT_LT(plan.viewpoint.x, 6.0) << visit;  // The pockets, near and cheap, come first.
+        planner.report(coverage, plan.viewpoint.id, true);
+    }
+    const Plan corridor = planner.nextFrontier(cells, world.geometry, robot);
+    ASSERT_EQ(corridor.status, PlanStatus::kViewpoint) << corridor.reason;
+    EXPECT_GT(corridor.viewpoint.x, 6.0);
+
+    // Stood at, and still nothing new: that was the last way on.
+    planner.report(coverage, corridor.viewpoint.id, true);
+    const Plan done = planner.nextFrontier(cells, world.geometry, robot);
+    EXPECT_EQ(done.status, PlanStatus::kDone) << done.reason;
+}
+
 TEST(ViewpointPlanner, AvoidsAViewpointNavigationCouldNotReach)
 {
     const World  world = twoRoomsAndACorridor();
