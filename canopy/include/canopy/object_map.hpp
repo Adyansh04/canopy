@@ -63,11 +63,13 @@ struct ObjectMapParams
     double miss_margin        = 0.30;   ///< Depth this far behind an object sees through it, m;
                                         ///< less for small objects, down to one voxel.
 
-    /// Labels whose tops hold other objects: tables, shelves and the like.
+    /// Labels whose tops hold other objects, in the words detectors use: canopy_perception's
+    /// vocabulary says countertop and tv stand, ground-truth labels counter and table.
     std::vector<std::string> support_labels{ "table",     "dining table", "coffee table",
-                                             "desk",      "counter",      "shelf",
-                                             "bookshelf", "nightstand",   "cabinet",
-                                             "dresser",   "workbench",    "side table" };
+                                             "desk",      "counter",      "countertop",
+                                             "shelf",     "bookshelf",    "nightstand",
+                                             "cabinet",   "dresser",      "tv stand",
+                                             "workbench", "side table" };
 };
 
 /// One mask from one frame, before it is lifted.

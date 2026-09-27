@@ -623,6 +623,24 @@ TEST(ObjectMap, JoinsAViewUnderAnotherNameOnlyWhenTheEmbeddingsAgree)
     }
 }
 
+TEST(ObjectMap, TakesADetectorsCountertopForASupport)
+{
+    const Camera camera;
+    const Box    counter{ "countertop", kTable.low, kTable.high };
+    ObjectMap    map;
+    for (int step = 0; step < 2; ++step)
+    {
+        Frame frame = render(
+            camera,
+            camera.pose(2.6, 0.2, std::numbers::pi / 2.0),
+            { counter, kWall },
+            { counter },
+            1.0 + step);
+        map.integrate(frame.inputs, frame.input);
+    }
+    EXPECT_FALSE(map.surfaces().empty());
+}
+
 TEST(ObjectMap, KeepsABookApartFromTheShelfItStandsIn)
 {
     // An open shelf with a book on its lower tier. The shelf's mask takes in everything inside its
