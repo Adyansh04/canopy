@@ -160,10 +160,7 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
         yaml << YAML::Key << "misses" << YAML::Value << object.misses;
         yaml << YAML::Key << "top_seen" << YAML::Value << object.top_seen;
         yaml << YAML::Key << "state" << YAML::Value << stateName(object.state);
-        yaml << YAML::Key << "best_view" << YAML::Value << YAML::Flow << YAML::BeginSeq
-             << object.best_view.stamp << object.best_view.x << object.best_view.y
-             << object.best_view.width << object.best_view.height << object.best_view.score
-             << YAML::EndSeq;
+        yaml << YAML::Key << "best_view_score" << YAML::Value << object.best_view_score;
         yaml << YAML::EndMap;
     }
     yaml << YAML::EndSeq;
@@ -342,20 +339,16 @@ std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string
             {
                 object.votes[vote.first.as<std::string>()] = vote.second.as<float>();
             }
-            object.name         = node["name"].as<std::string>("");
-            object.caption      = node["caption"].as<std::string>("");
-            object.observations = node["observations"].as<int>(0);
-            object.first_seen   = node["first_seen"].as<double>(0.0);
-            object.last_seen    = node["last_seen"].as<double>(0.0);
-            object.misses       = node["misses"].as<int>(0);
-            object.top_seen     = node["top_seen"].as<bool>(false);
-            object.state        = stateOf(node["state"].as<std::string>("active"));
-            if (const YAML::Node view = node["best_view"]; view && view.size() == 6)
-            {
-                object.best_view = { view[0].as<double>(), view[1].as<int>(), view[2].as<int>(),
-                                     view[3].as<int>(),    view[4].as<int>(), view[5].as<double>() };
-            }
-            slot_of[object.id] = snapshot.objects.size();
+            object.name            = node["name"].as<std::string>("");
+            object.caption         = node["caption"].as<std::string>("");
+            object.observations    = node["observations"].as<int>(0);
+            object.first_seen      = node["first_seen"].as<double>(0.0);
+            object.last_seen       = node["last_seen"].as<double>(0.0);
+            object.misses          = node["misses"].as<int>(0);
+            object.top_seen        = node["top_seen"].as<bool>(false);
+            object.state           = stateOf(node["state"].as<std::string>("active"));
+            object.best_view_score = node["best_view_score"].as<double>(0.0);
+            slot_of[object.id]     = snapshot.objects.size();
             snapshot.objects.push_back(std::move(object));
         }
     }

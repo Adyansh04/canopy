@@ -101,17 +101,6 @@ enum class ObjectState : std::uint8_t
     kRemoved = 2,
 };
 
-/// The best view of an object so far, for crops and captions.
-struct BestView
-{
-    double stamp  = 0.0;
-    int    x      = 0;
-    int    y      = 0;
-    int    width  = 0;
-    int    height = 0;
-    double score  = 0.0;  ///< Mask area weighted towards the image centre.
-};
-
 struct MappedObject
 {
     int                          id = 0;
@@ -140,7 +129,8 @@ struct MappedObject
     int         misses       = 0;
     ObjectState state        = ObjectState::kActive;
     int         support      = 0;  ///< Id of the object it rests on, 0 if none.
-    BestView    best_view;
+    /// Its best view so far, for crops and captions: mask area weighted towards the image centre.
+    double best_view_score = 0.0;
 
     /// The label with the most votes.
     [[nodiscard]] std::string label() const;
@@ -154,8 +144,7 @@ struct MappedObject
 /// What happened to one mask of a frame.
 struct MaskOutcome
 {
-    int  object    = 0;  ///< Id of the object it joined or started; 0 if dropped.
-    bool created   = false;
+    int  object    = 0;      ///< Id of the object it joined or started; 0 if dropped.
     bool best_view = false;  ///< It became the object's best view: take a new crop.
 };
 

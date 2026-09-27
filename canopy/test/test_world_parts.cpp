@@ -175,7 +175,7 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     object.embedding_count = 3;
     object.observations    = 7;
     object.state           = ObjectState::kStale;
-    object.best_view       = { 12.5, 10, 20, 30, 40, 900.0 };
+    object.best_view_score = 900.0;
     snapshot.objects.push_back(object);
     // One world.yaml names with nothing in objects.bin, as a save cut short leaves it.
     MappedObject torn;
@@ -219,7 +219,7 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     EXPECT_EQ(back.embedding, object.embedding);
     EXPECT_EQ(back.embedding_count, 3);
     EXPECT_EQ(back.state, ObjectState::kStale);
-    EXPECT_EQ(back.best_view.width, 30);
+    EXPECT_DOUBLE_EQ(back.best_view_score, 900.0);
     EXPECT_EQ(loaded->structure_hits, snapshot.structure_hits);
     EXPECT_EQ(loaded->band_clear, snapshot.band_clear);
 

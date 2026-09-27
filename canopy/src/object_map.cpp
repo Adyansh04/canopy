@@ -544,10 +544,10 @@ void ObjectMap::absorb(
                          mask.y + mask.height >= k.height - 1;
     const double view_score = static_cast<double>(mask.width) * mask.height * centrality *
                               (clipped ? 0.4 : 1.0) * mask.score;
-    if (view_score > object.best_view.score)
+    if (view_score > object.best_view_score)
     {
-        object.best_view  = { frame.stamp, mask.x, mask.y, mask.width, mask.height, view_score };
-        outcome.best_view = true;
+        object.best_view_score = view_score;
+        outcome.best_view      = true;
     }
     refreshShape(object);
 }
@@ -647,9 +647,8 @@ ObjectMap::integrate(const std::vector<MaskInput>& masks, const FrameInput& fram
             continue;
         }
         MappedObject object;
-        object.id           = next_id_++;
-        outcomes[m].object  = object.id;
-        outcomes[m].created = true;
+        object.id          = next_id_++;
+        outcomes[m].object = object.id;
         absorb(object, *lifted[m], masks[m], frame, outcomes[m]);
         objects_.push_back(std::move(object));
     }
@@ -806,12 +805,9 @@ void ObjectMap::mergeInto(MappedObject& keep, MappedObject& drop) const
                              drop.last_seen - drop.first_seen < params_.sighting_gap_s &&
                              std::abs(keep.first_seen - drop.first_seen) < params_.sighting_gap_s;
     keep.observations += one_instant ? 0 : drop.observations;
-    keep.first_seen = std::min(keep.first_seen, drop.first_seen);
-    keep.last_seen  = std::max(keep.last_seen, drop.last_seen);
-    if (drop.best_view.score > keep.best_view.score)
-    {
-        keep.best_view = drop.best_view;
-    }
+    keep.first_seen      = std::min(keep.first_seen, drop.first_seen);
+    keep.last_seen       = std::max(keep.last_seen, drop.last_seen);
+    keep.best_view_score = std::max(keep.best_view_score, drop.best_view_score);
     if (keep.name.empty())
     {
         keep.name    = drop.name;
