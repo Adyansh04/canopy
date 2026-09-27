@@ -7,7 +7,10 @@ string mode
 ---
 uint8 STATUS_VIEWPOINT=0
 uint8 STATUS_DONE=1
+# Not now: no map or pose yet, or the map has not caught up with the last viewpoint. Ask again.
 uint8 STATUS_UNAVAILABLE=2
+# The last viewpoints were all unreached from here: move the robot off, then ask again.
+uint8 STATUS_STUCK=3
 uint8 status
 
 uint32 viewpoint_id

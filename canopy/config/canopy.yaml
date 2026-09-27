@@ -119,6 +119,9 @@
       # until it has moved.
       max_room_failures: 3
       max_failures_in_a_row: 5
+      # Stuck answers before planning resumes where the robot stands: one that cannot move still
+      # gets the viewpoints left tried, each refusal blacklisting one, and the pass ends.
+      max_stuck_answers: 3
 
     objects:
       voxel: 0.04

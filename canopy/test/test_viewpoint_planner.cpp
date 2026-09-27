@@ -905,13 +905,28 @@ TEST(ViewpointPlanner, WaitsOutAStuckRobotInsteadOfGivingUpEveryRoom)
         }
         planner.report(coverage, plan.viewpoint.id, false);
     }
-    EXPECT_EQ(plan.status, PlanStatus::kUnavailable);
+    EXPECT_EQ(plan.status, PlanStatus::kStuck);
     EXPECT_EQ(refused, planner.params().max_failures_in_a_row);
     EXPECT_EQ(totals(coverage).unobservable, 0);
 
     // Freed and carried a metre on: planning resumes, and no room was given up on the way.
     plan = planner.nextCoverage(coverage, rooms.labels, { 5.0, 0.9, 0.0 });
     EXPECT_EQ(plan.status, PlanStatus::kViewpoint);
+
+    // Never freed: after max_stuck_answers it plans from where it stands anyway.
+    ViewpointPlanner immobile({}, camera.model);
+    for (int i = 0; i < immobile.params().max_failures_in_a_row; ++i)
+    {
+        immobile.report(
+            coverage,
+            immobile.nextCoverage(coverage, rooms.labels, wedged).viewpoint.id,
+            false);
+    }
+    for (int i = 0; i < immobile.params().max_stuck_answers; ++i)
+    {
+        EXPECT_EQ(immobile.nextCoverage(coverage, rooms.labels, wedged).status, PlanStatus::kStuck);
+    }
+    EXPECT_EQ(immobile.nextCoverage(coverage, rooms.labels, wedged).status, PlanStatus::kViewpoint);
 }
 
 TEST(ViewpointPlanner, LooksOnceIntoTheCornerBehindAWardrobe)

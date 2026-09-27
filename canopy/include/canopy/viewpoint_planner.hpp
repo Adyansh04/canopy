@@ -81,6 +81,7 @@ struct PlannerParams
     double blacklist_radius      = 0.5;  ///< Around a viewpoint Nav2 could not reach, m.
     int    max_room_failures     = 3;  ///< Unreached viewpoints in a room never entered: given up.
     int    max_failures_in_a_row = 5;  ///< Anywhere: the robot is stuck, not the rooms unreachable.
+    int    max_stuck_answers     = 3;  ///< Stuck answers before planning resumes where it stands.
 };
 
 struct Viewpoint
@@ -102,6 +103,7 @@ enum class PlanStatus : std::uint8_t
     kViewpoint,
     kDone,
     kUnavailable,
+    kStuck,
 };
 
 struct Plan
@@ -252,7 +254,7 @@ private:
         std::vector<cv::Point2d> edge;  ///< The pocket edge it was planned for, map frame.
     };
 
-    /// True, with @p plan set to unavailable, while the robot stands where it got stuck.
+    /// True, with @p plan set to stuck, while the robot stands where it got stuck.
     bool stuck(const Pose2D& robot, Plan& plan);
     void computeTraversable(const cv::Mat& cells, const GridGeometry& geometry);
     void computeTravel(const GridGeometry& geometry, const Pose2D& robot);
@@ -297,6 +299,7 @@ private:
     std::vector<double>         frontier_known_;  // Known area as each frontier was issued, m2.
     int                         failures_in_a_row_ = 0;
     std::optional<Pose2D>       stuck_at_;
+    int                         stuck_answers_ = 0;
 
     // Why the camera pass ended, once it has: seen from where a pocket look leaves the robot, a
     // leftover viewpoint can pay again, and run 47 walked back for seven of them.

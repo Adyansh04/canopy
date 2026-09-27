@@ -139,6 +139,10 @@ Whatever drives the robot (a behavior tree, a state machine, an agent) repeats:
 2. The same in `coverage` mode, waiting a couple of seconds at each heading for the detector.
 3. `~/save`.
 
+`~/next_viewpoint` may also answer *unavailable* (no map or pose yet, or SLAM still catching up
+with the last viewpoint: ask again shortly) or *stuck* (the last few viewpoints all went unreached
+from where the robot stands: move it off, say a step to more clearance, and ask again).
+
 Nav2's `NavigateToPose` and `Spin` are enough for the walking. grove-g1's `explore.xml` is one
 such tree.
 

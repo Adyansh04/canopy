@@ -270,6 +270,8 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         static_cast<int>(declare_parameter<int>("planner.max_attempts", planner.max_attempts));
     planner.max_room_failures = static_cast<int>(
         declare_parameter<int>("planner.max_room_failures", planner.max_room_failures));
+    planner.max_stuck_answers = static_cast<int>(
+        declare_parameter<int>("planner.max_stuck_answers", planner.max_stuck_answers));
     planner.max_failures_in_a_row = static_cast<int>(
         declare_parameter<int>("planner.max_failures_in_a_row", planner.max_failures_in_a_row));
     planner_ = ViewpointPlanner(planner);
@@ -1571,6 +1573,10 @@ void WorldModelNode::onNextViewpoint(
             return;
         case PlanStatus::kUnavailable:
             response->status = Response::STATUS_UNAVAILABLE;
+            return;
+        case PlanStatus::kStuck:
+            response->status = Response::STATUS_STUCK;
+            RCLCPP_WARN(get_logger(), "%s", plan.reason.c_str());
             return;
         case PlanStatus::kViewpoint:
             break;

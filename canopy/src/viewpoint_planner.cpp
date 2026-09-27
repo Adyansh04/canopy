@@ -1497,13 +1497,18 @@ bool ViewpointPlanner::stuck(const Pose2D& robot, Plan& plan)
         }
         stuck_at_ = robot;
     }
-    if (std::hypot(robot.x - stuck_at_->x, robot.y - stuck_at_->y) >= params_.blacklist_radius)
+    // Moved off, or asked often enough: a robot that cannot move still gets the viewpoints left
+    // tried, each refusal blacklisting one, and the pass ends rather than the mission.
+    if (std::hypot(robot.x - stuck_at_->x, robot.y - stuck_at_->y) >= params_.blacklist_radius ||
+        stuck_answers_ >= params_.max_stuck_answers)
     {
         failures_in_a_row_ = 0;
+        stuck_answers_     = 0;
         stuck_at_.reset();
         return false;
     }
-    plan.status = PlanStatus::kUnavailable;
+    ++stuck_answers_;
+    plan.status = PlanStatus::kStuck;
     plan.reason = "the last " + std::to_string(failures_in_a_row_) +
                   " viewpoints were not reached; the robot seems stuck";
     return true;
