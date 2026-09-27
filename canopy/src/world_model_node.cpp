@@ -1217,8 +1217,9 @@ void WorldModelNode::onDescription(const canopy_msgs::msg::Description::ConstSha
     {
         for (RoomState& room : rooms_)
         {
+            // "other" is the describer finding none of the types fit: no answer to keep.
             if (room.id == subject && !description->room_type.empty() &&
-                room.type_source != "operator")
+                description->room_type != "other" && room.type_source != "operator")
             {
                 room.type            = description->room_type;
                 room.type_confidence = description->confidence;
