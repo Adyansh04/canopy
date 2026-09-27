@@ -1,6 +1,7 @@
-"""ZMQ clients for the host model servers, which run outside the container for torch and CUDA.
+"""ZMQ client for the host model servers, which run outside the container for torch and CUDA.
 
-Both speak REQ/REP with msgpack_numpy bodies and differ only in how a request is named.
+REQ/REP with msgpack_numpy bodies. ReqClient is the transport; VisionClient names a call by
+"endpoint", as servers/semantic_server.py and any server speaking its protocol expect.
 """
 
 import msgpack
@@ -46,26 +47,16 @@ class ReqClient:
 
 
 class VisionClient(ReqClient):
-    """scripts/vision_server.py: the call is named by "endpoint", its body sits under "data"."""
+    """The call is named by "endpoint", its body sits under "data"."""
 
     def __init__(self, address, timeout_ms):
-        super().__init__(address, timeout_ms, "the vision server")
+        super().__init__(address, timeout_ms, "the model server")
 
     def call(self, endpoint, data=None):
         request = {"endpoint": endpoint}
         if data is not None:
             request["data"] = data
         return self._send(endpoint, request)
-
-
-class GraspClient(ReqClient):
-    """GraspGenX upstream: the call is named by "action" and its body is flattened beside it."""
-
-    def __init__(self, address, timeout_ms):
-        super().__init__(address, timeout_ms, "the grasp generator")
-
-    def call(self, action, payload=None):
-        return self._send(action, {"action": action, **(payload or {})})
 
 
 def image_to_array(msg):
