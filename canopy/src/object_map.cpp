@@ -994,6 +994,8 @@ void ObjectMap::restore(std::vector<MappedObject> objects)
         std::sort(object.voxels.begin(), object.voxels.end());
         refreshShape(object);
     }
+    // What rests on what is not saved: re-derived here, as integrate() would on the next frame.
+    relateSupports();
 }
 
 std::map<int, Footprint> fitToMap(

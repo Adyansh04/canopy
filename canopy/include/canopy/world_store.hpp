@@ -35,15 +35,17 @@ struct RoomRecord
 
 struct WorldSnapshot
 {
-    GridGeometry              geometry;
-    std::vector<std::uint8_t> cells;  ///< Cell classes of the map it was built on.
-    int                       next_room = 1;
-    std::vector<RoomRecord>   rooms;
-    std::vector<MappedObject> objects;
-    std::vector<std::uint8_t> quality;
-    std::vector<std::uint8_t> surface_quality;
-    std::vector<std::uint8_t> flags;
-    std::vector<std::uint8_t> directions;
+    GridGeometry               geometry;
+    std::vector<std::uint8_t>  cells;  ///< Cell classes of the map it was built on.
+    std::vector<std::uint8_t>  plan;   ///< The floor plan saved as map.pgm; empty from old saves.
+    int                        next_room = 1;
+    std::vector<RoomRecord>    rooms;
+    std::vector<MappedObject>  objects;
+    std::vector<std::uint8_t>  quality;
+    std::vector<std::uint8_t>  surface_quality;
+    std::vector<std::uint8_t>  flags;
+    std::vector<std::uint16_t> structure_hits;  ///< Wall-height LiDAR returns per cell.
+    std::vector<std::uint16_t> band_clear;      ///< Rays that crossed the wall band per cell.
 };
 
 /**
@@ -54,7 +56,8 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
 
 /**
  * @brief Whether a saved world belongs on this map: same grid within a centimetre, and nearly
- * every cell classed alike. A map saved and served back rounds values; a new map does not fit.
+ * every cell classed alike, as the map it was built on or as its floor plan (map.pgm, which is
+ * what map_server serves back). A new map does not fit.
  */
 bool worldFits(
     const WorldSnapshot& snapshot, const cv::Mat& cells, const GridGeometry& geometry,
@@ -76,6 +79,13 @@ std::string saveOccupancy(
  * @param error Set to what failed when nothing is returned.
  */
 std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string& error);
+
+/**
+ * @brief Moves a saved world out of @p directory into a new subdirectory, @p aside, so a world
+ * that does not fit this map is kept rather than saved over.
+ * @return An empty string on success, else what failed.
+ */
+std::string setAsideWorld(const std::string& directory, std::string& aside);
 
 }  // namespace canopy
 

@@ -1324,16 +1324,33 @@ void WorldModelNode::applyRestore()
     pending_restore_.reset();
     if (!worldFits(snapshot, cells_, geometry_))
     {
-        RCLCPP_WARN(get_logger(), "the saved world was built on a different map; starting empty");
+        // Kept, not saved over: the next autosave writes this run's world in its place.
+        std::string       aside;
+        const std::string failure = setAsideWorld(world_dir_, aside);
+        RCLCPP_WARN(
+            get_logger(),
+            "the saved world was built on a different map; starting empty, %s",
+            failure.empty() ? ("the old one moved to " + aside).c_str() : failure.c_str());
         return;
     }
     objects_.restore(std::move(snapshot.objects));
-    coverage_.restoreLayers(
-        snapshot.quality,
-        snapshot.surface_quality,
-        snapshot.flags,
-        snapshot.directions);
+    coverage_.restoreLayers(snapshot.quality, snapshot.surface_quality, snapshot.flags);
     coverage_.setSurfaces(objects_.surfaces());
+    if (snapshot.structure_hits.size() == geometry_.cellCount())
+    {
+        structure_hits_ = std::move(snapshot.structure_hits);
+        band_clear_     = std::move(snapshot.band_clear);
+        structure_cells_ =
+            static_cast<int>(std::ranges::count_if(structure_hits_, [this](std::uint16_t hits) {
+                return hits >= structure_min_hits_;
+            }));
+        cleared_cells_ =
+            static_cast<int>(std::ranges::count_if(band_clear_, [this](std::uint16_t clear) {
+                return clear >= structure_min_clear_;
+            }));
+    }
+    // Fresh ids for regions no record lands in start past the saved ones, so none repeats.
+    next_room_ = std::max(next_room_, snapshot.next_room);
     resegment();
     // Names and types follow the room that now contains their point.
     for (const RoomRecord& record : snapshot.rooms)
@@ -1350,7 +1367,6 @@ void WorldModelNode::applyRestore()
         room.type_confidence = record.type_confidence;
         room.type_source     = record.type_source;
     }
-    next_room_ = std::max(next_room_, snapshot.next_room);
     // Crops from the last run; an object that already has a name needs no second description.
     for (const MappedObject& object : objects_.objects())
     {
@@ -1932,7 +1948,13 @@ std::string WorldModelNode::saveNow()
     WorldSnapshot snapshot;
     snapshot.geometry = geometry_;
     snapshot.cells.assign(cells_.datastart, cells_.dataend);
-    snapshot.next_room = next_room_;
+    const cv::Mat plan = floorPlan();
+    snapshot.plan.assign(plan.datastart, plan.dataend);
+    const bool walls = structure_hits_.size() == geometry_.cellCount();
+    snapshot.structure_hits =
+        walls ? structure_hits_ : std::vector<std::uint16_t>(snapshot.cells.size());
+    snapshot.band_clear = walls ? band_clear_ : std::vector<std::uint16_t>(snapshot.cells.size());
+    snapshot.next_room  = next_room_;
     for (const RoomState& room : rooms_)
     {
         // A point inside the room: its peak clearance cell would do; its centroid usually does.
@@ -1966,7 +1988,6 @@ std::string WorldModelNode::saveNow()
     snapshot.quality         = *layers[0];
     snapshot.surface_quality = *layers[1];
     snapshot.flags           = *layers[2];
-    snapshot.directions      = *layers[3];
     std::string failure      = saveWorld(world_dir_, snapshot);
     if (failure.empty())
     {
@@ -1981,10 +2002,7 @@ std::string WorldModelNode::saveNow()
                 static_cast<std::streamsize>(jpeg.size()));
         }
         // The map the world was built on, and a picture of both, beside it.
-        if (!cells_.empty())
-        {
-            failure = saveOccupancy(world_dir_, gridMessage(floorPlan()).data, geometry_);
-        }
+        failure = saveOccupancy(world_dir_, gridMessage(plan).data, geometry_);
         if (failure.empty() && !cv::imwrite(
                                    (std::filesystem::path(world_dir_) / "semantic_map.png").string(),
                                    renderSemanticMap()))
@@ -1993,11 +2011,11 @@ std::string WorldModelNode::saveNow()
         }
         // The LiDAR's wall-height returns the plan closes its walls on, north up like map.pgm:
         // with coverage.bin's map they rebuild the floor plan offline.
-        if (failure.empty() && !cells_.empty())
+        if (failure.empty())
         {
-            cv::Mat walls;
-            cv::flip(wallMask(0), walls, 0);
-            if (!cv::imwrite((std::filesystem::path(world_dir_) / "wall_hits.png").string(), walls))
+            cv::Mat hits;
+            cv::flip(wallMask(0), hits, 0);
+            if (!cv::imwrite((std::filesystem::path(world_dir_) / "wall_hits.png").string(), hits))
             {
                 failure = "cannot write wall_hits.png";
             }

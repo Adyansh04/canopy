@@ -8,6 +8,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <cmath>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -19,7 +20,26 @@ namespace
 {
 
 constexpr std::uint32_t kMagic   = 0x4D573147U;  // "G1WM", from its first home; older saves load.
-constexpr std::uint32_t kVersion = 1;
+constexpr std::uint32_t kVersion = 1;            // world.yaml and objects.bin.
+// coverage.bin: 2 adds the floor plan and the wall layers, and drops the unread view directions.
+constexpr std::uint32_t kCoverageVersion = 2;
+
+template <typename Layer>
+void putLayer(std::ostream& out, const Layer& layer)
+{
+    out.write(
+        reinterpret_cast<const char*>(layer.data()),
+        static_cast<std::streamsize>(layer.size() * sizeof(typename Layer::value_type)));
+}
+
+template <typename Layer>
+void getLayer(std::istream& in, Layer& layer, std::uint32_t cells)
+{
+    layer.resize(cells);
+    in.read(
+        reinterpret_cast<char*>(layer.data()),
+        static_cast<std::streamsize>(layer.size() * sizeof(typename Layer::value_type)));
+}
 
 const char* stateName(ObjectState state)
 {
@@ -148,12 +168,6 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
     }
     yaml << YAML::EndSeq;
     yaml << YAML::EndMap;
-    std::string failure =
-        writeAtomically(root / "world.yaml", std::string(yaml.c_str()) + "\n", std::ios::out);
-    if (!failure.empty())
-    {
-        return failure;
-    }
 
     std::ostringstream objects(std::ios::binary);
     put(objects, kMagic);
@@ -172,32 +186,46 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
             reinterpret_cast<const char*>(object.embedding.data()),
             static_cast<std::streamsize>(object.embedding.size() * sizeof(float)));
     }
-    failure =
-        writeAtomically(root / "objects.bin", objects.str(), std::ios::out | std::ios::binary);
-    if (!failure.empty())
-    {
-        return failure;
-    }
-
     std::ostringstream coverage(std::ios::binary);
     put(coverage, kMagic);
-    put(coverage, kVersion);
+    put(coverage, kCoverageVersion);
     put(coverage, static_cast<std::uint32_t>(snapshot.cells.size()));
     for (const auto* layer : { &snapshot.cells,
+                               &snapshot.plan,
                                &snapshot.quality,
                                &snapshot.surface_quality,
-                               &snapshot.flags,
-                               &snapshot.directions })
+                               &snapshot.flags })
     {
         if (layer->size() != snapshot.cells.size())
         {
             return "coverage layers differ in size";
         }
-        coverage.write(
-            reinterpret_cast<const char*>(layer->data()),
-            static_cast<std::streamsize>(layer->size()));
+        putLayer(coverage, *layer);
     }
-    return writeAtomically(root / "coverage.bin", coverage.str(), std::ios::out | std::ios::binary);
+    for (const auto* layer : { &snapshot.structure_hits, &snapshot.band_clear })
+    {
+        if (layer->size() != snapshot.cells.size())
+        {
+            return "coverage layers differ in size";
+        }
+        putLayer(coverage, *layer);
+    }
+
+    // world.yaml last: it names the objects, so a save cut short leaves the old names over new
+    // voxels rather than names with none.
+    std::string failure =
+        writeAtomically(root / "objects.bin", objects.str(), std::ios::out | std::ios::binary);
+    if (failure.empty())
+    {
+        failure =
+            writeAtomically(root / "coverage.bin", coverage.str(), std::ios::out | std::ios::binary);
+    }
+    if (failure.empty())
+    {
+        failure =
+            writeAtomically(root / "world.yaml", std::string(yaml.c_str()) + "\n", std::ios::out);
+    }
+    return failure;
 }
 
 bool worldFits(
@@ -213,13 +241,17 @@ bool worldFits(
     {
         return false;
     }
-    std::size_t agree = 0;
-    const auto* now   = cells.ptr<std::uint8_t>(0);
-    for (std::size_t index = 0; index < snapshot.cells.size(); ++index)
-    {
-        agree += static_cast<std::size_t>(snapshot.cells[index] == now[index]);
-    }
-    return static_cast<double>(agree) >= min_agreement * static_cast<double>(snapshot.cells.size());
+    const auto* now        = cells.ptr<std::uint8_t>(0);
+    const auto  agree_with = [&](const std::vector<std::uint8_t>& saved) {
+        std::size_t agree = 0;
+        for (std::size_t index = 0; index < saved.size(); ++index)
+        {
+            agree += static_cast<std::size_t>(saved[index] == now[index]);
+        }
+        return static_cast<double>(agree) >= min_agreement * static_cast<double>(saved.size());
+    };
+    return agree_with(snapshot.cells) ||
+           (snapshot.plan.size() == snapshot.cells.size() && agree_with(snapshot.plan));
 }
 
 std::string saveOccupancy(
@@ -382,23 +414,43 @@ std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string
         object.embedding       = std::move(embedding);
         object.embedding_count = embedded;
     }
+    // One named in world.yaml with nothing in objects.bin is nowhere, and never missed.
+    std::erase_if(snapshot.objects, [](const MappedObject& object) {
+        return object.voxels.empty();
+    });
 
     std::ifstream coverage(root / "coverage.bin", std::ios::binary);
     std::uint32_t cells = 0;
     if (!get(coverage, magic) || !get(coverage, version) || !get(coverage, cells) ||
-        magic != kMagic || version != kVersion)
+        magic != kMagic || (version != 1 && version != kCoverageVersion))
     {
         error = "coverage.bin is missing or not a world file";
         return std::nullopt;
     }
-    for (auto* layer : { &snapshot.cells,
-                         &snapshot.quality,
-                         &snapshot.surface_quality,
-                         &snapshot.flags,
-                         &snapshot.directions })
+    if (version == 1)
     {
-        layer->resize(cells);
-        coverage.read(reinterpret_cast<char*>(layer->data()), static_cast<std::streamsize>(cells));
+        std::vector<std::uint8_t> directions;
+        for (auto* layer : { &snapshot.cells,
+                             &snapshot.quality,
+                             &snapshot.surface_quality,
+                             &snapshot.flags,
+                             &directions })
+        {
+            getLayer(coverage, *layer, cells);
+        }
+    }
+    else
+    {
+        for (auto* layer : { &snapshot.cells,
+                             &snapshot.plan,
+                             &snapshot.quality,
+                             &snapshot.surface_quality,
+                             &snapshot.flags })
+        {
+            getLayer(coverage, *layer, cells);
+        }
+        getLayer(coverage, snapshot.structure_hits, cells);
+        getLayer(coverage, snapshot.band_clear, cells);
     }
     if (!coverage)
     {
@@ -406,6 +458,38 @@ std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string
         return std::nullopt;
     }
     return snapshot;
+}
+
+std::string setAsideWorld(const std::string& directory, std::string& aside)
+{
+    const std::filesystem::path root(directory);
+    const std::filesystem::path to = root / ("unfit-" + std::to_string(std::time(nullptr)));
+    std::error_code             error;
+    std::filesystem::create_directories(to, error);
+    if (error)
+    {
+        return "cannot create " + to.string() + ": " + error.message();
+    }
+    for (const char* name : { "world.yaml",
+                              "objects.bin",
+                              "coverage.bin",
+                              "map.pgm",
+                              "map.yaml",
+                              "semantic_map.png",
+                              "wall_hits.png",
+                              "crops" })
+    {
+        if (std::filesystem::exists(root / name))
+        {
+            std::filesystem::rename(root / name, to / name, error);
+            if (error)
+            {
+                return "cannot move " + (root / name).string() + ": " + error.message();
+            }
+        }
+    }
+    aside = to.string();
+    return {};
 }
 
 }  // namespace canopy

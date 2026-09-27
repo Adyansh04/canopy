@@ -1247,6 +1247,7 @@ Plan ViewpointPlanner::nextCoverage(
             here.gain      = gain;
             here.cost      = cost;
             here.predicted = seen;
+            here.grid      = coverage.geometry();
             if (gain >= params_.min_viewpoint_gain)
             {
                 options.push_back(here);
@@ -1574,7 +1575,8 @@ void ViewpointPlanner::report(CoverageMap& coverage, std::uint32_t id, bool reac
             ++entry->failures;
         }
     }
-    else
+    // Indices into another grid, once SLAM has redrawn it, would charge unrelated targets.
+    else if (coverage.geometry() == issued->grid)
     {
         const int count = static_cast<int>(coverage.geometry().cellCount());
         for (const int target : issued->predicted)
@@ -1589,7 +1591,7 @@ void ViewpointPlanner::report(CoverageMap& coverage, std::uint32_t id, bool reac
             }
             else if (
                 coverage.surfacePending(target - count) &&
-                coverage.countAttempt(target - count) >= params_.max_attempts)
+                coverage.countSurfaceAttempt(target - count) >= params_.max_attempts)
             {
                 coverage.markSurfaceUnobservable(target - count);
             }

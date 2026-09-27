@@ -191,18 +191,10 @@ public:
     }
 
     /// Counts a visit that was predicted to cover the target; returns the new count.
-    int countAttempt(int index);
+    int countAttempt(int index) { return bumpAttempts(index, kAttemptShift); }
 
-    [[nodiscard]] std::uint16_t views(int index) const
-    {
-        return views_[static_cast<std::size_t>(index)];
-    }
-
-    /// Bit i set: seen from azimuth sector i of 8, measured from the target towards the camera.
-    [[nodiscard]] std::uint8_t directions(int index) const
-    {
-        return directions_[static_cast<std::size_t>(index)];
-    }
+    /// The same for the surface over cell @p index, which keeps a count of its own.
+    int countSurfaceAttempt(int index) { return bumpAttempts(index, kSurfaceAttemptShift); }
 
     /// Whether a target still needs a view: exists, not seen well enough, not written off.
     [[nodiscard]] bool pending(int index) const
@@ -251,22 +243,24 @@ public:
     [[nodiscard]] const cv::Mat&        cells() const { return cells_; }
     [[nodiscard]] const CoverageParams& params() const { return params_; }
 
-    /// Raw per-cell layers, for persistence: quality, surface quality, flags, directions.
-    [[nodiscard]] std::array<const std::vector<std::uint8_t>*, 4> layers() const
+    /// Raw per-cell layers, for persistence: quality, surface quality, flags.
+    [[nodiscard]] std::array<const std::vector<std::uint8_t>*, 3> layers() const
     {
-        return { &quality_, &surface_quality_, &flags_, &directions_ };
+        return { &quality_, &surface_quality_, &flags_ };
     }
 
     /// Restores layers saved from the same geometry; returns false on a size mismatch.
     bool restoreLayers(
         const std::vector<std::uint8_t>& quality, const std::vector<std::uint8_t>& surface_quality,
-        const std::vector<std::uint8_t>& flags, const std::vector<std::uint8_t>& directions);
+        const std::vector<std::uint8_t>& flags);
 
 private:
     static constexpr std::uint8_t kUnobservableFlag        = 0x01U;
-    static constexpr int          kAttemptShift            = 1;
-    static constexpr std::uint8_t kAttemptMask             = 0x0EU;
+    static constexpr int          kAttemptShift            = 1;  ///< 3 bits: 0x0E.
     static constexpr std::uint8_t kSurfaceUnobservableFlag = 0x10U;
+    static constexpr int          kSurfaceAttemptShift     = 5;  ///< 3 bits: 0xE0.
+
+    int bumpAttempts(int index, int shift);
 
     struct PixelRay
     {
@@ -279,7 +273,7 @@ private:
     };
 
     void rebuildRays(const Intrinsics& intrinsics);
-    void credit(std::size_t index, float quality, const Eigen::Vector3d& towards_camera);
+    void credit(std::size_t index, float quality);
     void rebuildNearestFaces();
     /// The face a wall sample belongs to: the nearest one that faces the camera, or -1.
     [[nodiscard]] int faceFacing(
@@ -289,20 +283,16 @@ private:
     GridGeometry   geometry_;
     cv::Mat        cells_;
 
-    std::vector<std::uint8_t>  kind_;
-    std::vector<std::uint8_t>  quality_;
-    std::vector<std::uint8_t>  surface_quality_;
-    std::vector<std::uint8_t>  flags_;
-    std::vector<std::uint8_t>  directions_;
-    std::vector<std::uint8_t>  planned_;  // From the last plan, for display; empty before one.
-    std::vector<std::uint16_t> views_;
-    std::vector<std::uint32_t> last_frame_;
-    std::vector<cv::Vec2f>     normal_;
-    std::vector<int>           nearest_face_;  // Per cell, the face within face_reach, or -1.
-    std::vector<int>           surface_at_;
-    std::vector<double>        surface_height_;
-    std::map<int, double>      surface_top_;  // Per owner, the height its top was credited at.
-    std::uint32_t              frame_ = 0;
+    std::vector<std::uint8_t> kind_;
+    std::vector<std::uint8_t> quality_;
+    std::vector<std::uint8_t> surface_quality_;
+    std::vector<std::uint8_t> flags_;
+    std::vector<std::uint8_t> planned_;  // From the last plan, for display; empty before one.
+    std::vector<cv::Vec2f>    normal_;
+    std::vector<int>          nearest_face_;  // Per cell, the face within face_reach, or -1.
+    std::vector<int>          surface_at_;
+    std::vector<double>       surface_height_;
+    std::map<int, double>     surface_top_;  // Per owner, the height its top was credited at.
 
     Intrinsics            rays_for_;
     int                   rays_stride_ = 0;

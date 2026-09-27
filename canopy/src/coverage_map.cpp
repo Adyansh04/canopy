@@ -21,15 +21,6 @@ float incidenceLimitCos(double limit) { return static_cast<float>(std::cos(limit
 
 constexpr float kSameFacing = 0.7F;  // Cosine between two faces' normals: within 45 degrees.
 
-/// Sector 0..7 of an azimuth, counter-clockwise from +x.
-std::uint8_t sectorOf(double dx, double dy)
-{
-    const double angle = std::atan2(dy, dx) + std::numbers::pi;  // 0..2 pi
-    const int    sector =
-        static_cast<int>(std::floor(angle / (std::numbers::pi / 4.0))) % 8;  // NOLINT
-    return static_cast<std::uint8_t>(1U << static_cast<unsigned>(sector));
-}
-
 }  // namespace
 
 CoverageMap::CoverageMap(CoverageParams params)
@@ -52,9 +43,6 @@ void CoverageMap::setMap(const cv::Mat& cells, const GridGeometry& geometry)
         quality_         = remapLayer<std::uint8_t>(quality_, from, geometry, 0);
         surface_quality_ = remapLayer<std::uint8_t>(surface_quality_, from, geometry, 0);
         flags_           = remapLayer<std::uint8_t>(flags_, from, geometry, 0);
-        directions_      = remapLayer<std::uint8_t>(directions_, from, geometry, 0);
-        views_           = remapLayer<std::uint16_t>(views_, from, geometry, 0);
-        last_frame_      = remapLayer<std::uint32_t>(last_frame_, from, geometry, 0);
         surface_at_.assign(count, -1);
         surface_height_.clear();
     }
@@ -116,6 +104,17 @@ void CoverageMap::setMap(const cv::Mat& cells, const GridGeometry& geometry)
     const int reach = std::max(1, geometry.cellsFor(params_.face_redraw_reach));
     const std::vector<std::uint8_t> before = quality_;
     const auto                      face   = static_cast<std::uint8_t>(TargetKind::kFace);
+    // A cell that changed kind keeps nothing it earned as the other kind: floor seen from above
+    // says nothing of the side of a box set down on it.
+    const auto own_flags = static_cast<std::uint8_t>(kUnobservableFlag | (0x07U << kAttemptShift));
+    for (std::size_t index = 0; index < count; ++index)
+    {
+        if (kind_[index] != old_kind[index])
+        {
+            quality_[index] = 0;
+            flags_[index] &= static_cast<std::uint8_t>(~own_flags);
+        }
+    }
     for (int y = 0; y < rows; ++y)
     {
         for (int x = 0; x < cols; ++x)
@@ -140,17 +139,6 @@ void CoverageMap::setMap(const cv::Mat& cells, const GridGeometry& geometry)
                         quality_[index] = std::max(quality_[index], before[other]);
                     }
                 }
-            }
-        }
-    }
-    // A cell that changed kind keeps nothing it earned as the other kind.
-    if (same_grid)
-    {
-        for (std::size_t index = 0; index < count; ++index)
-        {
-            if (kind_[index] == static_cast<std::uint8_t>(TargetKind::kNone))
-            {
-                quality_[index] = 0;
             }
         }
     }
@@ -277,14 +265,8 @@ void CoverageMap::rebuildRays(const Intrinsics& intrinsics)
     rays_stride_ = stride;
 }
 
-void CoverageMap::credit(std::size_t index, float quality, const Eigen::Vector3d& towards_camera)
+void CoverageMap::credit(std::size_t index, float quality)
 {
-    if (last_frame_[index] != frame_)
-    {
-        last_frame_[index] = frame_;
-        views_[index]      = static_cast<std::uint16_t>(std::min<int>(views_[index] + 1, 0xFFFF));
-    }
-    directions_[index] |= sectorOf(towards_camera.x(), towards_camera.y());
     const auto scaled =
         static_cast<std::uint8_t>(std::lround(std::clamp(quality, 0.0F, 1.0F) * 255.0F));
     quality_[index] = std::max(quality_[index], scaled);
@@ -389,7 +371,6 @@ std::size_t CoverageMap::integrate(
     {
         rebuildRays(intrinsics);
     }
-    ++frame_;
 
     const Eigen::Matrix3d rotation = map_from_camera.linear();
     const Eigen::Vector3d origin   = map_from_camera.translation();
@@ -433,7 +414,7 @@ std::size_t CoverageMap::integrate(
             {
                 const std::uint8_t old = before(index, false);
                 const float quality = viewQuality(range, towards.z(), ray.edge, TargetKind::kFloor);
-                credit(index, quality, towards);
+                credit(index, quality);
                 improved += static_cast<std::size_t>(quality_[index] > old);
             }
             continue;
@@ -468,18 +449,18 @@ std::size_t CoverageMap::integrate(
         const double cos_incidence =
             std::max((towards.x() * normal[0]) + (towards.y() * normal[1]), towards.z());
         const std::uint8_t old = before(face_index, false);
-        credit(face_index, viewQuality(range, cos_incidence, ray.edge, TargetKind::kFace), towards);
+        credit(face_index, viewQuality(range, cos_incidence, ray.edge, TargetKind::kFace));
         improved += static_cast<std::size_t>(quality_[face_index] > old);
     }
     return improved;
 }
 
-int CoverageMap::countAttempt(int index)
+int CoverageMap::bumpAttempts(int index, int shift)
 {
-    auto&     flags    = flags_[static_cast<std::size_t>(index)];
-    const int attempts = std::min(7, ((flags & kAttemptMask) >> kAttemptShift) + 1);
-    flags              = static_cast<std::uint8_t>(
-        (flags & ~kAttemptMask) | (static_cast<unsigned>(attempts) << kAttemptShift));
+    auto&          flags    = flags_[static_cast<std::size_t>(index)];
+    const unsigned mask     = 0x07U << shift;
+    const int      attempts = std::min(7, static_cast<int>((flags & mask) >> shift) + 1);
+    flags = static_cast<std::uint8_t>((flags & ~mask) | (static_cast<unsigned>(attempts) << shift));
     return attempts;
 }
 
@@ -573,18 +554,16 @@ std::vector<std::int8_t> CoverageMap::statusGrid() const
 
 bool CoverageMap::restoreLayers(
     const std::vector<std::uint8_t>& quality, const std::vector<std::uint8_t>& surface_quality,
-    const std::vector<std::uint8_t>& flags, const std::vector<std::uint8_t>& directions)
+    const std::vector<std::uint8_t>& flags)
 {
     const std::size_t count = geometry_.cellCount();
-    if (quality.size() != count || surface_quality.size() != count || flags.size() != count ||
-        directions.size() != count)
+    if (quality.size() != count || surface_quality.size() != count || flags.size() != count)
     {
         return false;
     }
     quality_         = quality;
     surface_quality_ = surface_quality;
     flags_           = flags;
-    directions_      = directions;
     return true;
 }
 

@@ -172,10 +172,17 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     object.state           = ObjectState::kStale;
     object.best_view       = { 12.5, 10, 20, 30, 40, 900.0 };
     snapshot.objects.push_back(object);
+    // One world.yaml names with nothing in objects.bin, as a save cut short leaves it.
+    MappedObject torn;
+    torn.id    = 13;
+    torn.votes = { { "sofa", 1.0F } };
+    snapshot.objects.push_back(torn);
+    snapshot.plan            = { kFree, kOccupied, kOccupied };
     snapshot.quality         = { 0, 128, 255 };
     snapshot.surface_quality = { 1, 2, 3 };
     snapshot.flags           = { 0, 1, 0 };
-    snapshot.directions      = { 0, 0, 7 };
+    snapshot.structure_hits  = { 0, 900, 3 };
+    snapshot.band_clear      = { 7, 0, 65535 };
 
     const std::string directory =
         (std::filesystem::temp_directory_path() / "canopy_world_store_test").string();
@@ -191,11 +198,14 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     const cv::Mat other = (cv::Mat_<std::uint8_t>(1, 3) << kOccupied, kOccupied, kFree);
     EXPECT_TRUE(worldFits(*loaded, same, snapshot.geometry));
     EXPECT_FALSE(worldFits(*loaded, other, snapshot.geometry));
+    // Its floor plan, as map_server serves map.pgm back, fits as well.
+    const cv::Mat served = (cv::Mat_<std::uint8_t>(1, 3) << kFree, kOccupied, kOccupied);
+    EXPECT_TRUE(worldFits(*loaded, served, snapshot.geometry));
     EXPECT_EQ(loaded->next_room, 4);
     ASSERT_EQ(loaded->rooms.size(), 1U);
     EXPECT_EQ(loaded->rooms[0].name, "room B");
     EXPECT_DOUBLE_EQ(loaded->rooms[0].y, -1.25);
-    ASSERT_EQ(loaded->objects.size(), 1U);
+    ASSERT_EQ(loaded->objects.size(), 1U);  // Not the torn one.
     const MappedObject& back = loaded->objects[0];
     EXPECT_EQ(back.id, 12);
     EXPECT_EQ(back.label(), "dustbin");
@@ -205,7 +215,16 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     EXPECT_EQ(back.embedding_count, 3);
     EXPECT_EQ(back.state, ObjectState::kStale);
     EXPECT_EQ(back.best_view.width, 30);
-    EXPECT_EQ(loaded->directions, snapshot.directions);
+    EXPECT_EQ(loaded->structure_hits, snapshot.structure_hits);
+    EXPECT_EQ(loaded->band_clear, snapshot.band_clear);
+
+    // Set aside rather than saved over: the directory is empty of it, the copy loads.
+    std::string aside;
+    ASSERT_EQ(setAsideWorld(directory, aside), "");
+    EXPECT_FALSE(loadWorld(directory, error).has_value());
+    const auto kept = loadWorld(aside, error);
+    ASSERT_TRUE(kept.has_value()) << error;
+    EXPECT_EQ(kept->objects.size(), 1U);
     std::filesystem::remove_all(directory);
 }
 

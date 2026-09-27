@@ -344,6 +344,21 @@ TEST(CoverageMap, KeepsAWallsCreditWhenSlamRedrawsItACellBack)
         }
     }
     EXPECT_EQ(box_seen, 0);
+    // A box set down on floor the camera saw: its sides were never seen as sides.
+    const CellIndex set = world.geometry.toCell(7.4, 5.9);
+    ASSERT_TRUE(coverage.wellSeen(world.geometry.index(set)));
+    cv::Mat moved = redrawn.clone();
+    moved(cv::Rect(set.x, set.y, 6, 6)).setTo(kOccupied);
+    coverage.setMap(moved, world.geometry);
+    int sides_seen = 0;
+    for (int y = set.y; y < set.y + 6; ++y)
+    {
+        for (int x = set.x; x < set.x + 6; ++x)
+        {
+            sides_seen += static_cast<int>(coverage.wellSeen(world.geometry.index(x, y)));
+        }
+    }
+    EXPECT_EQ(sides_seen, 0);
 }
 
 TEST(CoverageMap, CreditsTheNearSideOfAThinWall)
@@ -715,6 +730,39 @@ TEST(ViewpointPlanner, KeepsGoingWhereTheMapLeadsOnAfterVisitsStall)
     EXPECT_EQ(planner.nextFrontier(cells, world.geometry, robot).status, PlanStatus::kDone);
 }
 
+TEST(ViewpointPlanner, ChargesNothingWhenSlamRegridsBeforeTheReport)
+{
+    // Planned on one grid; SLAM grows the map a metre west while the robot walks there.
+    const World  world = twoRoomsAndACorridor();
+    const Camera camera;
+    CoverageMap  coverage;
+    coverage.setMap(world.cells, world.geometry);
+    ViewpointPlanner planner({}, camera.model);
+    const Plan       plan = planner.nextCoverage(coverage, {}, { 1.0, 0.9, 0.0 });
+    ASSERT_EQ(plan.status, PlanStatus::kViewpoint);
+    ASSERT_FALSE(plan.viewpoint.predicted.empty());
+
+    const int pad = cellsOf(1.0);
+    cv::Mat   grown(world.cells.rows, world.cells.cols + pad, CV_8UC1, cv::Scalar(kUnknown));
+    const GridGeometry wider{ kResolution, -1.0, 0.0, grown.cols, grown.rows };
+    world.cells.copyTo(grown(cv::Rect(pad, 0, world.cells.cols, world.cells.rows)));
+    coverage.setMap(grown, wider);
+    planner.report(coverage, plan.viewpoint.id, true);
+    const std::vector<std::uint8_t>& flags = *coverage.layers()[2];
+    EXPECT_TRUE(std::ranges::all_of(flags, [](std::uint8_t f) { return f == 0; }));
+}
+
+TEST(CoverageMap, CountsASurfacesAttemptsApartFromItsCells)
+{
+    const World world = twoRoomsAndACorridor();
+    CoverageMap coverage;
+    coverage.setMap(world.cells, world.geometry);
+    const int cell = world.geometry.index(world.geometry.toCell(2.5, 4.4));
+    EXPECT_EQ(coverage.countAttempt(cell), 1);
+    EXPECT_EQ(coverage.countSurfaceAttempt(cell), 1);
+    EXPECT_EQ(coverage.countAttempt(cell), 2);
+}
+
 TEST(ViewpointPlanner, AvoidsAViewpointNavigationCouldNotReach)
 {
     const World  world = twoRoomsAndACorridor();
@@ -1010,7 +1058,7 @@ TEST(ViewpointPlanner, StaysDoneOnceTheCameraPassEnds)
         }
     }
     const std::vector<std::uint8_t> none(count, 0);
-    ASSERT_TRUE(coverage.restoreLayers(quality, none, none, none));
+    ASSERT_TRUE(coverage.restoreLayers(quality, none, none));
     const Segmentation rooms = segmentRooms(world.cells, world.geometry, {});
     PlannerParams      params;
     params.min_viewpoint_rate = 3.0;

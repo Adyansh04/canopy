@@ -93,6 +93,7 @@ struct Viewpoint
     double              gain = 0.0;  ///< Weighted targets predicted to be seen.
     double              cost = 0.0;  ///< Predicted time, s.
     std::vector<int>    predicted;   ///< Target cells it should see; surfaces offset by cells.
+    GridGeometry        grid;        ///< The grid `predicted` indexes.
 };
 
 enum class PlanStatus : std::uint8_t
