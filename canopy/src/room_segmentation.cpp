@@ -154,10 +154,12 @@ int persistenceLabels(
             }
             // A dropped peak joins the region it touches here, not whichever component its
             // neighbour had merged into higher up: that could be across a doorway.
+            // Of the survivor's cells: two peaks dying at one cell would otherwise each take the
+            // other, and the floor draining into them would belong to no room.
             int across = -1;
             for (std::size_t n = 0; n < neighbour_count; ++n)
             {
-                if (neighbour_roots[n] != roots[i] &&
+                if (neighbour_roots[n] == elder &&
                     (across < 0 || height[neighbours[n]] > height[across]))
                 {
                     across = neighbours[n];

@@ -217,6 +217,9 @@ TEST(RoomSegmentation, SplitsTheFacilityIntoItsRoomsAndHub)
     }
     EXPECT_GE(result.regions.size(), 4U);
     EXPECT_LE(result.regions.size(), 6U);
+    // Two peaks die where three regions meet here. Pointing at each other instead of at the
+    // survivor, they left 596 more free cells in no room; the rest lie outside the building.
+    EXPECT_LE(cv::countNonZero((cells == kFree) & (result.labels == 0)), 4454);
 }
 
 TEST(RoomSegmentation, FindsTheApartmentsRooms)
