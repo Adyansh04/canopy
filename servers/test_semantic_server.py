@@ -298,6 +298,11 @@ class GeminiTest(Scratch):
         usage = self.limiter().usage()["models"]["lite"]
         self.assertEqual((usage["count"], usage["parked_until"]), (2, 0.0))
 
+    def test_an_error_that_is_only_text_asks_the_next_model(self):
+        transport = Transport((502, b'{"error": "bad gateway"}'), (200, gemini_reply(MUG)))
+        self.describe(self.describer(transport))
+        self.assertEqual(transport.models, ["lite", "flash"])
+
     def test_an_unusable_answer_asks_the_next_model(self):
         transport = Transport(
             (200, gemini_reply({"caption": "?"})), (200, gemini_reply(MUG, "flash"))

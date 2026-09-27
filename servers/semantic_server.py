@@ -716,6 +716,8 @@ class GeminiDescriber:
                 error = json.loads(reply).get("error", {})
             except (ValueError, AttributeError):
                 error = {}
+            if not isinstance(error, dict):  # {"error": "..."}, as a proxy in the way might send
+                error = {"message": str(error)}
             detail = self._redact(f"{error.get('status', '')} {error.get('message', '')}".strip())
             if status == 429 or "RESOURCE_EXHAUSTED" in detail or "quota" in detail.lower():
                 wait = _retry_after(error)
@@ -1171,6 +1173,8 @@ def main():
         server = build_server(config)
     except (ImportError, OSError) as error:
         sys.exit(f"{error}\n\n{VENV_HINT}")
+    except (KeyError, ValueError) as error:
+        sys.exit(f"bad config: {type(error).__name__} {error}")
     if args.self_test:
         return self_test(server, args)
     serve(server, config)
