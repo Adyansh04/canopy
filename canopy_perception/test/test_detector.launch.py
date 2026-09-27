@@ -139,8 +139,9 @@ class TestDetector(unittest.TestCase):
         self.assertIsNotNone(masks, "no masks for the frames that were published")
         answered = (masks.header.stamp.sec, masks.header.stamp.nanosec)
         # Any frame published so far counts; which one the detector held is up to it.
-        self.assertIn(answered, self.sent_stamps,
-                      "the masks are stamped with something other than a frame")
+        self.assertIn(
+            answered, self.sent_stamps, "the masks are stamped with something other than a frame"
+        )
 
     def test_04_an_empty_phrase_list_stops_the_stream(self):
         client = self.node.create_client(SetParameters, "/detector/set_parameters")

@@ -14,7 +14,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
 endif()
 
-set(CANOPY_PYTHON_DIRS test launch scripts)
+set(CANOPY_PYTHON_DIRS test launch scripts ${PROJECT_NAME})
 
 function(canopy_target_defaults target)
   target_include_directories(${target} PUBLIC
@@ -108,8 +108,12 @@ function(_canopy_add_ruff_test)
     NAME ruff_check_${PROJECT_NAME}
     COMMAND ${RUFF_EXECUTABLE} check --config ${_config} ${_targets}
   )
+  add_test(
+    NAME ruff_format_${PROJECT_NAME}
+    COMMAND ${RUFF_EXECUTABLE} format --check --config ${_config} ${_targets}
+  )
   # From the build dir, ruff.toml's relative src= would not resolve and isort finds nothing.
-  set_tests_properties(ruff_check_${PROJECT_NAME} PROPERTIES
+  set_tests_properties(ruff_check_${PROJECT_NAME} ruff_format_${PROJECT_NAME} PROPERTIES
     WORKING_DIRECTORY "${CANOPY_ROOT}")
 endfunction()
 
