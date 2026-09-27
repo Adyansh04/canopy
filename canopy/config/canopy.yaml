@@ -58,6 +58,9 @@
       # Paths keep one map cell more than the radius, as Nav2's inflation does.
       travel_margin: 0.05
       candidate_spacing: 0.40
+      # Prediction rays per full turn and headings tried per position.
+      ray_count: 240
+      heading_count: 16
       max_headings: 3
       min_heading_gain: 20.0
       min_viewpoint_gain: 40.0
@@ -68,6 +71,9 @@
       min_viewpoint_rate: 2.0
       room_floor_goal: 0.9
       room_face_goal: 0.8
+      # Objects stand against faces and sit on surfaces, so those targets weigh more than floor.
+      face_weight: 2.0
+      surface_weight: 3.0
       # Measured on the AGILE gait: Nav2 averages about 0.35 m/s, turning is 1:1 up to 0.84 rad/s.
       travel_speed: 0.35
       turn_speed: 0.8
@@ -85,6 +91,8 @@
       tour_size: 8
       min_frontier_size: 0.75
       frontier_stand_back: 0.5
+      # Gaps between LiDAR beams closed before frontiers are found, m.
+      frontier_gap_close: 0.15
       # A frontier worth walking to opens onto this much unknown, m2: the shadow behind a sofa is a
       # pocket, not a way on; the coverage pass still looks there with the camera.
       min_frontier_unknown: 4.0
@@ -114,6 +122,8 @@
       # were walks of up to 50 s for strips the floor plan closes anyway.
       pocket_min_edge: 0.4
       max_attempts: 2
+      # Around a viewpoint Nav2 could not reach, nothing is offered again, m.
+      blacklist_radius: 0.5
       # Unreached viewpoints in a room the robot has never got into before it stops trying that
       # room, and in a row anywhere before it decides the robot itself is stuck and plans nothing
       # until it has moved.
@@ -122,6 +132,14 @@
       # Stuck answers before planning resumes where the robot stands: one that cannot move still
       # gets the viewpoints left tried, each refusal blacklisting one, and the pass ends.
       max_stuck_answers: 3
+
+    search:
+      # Text-to-object embedding cosine onto a 0-1 score: SigLIP 2 puts unrelated text near the
+      # floor and a clear match a span above it. Another embedder needs its own.
+      embedding_floor: 0.05
+      embedding_span: 0.25
+      # FindObjects answers found once its best match scores this.
+      found_score: 0.5
 
     objects:
       voxel: 0.04

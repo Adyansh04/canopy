@@ -180,6 +180,11 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         declare_parameter<double>("describe_rooms_below", describe_rooms_below_);
     describe_room_coverage_ =
         declare_parameter<double>("describe_room_coverage", describe_room_coverage_);
+    search_embedding_floor_ =
+        declare_parameter<double>("search.embedding_floor", search_embedding_floor_);
+    search_embedding_span_ =
+        declare_parameter<double>("search.embedding_span", search_embedding_span_);
+    search_found_score_  = declare_parameter<double>("search.found_score", search_found_score_);
     structure_enabled_   = declare_parameter<bool>("structure.enabled", true);
     structure_min_z_     = declare_parameter<double>("structure.min_z", 1.4);
     structure_max_z_     = declare_parameter<double>("structure.max_z", 2.2);
@@ -216,6 +221,17 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         declare_parameter<double>("planner.travel_margin", planner.travel_margin);
     planner.candidate_spacing =
         declare_parameter<double>("planner.candidate_spacing", planner.candidate_spacing);
+    planner.ray_count =
+        static_cast<int>(declare_parameter<int>("planner.ray_count", planner.ray_count));
+    planner.heading_count =
+        static_cast<int>(declare_parameter<int>("planner.heading_count", planner.heading_count));
+    planner.face_weight = declare_parameter<double>("planner.face_weight", planner.face_weight);
+    planner.surface_weight =
+        declare_parameter<double>("planner.surface_weight", planner.surface_weight);
+    planner.frontier_gap_close =
+        declare_parameter<double>("planner.frontier_gap_close", planner.frontier_gap_close);
+    planner.blacklist_radius =
+        declare_parameter<double>("planner.blacklist_radius", planner.blacklist_radius);
     planner.max_headings =
         static_cast<int>(declare_parameter<int>("planner.max_headings", planner.max_headings));
     planner.min_heading_gain =
@@ -1791,7 +1807,9 @@ std::vector<std::pair<const MappedObject*, double>> WorldModelNode::matchObjects
             {
                 cosine += static_cast<double>(query_embedding[i]) * object.embedding[i];
             }
-            score = std::max(score, std::clamp((cosine - 0.05) / 0.25, 0.0, 1.0));
+            score = std::max(
+                score,
+                std::clamp((cosine - search_embedding_floor_) / search_embedding_span_, 0.0, 1.0));
         }
         if (object.state == ObjectState::kStale)
         {
@@ -1820,7 +1838,7 @@ void WorldModelNode::onFindObjects(
         response->objects.push_back(toMessage(*matches[i].first));
         response->scores.push_back(static_cast<float>(matches[i].second));
     }
-    response->found = !matches.empty() && matches.front().second >= 0.5;
+    response->found = !matches.empty() && matches.front().second >= search_found_score_;
 
     // What share of the searched rooms the camera has seen: a "no" is only as good as this.
     const std::vector<CoverageTally> tallies =

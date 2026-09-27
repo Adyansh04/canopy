@@ -209,6 +209,9 @@ private:
     int         describe_room_views_    = 3;
     double      describe_rooms_below_   = 0.8;
     double      describe_room_coverage_ = 0.8;
+    double      search_embedding_floor_ = 0.05;
+    double      search_embedding_span_  = 0.25;
+    double      search_found_score_     = 0.5;
     bool        structure_enabled_      = true;
     double      structure_min_z_        = 1.4;
     double      structure_max_z_        = 2.2;
