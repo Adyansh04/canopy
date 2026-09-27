@@ -4,6 +4,12 @@
 # onto them, for typing and for finding objects by name.
 unlisted: 0.08
 
+# A long narrow region is a hallway whatever the table says: narrower than max_width, m, and
+# aspect times longer with at most most_objects kinds of thing in it, or corridor_aspect times
+# longer whatever stands in it, since a real detector's strays along a corridor's walls must not
+# make it a room.
+hallway: { max_width: 2.2, aspect: 3.0, most_objects: 2, corridor_aspect: 5.0, probability: 0.8 }
+
 room_types:
   kitchen:
     prior: 0.15

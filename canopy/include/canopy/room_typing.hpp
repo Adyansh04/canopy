@@ -12,6 +12,7 @@
  * in them are hallways whatever the table says.
  */
 
+#include <cstddef>
 #include <map>
 #include <string>
 #include <vector>
@@ -27,8 +28,19 @@ struct RoomTypeTable
     std::map<std::string, std::string>         synonyms;    ///< Other word -> the table's word.
     double unlisted = 0.08;  ///< P(present | type) for a label the type does not list.
 
-    /// Parses the `room_types` table and the `synonyms` of a YAML file; throws YAML::Exception on
-    /// bad input.
+    /// A hallway: narrower than max_width and aspect times longer with at most most_objects kinds
+    /// in it, or corridor_aspect times longer whatever is in it. Typed with this probability.
+    struct Hallway
+    {
+        double      max_width       = 2.2;
+        double      aspect          = 3.0;
+        std::size_t most_objects    = 2;
+        double      corridor_aspect = 5.0;
+        double      probability     = 0.8;
+    } hallway;
+
+    /// Parses the `room_types` table, the `synonyms` and the `hallway` rule of a YAML file; throws
+    /// YAML::Exception on bad input.
     static RoomTypeTable fromYaml(const std::string& path);
 
     /// @p word lower-cased and in the table's words: "Fridge" is "refrigerator".

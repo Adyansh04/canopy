@@ -18,14 +18,6 @@ namespace canopy
 namespace
 {
 
-/// Narrower than this and several times longer, with little in it: a hallway.
-constexpr double      kHallwayWidth       = 2.2;
-constexpr double      kHallwayAspect      = 3.0;
-constexpr std::size_t kHallwayMostObjects = 2;
-/// This many times longer than wide is a hallway whatever stands in it: a real detector's strays
-/// along a corridor's walls must not turn it into a room.
-constexpr double kCorridorAspect = 5.0;
-
 std::string lowered(std::string text)
 {
     std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
@@ -41,6 +33,15 @@ RoomTypeTable RoomTypeTable::fromYaml(const std::string& path)
     const YAML::Node root = YAML::LoadFile(path);
     RoomTypeTable    table;
     table.unlisted = root["unlisted"].as<double>(table.unlisted);
+    if (const YAML::Node hallway = root["hallway"])
+    {
+        auto& rule           = table.hallway;
+        rule.max_width       = hallway["max_width"].as<double>(rule.max_width);
+        rule.aspect          = hallway["aspect"].as<double>(rule.aspect);
+        rule.most_objects    = hallway["most_objects"].as<std::size_t>(rule.most_objects);
+        rule.corridor_aspect = hallway["corridor_aspect"].as<double>(rule.corridor_aspect);
+        rule.probability     = hallway["probability"].as<double>(rule.probability);
+    }
 
     const YAML::Node types = root["room_types"];
     for (const auto& entry : types)
@@ -84,11 +85,12 @@ RoomTyping classifyRoom(
     {
         distinct.insert(table.canonical(label));
     }
-    const bool narrow = width > 0.0 && width < kHallwayWidth;
-    if (narrow && (length > kCorridorAspect * width ||
-                   (length > kHallwayAspect * width && distinct.size() <= kHallwayMostObjects)))
+    const auto& hallway = table.hallway;
+    const bool  narrow  = width > 0.0 && width < hallway.max_width;
+    if (narrow && (length > hallway.corridor_aspect * width ||
+                   (length > hallway.aspect * width && distinct.size() <= hallway.most_objects)))
     {
-        return { "hallway", 0.8 };
+        return { "hallway", hallway.probability };
     }
     if (table.types.empty())
     {
