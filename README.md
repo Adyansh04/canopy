@@ -1,10 +1,14 @@
 # canopy
 
-A world model for ROS 2 robots that explore buildings: the rooms and doorways on the SLAM map, the
-objects in each room, and how much of every room the robot's cameras have actually seen. It plans
-the viewpoints that finish the job, and answers "where is the dustbin" and "how do I get there",
-so missions name targets instead of carrying coordinates. Detection, embeddings and descriptions
-come from models served on the host GPU, and the ROS messages never name a model.
+A world model for ROS 2 robots that explore buildings. On top of the SLAM map it keeps:
+
+- the **rooms** and the doorways between them,
+- the **objects** in each room, found by an open-vocabulary detector,
+- how much of every room the robot's **cameras** have actually seen.
+
+It plans where to stand and look next, and answers "where is the dustbin" and "how do I get
+there", so missions name targets instead of carrying coordinates. The models run on the host GPU,
+and the ROS messages never name one.
 
 ```mermaid
 flowchart LR
@@ -21,12 +25,33 @@ flowchart LR
 
 | Part | What it is |
 |---|---|
-| [`canopy`](canopy) | The world model: room segmentation, camera coverage, the object map, the viewpoint planner, and the ROS node around them. The algorithms are ROS-free C++. |
+| [`canopy`](canopy) | The world model: rooms, camera coverage, objects, the viewpoint planner, and the ROS node around them. |
 | [`canopy_msgs`](canopy_msgs) | Its interfaces: instance masks, rooms, objects, describer requests, and the search and exploration services. |
-| [`canopy_perception`](canopy_perception) | The front end: a detector and a describer that ask the model servers, and a mock detector that cuts masks from a simulator's ground truth. |
-| [`servers`](servers) | The model servers for the host GPU: YOLOE-26 detection, SigLIP 2 embeddings, and Gemini or a local Qwen VLM for names and room types. Not a ROS package. |
+| [`canopy_perception`](canopy_perception) | The front end: a detector and a describer that ask the model servers, and a mock detector for simulators. |
+| [`servers`](servers) | The models, on the host GPU: YOLOE-26 detection, SigLIP 2 embeddings, and Gemini or a local Qwen VLM for names and room types. Not a ROS package. |
 
 Built for ROS 2 Jazzy (Ubuntu 24.04), C++20.
+
+## In pictures
+
+A simulated Unitree G1 exploring a six-room flat from no map, watched in RViz (`rviz:=true`):
+
+- each room is tinted and labelled with how much of it the cameras have seen;
+- **red** is still to see, **cyan** what no standing spot can see;
+- big green discs are doorways, small dots the viewpoints, the blue line the robot's trail;
+- objects are boxed in their room's colour, and the head camera's picture sits top left.
+
+| Frontier pass, 4 min | Camera pass, 21 min | Done, 35 min |
+|---|---|---|
+| ![Early in the frontier pass](canopy/doc/viewer/frontier_pass.png) | ![Halfway through the camera pass](canopy/doc/viewer/camera_pass.png) | ![Exploration finished](canopy/doc/viewer/done.png) |
+| The LiDAR map is still growing; the robot walks to its edges. | The map is closed; the robot goes where the cameras have seen least. | Every room 99 % seen. Asked for "the dustbin in the office", the robot walked to it. |
+
+What the run leaves in `world_dir`:
+
+| Semantic map | Against ground truth | The walk |
+|---|---|---|
+| ![Semantic map](canopy/doc/apartment/semantic_map.png) | ![Floor plan against the simulator's truth](canopy/doc/apartment_truth.png) | ![The robot's walk](canopy/doc/apartment_walk.png) |
+| `semantic_map.png`: rooms named, objects boxed and labelled. | The saved floor plan with the scene's real walls (blue) and furniture (orange) drawn over it. | The robot's path, blue early to red late, and each viewpoint. |
 
 ## Building
 
@@ -56,30 +81,36 @@ ros2 launch canopy world_model.launch.py world_dir:=/data/worlds/home rviz:=true
   detector:=true describe:=true params_file:=my_robot_canopy.yaml
 ```
 
-The robot needs a latched `/map`, TF from `map` to its base and to each camera, RGB-D cameras that
-publish as a RealSense driver does, a LiDAR point cloud, and something to walk it through the
-exploration loop that [`canopy`](canopy) describes: Nav2's `NavigateToPose` and `Spin` are enough.
-`params_file` carries the robot's own values: its footprint radius, walking and turning speeds,
-and how long to dwell for the detector.
+The robot needs:
+
+- a latched `/map` from SLAM or `map_server`, and TF from `map` to its base and each camera;
+- RGB-D cameras that publish as a RealSense driver does, and a LiDAR point cloud;
+- its own values in `params_file`: footprint radius, walking and turning speeds, how long to wait
+  for the detector;
+- something to walk it through the exploration loop that [`canopy`](canopy#the-exploration-loop)
+  describes. Nav2's `NavigateToPose` and `Spin` are enough.
 
 ## How well it does
 
-Measured on a simulated Unitree G1 exploring a six-room flat with 43 objects a standing robot
-can see, from no map, with a head and a chest camera ([grove-g1](https://github.com/Adyansh04/grove-g1),
-where canopy began):
+On the simulated G1 above, from no map, with a head and a chest camera
+([grove-g1](https://github.com/Adyansh04/grove-g1), where canopy began). The flat has 43 objects a
+standing robot can see.
 
 | Detector | Rooms | Walls seen | Objects found | Boxes (median IoU) | Time |
 |---|---|---|---|---|---|
-| Ground-truth masks | 6 of 6 | 97-99 % | 100 % | 0.76-0.80 | 30-34 min |
+| Ground-truth masks | 6 of 6 | 96-99 % | 100 % | 0.76-0.80 | 30-34 min |
 | YOLOE-26 + SigLIP 2 + describer | 6 of 6 | 95-99 % | 72-79 % | 0.82-0.83 | 37-42 min |
 
-On the simulator's renders YOLOE confuses furniture of one material (desk, cabinet, TV stand) and
-misses mugs and bowls on tables, while the describer names most of them correctly.
+With the real detector:
+
+- YOLOE confuses furniture of one material on the simulator's renders: desk, cabinet, TV stand.
+- It misses mugs and bowls on tables.
+- The describer names most of them correctly.
 
 ## Credits
 
-The world model reimplements ideas from Hydra, ConceptGraphs, OVO, DynaMem, VLFM, FUEL, TARE and
-Bormann et al.; [`canopy`](canopy#credits) links each. The models the servers run are credited in
-[`servers`](servers#models-and-libraries).
+- The world model reimplements ideas from Hydra, ConceptGraphs, OVO, DynaMem, VLFM, FUEL, TARE and
+  Bormann et al.; [`canopy`](canopy#credits) links each.
+- The models the servers run are credited in [`servers`](servers#models-and-libraries).
 
 BSD 3-Clause; see [LICENSE](LICENSE).

@@ -21,3 +21,6 @@ as the test's "map to world" line printed it. The pictures, made with grove-g1's
 - `frontier_pass_end.png` is SLAM's map as the frontier pass ended, from an earlier run
   (`snapshot_map.py`). Free is white, occupied black, unknown grey, and frontiers red. Most of the
   red is speckle between LiDAR beams, which the camera pass fills in.
+
+`viewer/` is RViz during another run of the same flat (grove-g1's run 57): `frontier_pass.png` at
+4 minutes, `camera_pass.png` at 21, and `done.png` once every room was seen.
