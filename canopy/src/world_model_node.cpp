@@ -859,20 +859,7 @@ cv::Mat WorldModelNode::floorObjects() const
         {
             continue;
         }
-        const double             c = std::cos(object.box_yaw);
-        const double             s = std::sin(object.box_yaw);
-        std::array<cv::Point, 4> corners;
-        std::size_t              corner = 0;
-        for (const auto& [su, sv] : { std::pair{ 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } })
-        {
-            const double    u    = su * ((0.5 * object.box_size.x()) + map_fit_params_.reach);
-            const double    v    = sv * ((0.5 * object.box_size.y()) + map_fit_params_.reach);
-            const CellIndex cell = geometry_.toCell(
-                object.box_centre.x() + (c * u) - (s * v),
-                object.box_centre.y() + (s * u) + (c * v));
-            corners.at(corner++) = { cell.x, cell.y };
-        }
-        cv::fillConvexPoly(mask, corners.data(), static_cast<int>(corners.size()), cv::Scalar(255));
+        fillFootprint(mask, geometry_, object.box(), map_fit_params_.reach);
     }
     return mask;
 }
@@ -880,9 +867,7 @@ cv::Mat WorldModelNode::floorObjects() const
 Footprint WorldModelNode::footprintOf(const MappedObject& object) const
 {
     const auto fitted = fitted_.find(object.id);
-    return fitted != fitted_.end() ?
-               fitted->second :
-               Footprint{ object.box_centre, object.box_size, object.box_yaw };
+    return fitted != fitted_.end() ? fitted->second : object.box();
 }
 
 bool WorldModelNode::wasStill(double stamp) const
@@ -2443,25 +2428,18 @@ void WorldModelNode::appendRunMarkers(
         auto frame    = base("glimpses", visualization_msgs::msg::Marker::LINE_LIST);
         frame.scale.x = 0.02;
         paint(frame, { 0.85F, 0.85F, 0.85F }, 0.9F);
-        const double c      = std::cos(glimpse->box_yaw);
-        const double s      = std::sin(glimpse->box_yaw);
-        const auto   corner = [&](int bits) {
-            const double u = ((bits & 1) != 0 ? 0.5 : -0.5) * glimpse->box_size.x();
-            const double v = ((bits & 2) != 0 ? 0.5 : -0.5) * glimpse->box_size.y();
-            return point(
-                glimpse->box_centre.x() + (c * u) - (s * v),
-                glimpse->box_centre.y() + (s * u) + (c * v),
-                (bits & 4) != 0 ? glimpse->z_max : glimpse->z_min);
-        };
-        for (int bits = 0; bits < 8; ++bits)
+        // Each corner's bottom and top edge to the next corner, and its upright.
+        const auto ring = corners(glimpse->box());
+        for (std::size_t i = 0; i < ring.size(); ++i)
         {
-            for (const int axis : { 1, 2, 4 })
+            const Eigen::Vector2d& from = ring.at(i);
+            frame.points.push_back(point(from.x(), from.y(), glimpse->z_min));
+            frame.points.push_back(point(from.x(), from.y(), glimpse->z_max));
+            const Eigen::Vector2d& to   = ring.at((i + 1) % ring.size());
+            for (const double z : { glimpse->z_min, glimpse->z_max })
             {
-                if ((bits & axis) == 0)
-                {
-                    frame.points.push_back(corner(bits));
-                    frame.points.push_back(corner(bits | axis));
-                }
+                frame.points.push_back(point(from.x(), from.y(), z));
+                frame.points.push_back(point(to.x(), to.y(), z));
             }
         }
         markers.markers.push_back(frame);

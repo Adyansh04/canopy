@@ -181,27 +181,20 @@ cv::Mat renderWorld(
     std::vector<cv::Size> sizes;
     for (const std::size_t i : order)
     {
-        const Footprint&       box = objects[i].footprint;
-        const double           c   = std::cos(box.yaw);
-        const double           s   = std::sin(box.yaw);
-        std::vector<cv::Point> corners;
-        for (const auto& [u, v] :
-             { std::pair{ -0.5, -0.5 }, { 0.5, -0.5 }, { 0.5, 0.5 }, { -0.5, 0.5 } })
+        std::vector<cv::Point> outline;
+        for (const Eigen::Vector2d& corner : corners(objects[i].footprint))
         {
-            const double du = u * box.size.x();
-            const double dv = v * box.size.y();
-            corners.emplace_back(
-                pixel(box.centre.x() + (du * c) - (dv * s), box.centre.y() + (du * s) + (dv * c)));
+            outline.emplace_back(pixel(corner.x(), corner.y()));
         }
         cv::polylines(
             image,
-            corners,
+            outline,
             true,
             cv::Scalar(20, 60, 200),
             std::max(1, scale / 2),
             cv::LINE_AA);
         int baseline = 0;
-        boxes.push_back(cv::boundingRect(corners));
+        boxes.push_back(cv::boundingRect(outline));
         sizes.push_back(
             cv::getTextSize(objects[i].text, cv::FONT_HERSHEY_SIMPLEX, 0.6 * font, 1, &baseline));
     }

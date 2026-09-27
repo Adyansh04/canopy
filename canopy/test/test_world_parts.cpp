@@ -85,6 +85,24 @@ TEST(Grid, CarriesALayerOntoAGrownAndShiftedGrid)
     EXPECT_EQ(out[static_cast<std::size_t>(to.index(6, 4))], 0);
 }
 
+TEST(Grid, FillsAGrownTurnedBox)
+{
+    // 2 x 1 m at (1, 2) turned a quarter, grown 0.5 m: 2 m along x, 3 m along y.
+    const Footprint box{ { 1.0, 2.0 }, { 2.0, 1.0 }, std::numbers::pi / 2.0 };
+    const auto      ring = corners(box, 0.5);
+    EXPECT_NEAR(ring[0].x(), 0.0, 1e-9);
+    EXPECT_NEAR(ring[0].y(), 3.5, 1e-9);
+    EXPECT_NEAR(ring[2].x(), 2.0, 1e-9);
+    EXPECT_NEAR(ring[2].y(), 0.5, 1e-9);
+
+    const GridGeometry geometry{ 0.1, 0.0, 0.0, 40, 50 };
+    cv::Mat            mask(geometry.height, geometry.width, CV_8UC1, cv::Scalar(0));
+    fillFootprint(mask, geometry, box, 0.5);
+    EXPECT_EQ(mask.at<std::uint8_t>(20, 10), 255);  // The centre.
+    EXPECT_EQ(mask.at<std::uint8_t>(34, 10), 255);  // 1.4 m up, inside the 1.5.
+    EXPECT_EQ(mask.at<std::uint8_t>(20, 24), 0);    // 1.4 m right, past the 1.0.
+}
+
 TEST(RoomTyping, NamesDistinctiveRoomsFromTheirObjects)
 {
     const RoomTypeTable types = table();

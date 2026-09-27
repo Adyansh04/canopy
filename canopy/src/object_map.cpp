@@ -113,18 +113,10 @@ double jointExtent(const MappedObject& a, const MappedObject& b)
     Eigen::Vector2d high = -low;
     for (const MappedObject* object : { &a, &b })
     {
-        const Eigen::Rotation2Dd rotation(object->box_yaw);
-        for (const double sx : { -0.5, 0.5 })
+        for (const Eigen::Vector2d& corner : corners(object->box()))
         {
-            for (const double sy : { -0.5, 0.5 })
-            {
-                const Eigen::Vector2d corner =
-                    object->box_centre +
-                    (rotation *
-                     Eigen::Vector2d(sx * object->box_size.x(), sy * object->box_size.y()));
-                low  = low.cwiseMin(corner);
-                high = high.cwiseMax(corner);
-            }
+            low  = low.cwiseMin(corner);
+            high = high.cwiseMax(corner);
         }
     }
     return (high - low).maxCoeff();
@@ -951,15 +943,9 @@ std::vector<Surface> ObjectMap::surfaces() const
         Surface surface;
         surface.id     = object.id;
         surface.height = object.top;
-        const double c = std::cos(object.box_yaw);
-        const double s = std::sin(object.box_yaw);
-        for (const auto& [sx, sy] : { std::pair{ 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } })
+        for (const Eigen::Vector2d& corner : corners(object.box()))
         {
-            const double along  = 0.5 * sx * object.box_size.x();
-            const double across = 0.5 * sy * object.box_size.y();
-            surface.footprint.emplace_back(
-                object.box_centre.x() + (c * along) - (s * across),
-                object.box_centre.y() + (s * along) + (c * across));
+            surface.footprint.emplace_back(corner.x(), corner.y());
         }
         out.push_back(std::move(surface));
     }
@@ -1119,21 +1105,8 @@ std::map<int, Footprint> fitToMap(
         {
             return false;
         }
-        cv::Mat                  box(plan.size(), CV_8UC1, cv::Scalar(0));
-        std::array<cv::Point, 4> corners;
-        const double             c = std::cos(object.box_yaw);
-        const double             s = std::sin(object.box_yaw);
-        std::size_t              k = 0;
-        for (const auto& [su, sv] : { std::pair{ 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } })
-        {
-            const double    u    = 0.5 * su * object.box_size.x();
-            const double    v    = 0.5 * sv * object.box_size.y();
-            const CellIndex cell = geometry.toCell(
-                object.box_centre.x() + (c * u) - (s * v),
-                object.box_centre.y() + (s * u) + (c * v));
-            corners.at(k++) = { cell.x, cell.y };
-        }
-        cv::fillConvexPoly(box, corners.data(), static_cast<int>(corners.size()), cv::Scalar(255));
+        cv::Mat box(plan.size(), CV_8UC1, cv::Scalar(0));
+        fillFootprint(box, geometry, object.box());
         const int area = cv::countNonZero(box);
         return area > 0 && cv::countNonZero(box & (plan == kFree)) > params.adrift_free * area;
     };

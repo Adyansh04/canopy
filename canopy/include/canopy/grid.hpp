@@ -10,6 +10,7 @@
  */
 
 #include <Eigen/Core>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -89,6 +90,13 @@ struct Footprint
     Eigen::Vector2d size   = Eigen::Vector2d::Zero();  ///< Along the box axes, m.
     double          yaw    = 0.0;
 };
+
+/// A box's corners in order around it, map frame, with each side pushed out by @p grow, m.
+[[nodiscard]] std::array<Eigen::Vector2d, 4> corners(const Footprint& box, double grow = 0.0);
+
+/// Sets the cells of @p box, grown by @p grow, m, to 255 in @p mask, a CV_8UC1 on @p geometry.
+void fillFootprint(
+    cv::Mat& mask, const GridGeometry& geometry, const Footprint& box, double grow = 0.0);
 
 /**
  * @brief A per-cell layer carried onto another grid, as when SLAM grows or shifts its map.

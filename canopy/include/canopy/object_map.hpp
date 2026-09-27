@@ -139,6 +139,8 @@ struct MappedObject
     [[nodiscard]] float confidence() const;
 
     [[nodiscard]] double height() const { return z_max - z_min; }
+
+    [[nodiscard]] Footprint box() const { return { box_centre, box_size, box_yaw }; }
 };
 
 /// What happened to one mask of a frame.

@@ -5,6 +5,7 @@
 
 #include "canopy/grid.hpp"
 
+#include <Eigen/Geometry>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -50,6 +51,32 @@ double profileSharpness(const std::vector<cv::Point2f>& points, double yaw, int 
 }
 
 }  // namespace
+
+std::array<Eigen::Vector2d, 4> corners(const Footprint& box, double grow)
+{
+    const Eigen::Rotation2Dd       rotation(box.yaw);
+    const Eigen::Vector2d          half = (0.5 * box.size).array() + grow;
+    std::array<Eigen::Vector2d, 4> out;
+    std::size_t                    k = 0;
+    for (const auto& [su, sv] :
+         { std::pair{ 1.0, 1.0 }, { -1.0, 1.0 }, { -1.0, -1.0 }, { 1.0, -1.0 } })
+    {
+        out.at(k++) = box.centre + (rotation * Eigen::Vector2d(su * half.x(), sv * half.y()));
+    }
+    return out;
+}
+
+void fillFootprint(cv::Mat& mask, const GridGeometry& geometry, const Footprint& box, double grow)
+{
+    std::array<cv::Point, 4> cells;
+    std::size_t              k = 0;
+    for (const Eigen::Vector2d& corner : corners(box, grow))
+    {
+        const CellIndex cell = geometry.toCell(corner.x(), corner.y());
+        cells.at(k++)        = { cell.x, cell.y };
+    }
+    cv::fillConvexPoly(mask, cells.data(), static_cast<int>(cells.size()), cv::Scalar(255));
+}
 
 double dominantAxis(const cv::Mat& cells)
 {
