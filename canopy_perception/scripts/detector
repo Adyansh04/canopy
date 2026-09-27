@@ -6,6 +6,8 @@ list is idle, and `ros2 param set /detector phrases "['red block', 'blue sphere'
 behavior tree and the instruction grounder write.
 """
 
+import array
+
 import numpy as np
 import rclpy
 from rclpy.executors import ExternalShutdownException
@@ -45,11 +47,12 @@ class Detector(Node):
             self.declare_parameter("phrases", rclpy.Parameter.Type.STRING_ARRAY)
 
         self._image = None
+        self._asked = None
         self._publisher = self.create_publisher(InstanceMaskArray, "~/instance_masks", MASK_QOS)
         self.create_subscription(Image, "color/image_raw", self._on_image, IMAGE_QOS)
 
         self._client = VisionClient(self._address, int(self._param("zmq_timeout_ms", 20000)))
-        self._ready = self._handshake()
+        self._handshake()
         self.create_timer(1.0 / max(rate_hz, 0.01), self._tick)
 
     def _param(self, name, default):
@@ -65,11 +68,10 @@ class Detector(Node):
                 f"the model server at {self._address} did not answer: {error}. "
                 "Retrying on each detection; start it with servers/semantic_server.py."
             )
-            return False
+            return
         self.get_logger().info(
             f"model server at {self._address}: {reply.get('backend')} on {reply.get('device')}"
         )
-        return True
 
     def _on_image(self, msg):
         self._image = msg
@@ -98,7 +100,8 @@ class Detector(Node):
     def _tick(self):
         pairs = self._phrases()
         image = self._image
-        if not pairs or image is None:
+        # A call that overran the period runs this timer again before the next frame arrives.
+        if not pairs or image is None or image.header.stamp == self._asked:
             return
         phrases = [phrase for _, phrase in pairs]
         names = {phrase: name for name, phrase in pairs}
@@ -126,7 +129,7 @@ class Detector(Node):
         except (RuntimeError, ValueError) as error:
             self.get_logger().warning(str(error), throttle_duration_sec=5.0)
             return
-        self._ready = True
+        self._asked = image.header.stamp
         self._publish(image, reply, names)
 
     def close(self):
@@ -156,10 +159,10 @@ class Detector(Node):
             out.roi.y_offset = y
             out.roi.width = width
             out.roi.height = height
-            out.data = mask.reshape(-1).tolist()
+            out.data = array.array("B", mask.tobytes())
             embedding = instance.get("embedding")
             if embedding is not None:
-                out.embedding = np.asarray(embedding, dtype=np.float32).reshape(-1).tolist()
+                out.embedding = array.array("f", np.asarray(embedding, dtype=np.float32).tobytes())
             masks.instances.append(out)
         self._publisher.publish(masks)
 

@@ -67,8 +67,9 @@ class VisionClient(ReqClient):
 
 
 def image_to_array(msg):
-    """An rgb8 Image as (H, W, 3) uint8, without pulling in cv_bridge for one reshape."""
-    if msg.encoding != "rgb8":
-        raise ValueError(f"expected rgb8, got {msg.encoding}")
-    frame = np.frombuffer(msg.data, dtype=np.uint8)
-    return frame.reshape(msg.height, msg.step // 3, 3)[:, : msg.width, :]
+    """An rgb8 or bgr8 Image as (H, W, 3) RGB uint8, without cv_bridge for one reshape."""
+    if msg.encoding not in ("rgb8", "bgr8"):
+        raise ValueError(f"expected rgb8 or bgr8, got {msg.encoding}")
+    rows = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.step)
+    frame = rows[:, : 3 * msg.width].reshape(msg.height, msg.width, 3)
+    return frame[:, :, ::-1] if msg.encoding == "bgr8" else frame
