@@ -10,6 +10,7 @@ import io
 import json
 import sys
 import tempfile
+import time
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -318,6 +319,22 @@ class GeminiTest(Scratch):
             self.describe(self.describer(Transport((503, BUSY)), limiter=limiter))
         self.assertNotIn("lite", log.getvalue())
         self.assertIn("flash: answered HTTP 503", log.getvalue())
+
+    def test_one_time_budget_covers_the_whole_route(self):
+        waits = []
+
+        def hung(url, headers, body, timeout):
+            waits.append(timeout)
+            time.sleep(timeout)
+            raise ss.Unavailable("timed out")
+
+        describer = ss.GeminiDescriber(
+            ROUTES, CAPS, self.key_file, self.limiter(), timeout_s=0.05, transport=hung
+        )
+        with self.assertRaisesRegex(ss.Unavailable, "lite: timed out; flash: out of time"):
+            self.describe(describer)
+        self.assertEqual(len(waits), 1)
+        self.assertLessEqual(waits[0], 0.05)
 
     def test_limiter_refuses_before_any_network_io(self):
         transport = Transport((200, gemini_reply(MUG)))

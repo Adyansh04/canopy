@@ -101,7 +101,8 @@ DEFAULTS = {
     "gemini": {
         "key_file": "~/.config/canopy/gemini.env",
         "usage_file": "~/.config/canopy/gemini_usage.json",
-        # Short, because a fall-through to the next model has to fit inside the clients' timeouts.
+        # One budget for a whole route: canopy_perception's detector waits 20 s for this server, its
+        # describer 30, and a describe call holds up every segment behind it.
         "timeout_s": 10.0,
         # Google limits each model separately, per Cloud project (AI Studio, Rate limits). The caps
         # sit a little under those, since other apps may share the project.
@@ -676,9 +677,14 @@ class GeminiDescriber:
             {"text": _prompt(task, len(images), context)},
         ]
         failures = []
+        deadline = time.monotonic() + self._timeout_s
         for model in self._routes[task]:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0.0:
+                failures.append(f"{model}: out of time")
+                break
             try:
-                return self._ask(model, task, parts)
+                return self._ask(model, task, parts, remaining)
             except (Unavailable, ValueError) as error:
                 failures.append(f"{model}: {error}")
                 # A model at its cap is routine; one that was asked and failed is worth a line.
@@ -686,7 +692,7 @@ class GeminiDescriber:
                     print(f"  {model}: {error}", file=sys.stderr, flush=True)
         raise Unavailable("; ".join(failures) or f"no model for the {task} task")
 
-    def _ask(self, model, task, parts):
+    def _ask(self, model, task, parts, timeout):
         config = {
             "responseMimeType": "application/json",
             "responseSchema": _gemini_schema(_schema(task)),
@@ -703,7 +709,7 @@ class GeminiDescriber:
             self.URL.format(model=model),
             {"x-goog-api-key": self._key, "Content-Type": "application/json"},
             json.dumps(body).encode(),
-            self._timeout_s,
+            timeout,
         )
         if status != 200:
             try:
