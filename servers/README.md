@@ -49,28 +49,14 @@ Rate limits), so the server spreads its calls over several:
 | room | Gemini 3.8 Flash, 3.6 Flash, then the first two above | 5, 20 for the Flash models |
 
 - Each model has its own caps, a little under Google's, counted in a file beside the key across
-  processes and restarts. `DEFAULTS["gemini"]` in `semantic_server.py` holds them.
+  processes and restarts. `DEFAULTS["gemini"]` in `semantic_server.py` holds them; change them
+  with `--config`, since `--set` splits keys on the dots in a model's name.
 - A model at its cap, refused or busy is skipped for the next. A refusal on the daily quota parks it
   until midnight Pacific; one on the minute quota, for the delay Google names.
 - With every model out, the next describer answers: the local VLM by default.
 
-One exploration of a six-room flat makes 100 to 250 describe calls, at most 13 in a minute.
-
-How the models did on 12 crops of the flat's furniture, one per kind, with the object prompt:
-
-| Model | Named right | Typical time |
-|---|---|---|
-| Gemini 3.5 Flash-Lite | 9 of 12 | 1.1-1.7 s |
-| Gemini 3.1 Flash-Lite | 8 | 3 s, up to 14 s |
-| Gemma 4 26B A4B | 8 | 2 s |
-| Gemma 4 31B | 6 | 20-35 s, and HTTP 500s |
-| Gemini 3.8 Live, extended thinking | 7 | 2 s |
-
-The misses are mostly the same crops for every model: a daybed for the bed, a cabinet for the
-wardrobe. The Live models have no daily limit, but they answer only in speech. The JSON read back
-from the transcript was missing on 5 of those 12 (though on none of 20 retries), and each call
-costs about 3,400 tokens of the 65,000 a minute. Gemma's 14,400 a day are plenty, so Live is not
-used.
+One exploration of a six-room flat makes about 100 to 250 describe calls, at most 13 in a minute.
+The Live models have no daily limit but answer only in speech, so they are not used.
 
 ## Models and libraries
 
