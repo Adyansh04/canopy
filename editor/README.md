@@ -10,7 +10,9 @@ ros2 service call /canopy/reload std_srvs/srv/Trigger  # if canopy is still runn
 ```
 
 Python and PyYAML, nothing else, rather than C++: a human-paced tool that edits files and serves
-one page. `--host 0.0.0.0` lets a tablet on the same network edit, and anyone else there too.
+one page. `--host 0.0.0.0` lets a tablet on the same network edit. The editor then prints an
+address with a token: open it once, with this machine's address in place of 0.0.0.0, and the page
+keeps the token as a cookie. Anyone else on the network is refused.
 
 ## What it does
 
@@ -58,7 +60,8 @@ The `op`s are:
   `z_min`, `z_max`);
 - rooms: `room_type`, `room_name` and `room_check`, each with `room`.
 
-Coordinates are metres in the map frame, and yaws are radians.
+Coordinates are metres in the map frame, and yaws are radians. Off loopback, a client sends the
+token as the `canopy_token` cookie.
 
 ```bash
 python3 -m unittest editor/test_canopy_editor.py

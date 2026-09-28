@@ -306,6 +306,19 @@ class EditorTest(unittest.TestCase):
             answer = self.assertRefused(base + "/api/world", 500)
         self.assertEqual(answer["error"], "RuntimeError: broken")
 
+    def test_asks_for_the_printed_token_off_loopback(self):
+        server, base = self.serving("0.0.0.0")
+        self.assertTrue(server.token)
+        self.assertRefused(base + "/", 403)
+        self.assertRefused(f"{base}/api/world?token=wrong", 403)
+        # The printed URL leaves the token as a cookie, which the page's requests then carry.
+        browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+        with browser.open(f"{base}/?token={server.token}") as page:
+            self.assertEqual(page.url, base + "/")
+            self.assertIn(b"<canvas", page.read())
+        with browser.open(base + "/api/world") as answer:
+            self.assertIn("objects", json.load(answer))
+
 
 if __name__ == "__main__":
     unittest.main()

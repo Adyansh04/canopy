@@ -15,10 +15,12 @@ import array
 import contextlib
 import copy
 import fcntl
+import hmac
 import json
 import math
 import os
 import re
+import secrets
 import struct
 import sys
 import tempfile
@@ -28,6 +30,7 @@ import traceback
 import urllib.parse
 import zlib
 from http import HTTPStatus
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -948,12 +951,24 @@ def handler_for(world):
         def log_message(self, fmt, *args):
             sys.stderr.write("%s\n" % (fmt % args))
 
+        def _token(self):
+            """The token a request shows: the cookie the page keeps, or the printed URL's."""
+            cookie = SimpleCookie(self.headers.get("Cookie") or "")
+            if "canopy_token" in cookie:
+                return cookie["canopy_token"].value
+            query = urllib.parse.urlsplit(self.path).query
+            return urllib.parse.parse_qs(query).get("token", [""])[0]
+
         def _trusted(self):
-            """Whether a request can be the page's own. Bound to loopback, only a loopback Host is
-            (a rebound DNS name is not); a POST must be JSON from this origin, which no other web
-            page can send without a preflight this server never answers."""
+            """Whether a request can be the page's own. Off loopback anyone on the network can
+            reach the port, so only the printed URL's token gets in. On loopback only a loopback
+            Host does (a rebound DNS name does not). A POST must be JSON from this origin, which
+            no other web page can send without a preflight this server never answers."""
             host = self.headers.get("Host") or ""
-            if self.server.loopback and host.rsplit(":", 1)[0] not in LOOPBACK:
+            if self.server.token:
+                if not hmac.compare_digest(self._token().encode(), self.server.token.encode()):
+                    return False
+            elif host.rsplit(":", 1)[0] not in LOOPBACK:
                 return False
             if self.command != "POST":
                 return True
@@ -970,7 +985,9 @@ def handler_for(world):
         def _answer(self, route):
             try:
                 if not self._trusted():
-                    return self._json(HTTPStatus.FORBIDDEN, {"error": "not from this editor"})
+                    return self._json(
+                        HTTPStatus.FORBIDDEN, {"error": "not from this editor's printed address"}
+                    )
                 return route()
             except Conflict as error:
                 return self._json(HTTPStatus.CONFLICT, {"error": str(error)})
@@ -986,6 +1003,17 @@ def handler_for(world):
 
         def _get(self):
             url = urllib.parse.urlsplit(self.path)
+            if url.path == "/" and url.query and self.server.token:
+                # The printed URL: its token moves to a cookie, out of the address bar.
+                self.send_response(HTTPStatus.SEE_OTHER)
+                self.send_header(
+                    "Set-Cookie",
+                    f"canopy_token={self.server.token}; HttpOnly; SameSite=Strict; Path=/",
+                )
+                self.send_header("Location", "/")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return None
             if url.path in STATIC:
                 name, kind = STATIC[url.path]
                 return self._send(HTTPStatus.OK, (HERE / "static" / name).read_bytes(), kind)
@@ -1035,7 +1063,8 @@ def handler_for(world):
 
 def serve(world, host="127.0.0.1", port=8765):
     server = ThreadingHTTPServer((host, port), handler_for(world))
-    server.loopback = host in LOOPBACK
+    # Bound off loopback, anyone on the network can reach it: a token keeps them out.
+    server.token = None if host in LOOPBACK else secrets.token_urlsafe(16)
     return server
 
 
@@ -1051,7 +1080,11 @@ def main():
     except (OSError, ValueError, struct.error, yaml.YAMLError) as error:
         sys.exit(f"cannot edit {args.world}: {error}")
     server = serve(world, args.host, args.port)
-    print(f"editing {args.world} at http://{args.host}:{server.server_address[1]}/", flush=True)
+    address = f"http://{args.host}:{server.server_address[1]}/"
+    if server.token:
+        # Open once from the device that edits (this host's address rather than 0.0.0.0).
+        address += f"?token={server.token}"
+    print(f"editing {args.world} at {address}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
