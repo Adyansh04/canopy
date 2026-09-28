@@ -379,6 +379,7 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
     {
         std::string error;
         pending_restore_ = loadWorld(world_dir_, error);
+        world_stamp_     = worldStamp(world_dir_);
         if (pending_restore_)
         {
             RCLCPP_INFO(
@@ -506,6 +507,11 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         [this](
             const TriggerSrv::Request::SharedPtr&  request,
             const TriggerSrv::Response::SharedPtr& response) { onSave(request, response); });
+    reload_srv_ = create_service<TriggerSrv>(
+        "~/reload",
+        [this](
+            const TriggerSrv::Request::SharedPtr& /*request*/,
+            const TriggerSrv::Response::SharedPtr& response) { onReload(response); });
 
     integrate_timer_ =
         create_wall_timer(std::chrono::milliseconds(50), [this] { integratePending(); });
@@ -1392,13 +1398,13 @@ void WorldModelNode::applyRestore()
         room.type            = record.type;
         room.type_confidence = record.type_confidence;
         room.type_source     = record.type_source;
+        room.checked         = record.checked;
     }
     // Crops from the last run; an object that already has a name needs no second description.
     for (const MappedObject& object : objects_.objects())
     {
         const std::filesystem::path path =
             std::filesystem::path(world_dir_) / "crops" / (objectId(object.id) + ".jpg");
-        room.checked         = record.checked;
         std::ifstream in(path, std::ios::binary);
         if (in)
         {
@@ -1954,6 +1960,26 @@ void WorldModelNode::onGetApproachPose(
     response->message              = "facing " + object->label() + " " + target_id;
 }
 
+void WorldModelNode::onReload(const std_srvs::srv::Trigger::Response::SharedPtr& response)
+{
+    std::string error;
+    pending_restore_ = world_dir_.empty() ? std::nullopt : loadWorld(world_dir_, error);
+    if (!pending_restore_)
+    {
+        response->success = false;
+        response->message = world_dir_.empty() ? "world_dir is not set" : error;
+        return;
+    }
+    world_stamp_ = worldStamp(world_dir_);
+    // Without a map yet it waits, as the startup restore does, for the first one.
+    if (!cells_.empty())
+    {
+        applyRestore();
+    }
+    response->success = true;
+    response->message = "reloaded " + world_dir_;
+}
+
 void WorldModelNode::onSave(
     const std_srvs::srv::Trigger::Request::SharedPtr& /*request*/,
     const std_srvs::srv::Trigger::Response::SharedPtr& response)
@@ -1975,6 +2001,11 @@ std::string WorldModelNode::saveNow()
     if (world_dir_.empty() || cells_.empty())
     {
         return "nothing to save";
+    }
+    // Written by someone else since, most likely a map editor: theirs is the newer world.
+    if (const auto stamp = worldStamp(world_dir_); stamp && stamp != world_stamp_)
+    {
+        return "world.yaml changed on disk since this node wrote it; ~/reload takes the edits";
     }
     WorldSnapshot snapshot;
     snapshot.geometry = geometry_;
@@ -2029,6 +2060,7 @@ std::string WorldModelNode::saveNow()
     std::string failure      = saveWorld(world_dir_, snapshot);
     if (failure.empty())
     {
+        world_stamp_                      = worldStamp(world_dir_);
         const std::filesystem::path crops = std::filesystem::path(world_dir_) / "crops";
         std::error_code             error;
         std::filesystem::create_directories(crops, error);

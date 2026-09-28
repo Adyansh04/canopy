@@ -5,6 +5,7 @@
 
 #include <gmock/gmock.h>
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -183,10 +184,10 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     snapshot.cells     = { kFree, kOccupied, kUnknown };
     snapshot.next_room = 4;
     snapshot.rooms.push_back({ "R2", "room B", "office", 0.7, "objects", 3.5, -1.25 });
-    MappedObject object;
     // What a map editor adds: a reviewed room with its outline, an operator's label and box.
     snapshot.rooms.back().checked = true;
     snapshot.rooms.back().outline = { { 0.0, 0.0 }, { 1.0, 0.0 }, { 1.0, 1.5 } };
+    MappedObject object;
     object.id              = 12;
     object.votes           = { { "dustbin", 2.5F }, { "bucket", 0.4F } };
     object.name            = "metal bin";
@@ -197,16 +198,16 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     object.observations    = 7;
     object.state           = ObjectState::kStale;
     object.best_view_score = 900.0;
-    snapshot.objects.push_back(object);
-    // One world.yaml names with nothing in objects.bin, as a save cut short leaves it.
-    MappedObject torn;
-    torn.id    = 13;
     object.operator_label  = "trash can";
     object.checked         = true;
     object.box_pinned      = true;
     object.box_centre      = { 1.0, 2.0 };
     object.box_size        = { 0.3, 0.4 };
     object.box_yaw         = 0.5;
+    snapshot.objects.push_back(object);
+    // One world.yaml names with nothing in objects.bin, as a save cut short leaves it.
+    MappedObject torn;
+    torn.id    = 13;
     torn.votes = { { "sofa", 1.0F } };
     snapshot.objects.push_back(torn);
     snapshot.plan            = { kFree, kOccupied, kOccupied };
@@ -237,10 +238,10 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     ASSERT_EQ(loaded->rooms.size(), 1U);
     EXPECT_EQ(loaded->rooms[0].name, "room B");
     EXPECT_DOUBLE_EQ(loaded->rooms[0].y, -1.25);
-    ASSERT_EQ(loaded->objects.size(), 1U);  // Not the torn one.
     EXPECT_TRUE(loaded->rooms[0].checked);
     ASSERT_EQ(loaded->rooms[0].outline.size(), 3U);
     EXPECT_DOUBLE_EQ(loaded->rooms[0].outline[2].y(), 1.5);
+    ASSERT_EQ(loaded->objects.size(), 1U);  // Not the torn one.
     const MappedObject& back = loaded->objects[0];
     EXPECT_EQ(back.id, 12);
     EXPECT_EQ(back.label(), "trash can");
@@ -267,6 +268,31 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     ASSERT_TRUE(kept.has_value()) << error;
     EXPECT_EQ(kept->objects.size(), 1U);
     std::filesystem::remove_all(directory);
+}
+
+TEST(WorldStore, StampsTheWorldsLastWrite)
+{
+    const std::string directory =
+        (std::filesystem::temp_directory_path() / "canopy_world_stamp_test").string();
+    std::filesystem::remove_all(directory);
+    EXPECT_FALSE(worldStamp(directory).has_value());
+    WorldSnapshot snapshot;
+    snapshot.geometry        = { 0.05, 0.0, 0.0, 1, 1 };
+    snapshot.cells           = { kFree };
+    snapshot.plan            = { kFree };
+    snapshot.quality         = { 0 };
+    snapshot.surface_quality = { 0 };
+    snapshot.flags           = { 0 };
+    snapshot.structure_hits  = { 0 };
+    snapshot.band_clear      = { 0 };
+    ASSERT_EQ(saveWorld(directory, snapshot), "");
+    const auto written = worldStamp(directory);
+    ASSERT_TRUE(written.has_value());
+    // A map editor's save moves it on, which is how the node knows not to save over it.
+    std::filesystem::last_write_time(
+        std::filesystem::path(directory) / "world.yaml",
+        *written + std::chrono::seconds(5));
+    EXPECT_NE(worldStamp(directory), written);
 }
 
 TEST(WorldStore, ReportsAMissingWorld)

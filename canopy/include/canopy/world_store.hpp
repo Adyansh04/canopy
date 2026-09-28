@@ -13,6 +13,7 @@
 
 #include <Eigen/Core>
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <vector>
@@ -76,6 +77,10 @@ bool worldFits(
  */
 std::string
 saveOccupancy(const std::string& directory, const cv::Mat& cells, const GridGeometry& geometry);
+
+/// world.yaml's last write in @p directory, if there is one: whether someone else wrote it since.
+[[nodiscard]] std::optional<std::filesystem::file_time_type>
+worldStamp(const std::string& directory);
 
 /**
  * @brief Reads a snapshot written by saveWorld().

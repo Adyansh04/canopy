@@ -168,6 +168,9 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
         yaml << YAML::Key << "top_seen" << YAML::Value << object.top_seen;
         yaml << YAML::Key << "state" << YAML::Value << stateName(object.state);
         yaml << YAML::Key << "best_view_score" << YAML::Value << object.best_view_score;
+        yaml << YAML::Key << "operator_label" << YAML::Value << object.operator_label;
+        yaml << YAML::Key << "box_pinned" << YAML::Value << object.box_pinned;
+        yaml << YAML::Key << "checked" << YAML::Value << object.checked;
         yaml << YAML::EndMap;
     }
     yaml << YAML::EndSeq;
@@ -175,9 +178,6 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
 
     std::ostringstream objects(std::ios::binary);
     put(objects, kMagic);
-        yaml << YAML::Key << "operator_label" << YAML::Value << object.operator_label;
-        yaml << YAML::Key << "box_pinned" << YAML::Value << object.box_pinned;
-        yaml << YAML::Key << "checked" << YAML::Value << object.checked;
     put(objects, kVersion);
     put(objects, static_cast<std::uint32_t>(snapshot.objects.size()));
     for (const MappedObject& object : snapshot.objects)
@@ -307,6 +307,14 @@ saveOccupancy(const std::string& directory, const cv::Mat& cells, const GridGeom
         // 205 reads back as occupancy 0.196; a free threshold above it would serve unknown as free.
         << "occupied_thresh: 0.65\nfree_thresh: 0.196\n";
     return writeAtomically(root / "map.yaml", yaml.str(), std::ios::out);
+}
+
+std::optional<std::filesystem::file_time_type> worldStamp(const std::string& directory)
+{
+    std::error_code error;
+    const auto      stamp =
+        std::filesystem::last_write_time(std::filesystem::path(directory) / "world.yaml", error);
+    return error ? std::nullopt : std::optional(stamp);
 }
 
 std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string& error)
