@@ -1,0 +1,111 @@
+{"time": 1790606719.937542, "op": "label", "id": 9, "label": "dining table"}
+{"time": 1790606720.0334694, "op": "label", "id": 28, "label": "armchair"}
+{"time": 1790606720.1219604, "op": "label", "id": 33, "label": "armchair"}
+{"time": 1790606720.2156847, "op": "label", "id": 29, "label": "cabinet"}
+{"time": 1790606720.3016663, "op": "label", "id": 32, "label": "bookshelf"}
+{"time": 1790606720.381155, "op": "label", "id": 35, "label": "crate"}
+{"time": 1790606720.4807, "op": "label", "id": 46, "label": "mug"}
+{"time": 1790606720.570073, "op": "label", "id": 139, "label": "wardrobe"}
+{"time": 1790606720.653518, "op": "label", "id": 146, "label": "bed"}
+{"time": 1790606720.7429533, "op": "label", "id": 162, "label": "shelf"}
+{"time": 1790606720.8272195, "op": "label", "id": 188, "label": "potted plant"}
+{"time": 1790606720.9149625, "op": "label", "id": 232, "label": "crate"}
+{"time": 1790606721.0062866, "op": "label", "id": 233, "label": "shelf"}
+{"time": 1790606721.0991554, "op": "label", "id": 234, "label": "cardboard box"}
+{"time": 1790606721.1861827, "op": "name", "id": 29, "name": "tv stand"}
+{"time": 1790606721.274077, "op": "name", "id": 35, "name": "storage crate"}
+{"time": 1790606721.3616889, "op": "name", "id": 146, "name": "day bed"}
+{"time": 1790606721.4497175, "op": "name", "id": 189, "name": "nightstand"}
+{"time": 1790606721.5242436, "op": "name", "id": 190, "name": "clock"}
+{"time": 1790606721.6166267, "op": "merge", "ids": [57, 58], "into": 57}
+{"time": 1790606721.7085865, "op": "label", "id": 57, "label": "counter"}
+{"time": 1790606721.7966864, "op": "name", "id": 57, "name": "kitchen counter"}
+{"time": 1790606721.8822765, "op": "merge", "ids": [13, 124], "into": 13}
+{"time": 1790606721.9641967, "op": "merge", "ids": [4, 242], "into": 4}
+{"time": 1790606722.064722, "op": "merge", "ids": [21, 141, 191], "into": 21}
+{"time": 1790606722.164886, "op": "label", "id": 21, "label": "bed"}
+{"time": 1790606722.2548878, "op": "merge", "ids": [233, 152, 235], "into": 233}
+{"time": 1790606722.339892, "op": "remove", "ids": [112, 143, 145, 195, 197], "reason": "removed by hand: part of a wall"}
+{"time": 1790606722.4195845, "op": "add", "label": "book", "z_min": 1.6600000000000001, "z_max": 1.8704, "centre": [-4.945250520078343, -1.2217606387061224], "size": [0.1405, 0.0506], "yaw": 1.5648622559783365, "created": [243]}
+{"time": 1790606722.5016418, "op": "add", "label": "mug", "z_min": 0.70655, "z_max": 0.84145, "centre": [-3.223621219842705, 2.4180872362153214], "size": [0.1263, 0.0906], "yaw": 0.5176647047817386, "created": [244]}
+{"time": 1790606722.5801299, "op": "add", "label": "bowl", "z_min": 0.71765, "z_max": 0.78835, "centre": [-2.370965869211624, 2.8630353826775665], "size": [0.1698, 0.1663], "yaw": -0.005934070816560141, "created": [245]}
+{"time": 1790606722.6720972, "op": "add", "label": "bookshelf", "z_min": 0.0, "z_max": 1.5562, "centre": [8.804771501653624, 3.796734594118743], "size": [1.0778, 0.3715], "yaw": 1.5648622559783365, "created": [246]}
+{"time": 1790606722.7589602, "op": "add", "label": "cardboard box", "z_min": 0.6399999999999999, "z_max": 0.9817999999999999, "centre": [2.8221510254096556, -3.367890464963299], "size": [0.387, 0.5159], "yaw": -0.005934070816560141, "created": [247]}
+{"time": 1790606722.8410604, "op": "merge", "ids": [246, 214, 216], "into": 246}
+{"time": 1790606722.9274986, "op": "room_type", "room": "R1", "type": "living room"}
+{"time": 1790606723.009458, "op": "room_type", "room": "R6", "type": "storage room"}
+{"time": 1790606723.090708, "op": "room_type", "room": "R7", "type": "study"}
+{"time": 1790606723.2940555, "op": "box", "id": 25, "centre": [-1.1613393221292383, -3.9442624377937507], "size": [0.1569, 0.1572], "yaw": -0.005934070816560141}
+{"time": 1790606723.3772008, "op": "box", "id": 27, "centre": [-1.8604368921480912, -3.790111253582486], "size": [0.1368, 0.1022], "yaw": 0.6921976299811716}
+{"time": 1790606723.4715135, "op": "box", "id": 46, "centre": [6.531107562474286, -5.2399325067362765], "size": [0.1657, 0.1255], "yaw": -0.005934070816560141}
+{"time": 1790606723.5680878, "op": "box", "id": 52, "centre": [-2.8546384669648677, 5.615953982669696], "size": [0.2416, 0.1557], "yaw": 0.34313177958230573}
+{"time": 1790606723.6795316, "op": "box", "id": 57, "centre": [-3.1542771428414773, 5.677733137074009], "size": [2.6, 0.64], "yaw": -0.005934070816560141}
+{"time": 1790606723.751759, "op": "box", "id": 64, "centre": [-4.948810941672556, -1.8217500747781847], "size": [0.1405, 0.0506], "yaw": 1.5648622559783365}
+{"time": 1790606723.8317165, "op": "box", "id": 162, "centre": [2.8221510254096556, -3.367890464963299], "size": [1.0972, 0.502], "yaw": 1.5648622559783365}
+{"time": 1790606723.8954024, "op": "box", "id": 190, "centre": [3.7660164023756337, 5.706668375562496], "size": [0.1095, 0.054], "yaw": -0.005934070816560141}
+{"time": 1790606723.9538538, "op": "box", "id": 202, "centre": [8.869935003154014, 1.296303887605922], "size": [0.2707, 0.2042], "yaw": -0.005934070816560141}
+{"time": 1790606724.099898, "op": "check", "id": 1, "checked": true}
+{"time": 1790606724.170186, "op": "check", "id": 3, "checked": true}
+{"time": 1790606724.2348619, "op": "check", "id": 4, "checked": true}
+{"time": 1790606724.318304, "op": "check", "id": 9, "checked": true}
+{"time": 1790606724.385541, "op": "check", "id": 13, "checked": true}
+{"time": 1790606724.45114, "op": "check", "id": 14, "checked": true}
+{"time": 1790606724.525476, "op": "check", "id": 16, "checked": true}
+{"time": 1790606724.585954, "op": "check", "id": 21, "checked": true}
+{"time": 1790606724.6517262, "op": "check", "id": 24, "checked": true}
+{"time": 1790606724.7128882, "op": "check", "id": 25, "checked": true}
+{"time": 1790606724.7668798, "op": "check", "id": 26, "checked": true}
+{"time": 1790606724.8155968, "op": "check", "id": 27, "checked": true}
+{"time": 1790606724.879088, "op": "check", "id": 28, "checked": true}
+{"time": 1790606724.9362547, "op": "check", "id": 29, "checked": true}
+{"time": 1790606724.9877813, "op": "check", "id": 30, "checked": true}
+{"time": 1790606725.0370572, "op": "check", "id": 31, "checked": true}
+{"time": 1790606725.0890229, "op": "check", "id": 32, "checked": true}
+{"time": 1790606725.1368978, "op": "check", "id": 33, "checked": true}
+{"time": 1790606725.1890116, "op": "check", "id": 35, "checked": true}
+{"time": 1790606725.2403998, "op": "check", "id": 40, "checked": true}
+{"time": 1790606725.2959003, "op": "check", "id": 46, "checked": true}
+{"time": 1790606725.3452642, "op": "check", "id": 47, "checked": true}
+{"time": 1790606725.3907874, "op": "check", "id": 48, "checked": true}
+{"time": 1790606725.4330728, "op": "check", "id": 52, "checked": true}
+{"time": 1790606725.4730234, "op": "check", "id": 53, "checked": true}
+{"time": 1790606725.514772, "op": "check", "id": 54, "checked": true}
+{"time": 1790606725.5636632, "op": "check", "id": 56, "checked": true}
+{"time": 1790606725.612475, "op": "check", "id": 57, "checked": true}
+{"time": 1790606725.6616573, "op": "check", "id": 64, "checked": true}
+{"time": 1790606725.719559, "op": "check", "id": 76, "checked": true}
+{"time": 1790606725.760485, "op": "check", "id": 113, "checked": true}
+{"time": 1790606725.8041046, "op": "check", "id": 129, "checked": true}
+{"time": 1790606725.8522232, "op": "check", "id": 139, "checked": true}
+{"time": 1790606725.9003067, "op": "check", "id": 146, "checked": true}
+{"time": 1790606725.9362183, "op": "check", "id": 157, "checked": true}
+{"time": 1790606725.9817767, "op": "check", "id": 162, "checked": true}
+{"time": 1790606726.0256422, "op": "check", "id": 167, "checked": true}
+{"time": 1790606726.0618918, "op": "check", "id": 168, "checked": true}
+{"time": 1790606726.0961716, "op": "check", "id": 188, "checked": true}
+{"time": 1790606726.1301138, "op": "check", "id": 189, "checked": true}
+{"time": 1790606726.163086, "op": "check", "id": 190, "checked": true}
+{"time": 1790606726.2049809, "op": "check", "id": 202, "checked": true}
+{"time": 1790606726.2408488, "op": "check", "id": 232, "checked": true}
+{"time": 1790606726.278148, "op": "check", "id": 233, "checked": true}
+{"time": 1790606726.3124237, "op": "check", "id": 234, "checked": true}
+{"time": 1790606726.354657, "op": "room_check", "room": "R4", "checked": true}
+{"time": 1790606726.3946157, "op": "room_check", "room": "R6", "checked": true}
+{"time": 1790606726.432009, "op": "room_check", "room": "R1", "checked": true}
+{"time": 1790606726.47005, "op": "room_check", "room": "R8", "checked": true}
+{"time": 1790606726.5031419, "op": "room_check", "room": "R7", "checked": true}
+{"time": 1790606726.5368018, "op": "room_check", "room": "R3", "checked": true}
+{"time": 1790606759.9043298, "op": "merge", "ids": [40, 48], "into": 40}
+{"time": 1790606759.9457047, "op": "merge", "ids": [9, 76], "into": 9}
+{"time": 1790606759.9783256, "op": "merge", "ids": [14, 113], "into": 14}
+{"time": 1790606760.010864, "op": "merge", "ids": [3, 129], "into": 3}
+{"time": 1790606760.0471358, "op": "merge", "ids": [233, 157], "into": 233}
+{"time": 1790606760.0834322, "op": "remove", "ids": [1], "reason": "removed by hand: nothing there"}
+{"time": 1790606786.1447759, "op": "name", "id": 29, "name": "media console"}
+{"time": 1790606850.1994421, "op": "box", "id": 13, "centre": [-1.463220820403255, 5.641719475939765], "size": [0.7433, 0.6753], "yaw": -0.003312778317571847}
+{"time": 1790606850.2424855, "op": "box", "id": 14, "centre": [-3.270035254214073, 3.587693769729423], "size": [0.4336, 0.5764], "yaw": -0.003312778317571847}
+{"time": 1790606850.2786536, "op": "box", "id": 16, "centre": [-2.2700407414591455, 3.5843809974711958], "size": [0.4336, 0.5764], "yaw": -0.003312778317571847}
+{"time": 1790606850.3189533, "op": "box", "id": 54, "centre": [-4.943632385183974, 5.523248636740256], "size": [0.8609, 0.9362], "yaw": -0.003312778317571847}
+{"time": 1790607274.889652, "op": "box", "id": 9, "centre": [-2.755240382045545, 2.6785149408688755], "size": [1.955, 1.2048], "yaw": -0.005067867980012274}
+{"time": 1790607274.9506114, "op": "box", "id": 47, "centre": [6.003875788361299, -5.410978795658606], "size": [2.0, 0.9472], "yaw": 3.136524785609781}
+{"time": 1790607274.985549, "op": "box", "id": 189, "centre": [3.7804368925736576, 5.755432645654966], "size": [0.5678, 0.4242], "yaw": -0.005067867980012274}

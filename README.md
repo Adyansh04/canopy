@@ -52,7 +52,7 @@ What the run leaves in `world_dir`:
 | Semantic map | Against ground truth | The walk |
 |---|---|---|
 | ![Semantic map](canopy/doc/apartment/semantic_map.png) | ![Floor plan against the simulator's truth](canopy/doc/apartment_truth.png) | ![The robot's walk](canopy/doc/apartment_walk.png) |
-| `semantic_map.png`: rooms named, objects boxed and labelled. | The saved floor plan with the scene's real walls (blue) and furniture (orange) drawn over it. | The robot's path, blue early to red late, and each viewpoint. |
+| `semantic_map.png`: rooms named, objects boxed and labelled, after the clean-up and a check in the map editor. | The saved floor plan with the scene's real walls (blue) and furniture (orange) drawn over it. | The robot's path, blue early to red late, and each viewpoint. |
 
 The [map editor](editor/doc/guide.md) is for checking that world by hand afterwards:
 

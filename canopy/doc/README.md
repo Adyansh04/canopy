@@ -9,12 +9,16 @@ and a Gemini describer), exported with the test's `G1_EXPLORE_TEST_EXPORT=1`:
 - `coverage.bin`, `objects.bin` and `wall_hits.png`: the layers the world model and the C++
   replays load.
 - `run.yaml`: how the run was made and what the test scored, including where the map lies in the
-  simulator's world (`map_to_world`).
+  simulator's world (`map_to_world`), then what the corrected world scores.
+- `edits.log`: every correction made by hand in the map editor, one JSON line each.
 
-It is the models' map as they left it, mistakes included: 36 of the 44 objects the cameras can see
-were found. The rest were missed, mislabelled (the wardrobe as a cabinet), or doubled by phantoms
-(the floor as a desk). The object crops are left out. The pictures, made with grove-g1's
-`g1_bringup` tools:
+The models found 36 of the 44 objects the cameras can see. The rest were missed, mislabelled (the
+wardrobe as a cabinet), or doubled by phantoms (the floor as a desk). canopy's `~/clean_up` then
+took out the floor twice and a stool that was part of the coffee table. The rest was corrected in
+the map editor against the simulator's truth: 16 labels, 11 merges of pieces into their object, 5
+wall slivers and a phantom removed, 5 missed objects added, 3 room types, and 16 boxes that were
+well off. It now holds all 44 objects and nothing else. The object crops are left out. The
+pictures, made with grove-g1's `g1_bringup` tools:
 - `apartment_truth.png` draws the scene's walls (blue) and furniture (orange) over the saved floor
   plan (`compare_truth.py --overlay`).
 - `apartment_wardrobe.png` is the corner behind the bedroom's wardrobe, from the same command with
