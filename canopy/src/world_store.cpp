@@ -132,6 +132,13 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
         yaml << YAML::Key << "type_source" << YAML::Value << room.type_source;
         yaml << YAML::Key << "x" << YAML::Value << room.x;
         yaml << YAML::Key << "y" << YAML::Value << room.y;
+        yaml << YAML::Key << "checked" << YAML::Value << room.checked;
+        yaml << YAML::Key << "outline" << YAML::Value << YAML::BeginSeq;
+        for (const Eigen::Vector2d& point : room.outline)
+        {
+            yaml << YAML::BeginSeq << point.x() << point.y() << YAML::EndSeq;
+        }
+        yaml << YAML::EndSeq;
         yaml << YAML::EndMap;
     }
     yaml << YAML::EndSeq;
@@ -324,13 +331,20 @@ std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string
         snapshot.next_room    = yaml["next_room"].as<int>(1);
         for (const YAML::Node& room : yaml["rooms"])
         {
-            snapshot.rooms.push_back({ room["id"].as<std::string>(),
-                                       room["name"].as<std::string>(""),
-                                       room["type"].as<std::string>(""),
-                                       room["type_confidence"].as<double>(0.0),
-                                       room["type_source"].as<std::string>(""),
-                                       room["x"].as<double>(0.0),
-                                       room["y"].as<double>(0.0) });
+            RoomRecord record;
+            record.id              = room["id"].as<std::string>();
+            record.name            = room["name"].as<std::string>("");
+            record.type            = room["type"].as<std::string>("");
+            record.type_confidence = room["type_confidence"].as<double>(0.0);
+            record.type_source     = room["type_source"].as<std::string>("");
+            record.x               = room["x"].as<double>(0.0);
+            record.y               = room["y"].as<double>(0.0);
+            record.checked         = room["checked"].as<bool>(false);
+            for (const YAML::Node& point : room["outline"])
+            {
+                record.outline.emplace_back(point[0].as<double>(), point[1].as<double>());
+            }
+            snapshot.rooms.push_back(std::move(record));
         }
         for (const YAML::Node& node : yaml["objects"])
         {

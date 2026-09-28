@@ -1398,6 +1398,7 @@ void WorldModelNode::applyRestore()
     {
         const std::filesystem::path path =
             std::filesystem::path(world_dir_) / "crops" / (objectId(object.id) + ".jpg");
+        room.checked         = record.checked;
         std::ifstream in(path, std::ios::binary);
         if (in)
         {
@@ -2002,8 +2003,15 @@ std::string WorldModelNode::saveNow()
                 }
             }
         }
-        snapshot.rooms.push_back(
-            { room.id, room.name, room.type, room.type_confidence, room.type_source, x, y });
+        RoomRecord record{
+            room.id, room.name,    room.type, room.type_confidence, room.type_source, x,
+            y,       room.checked, {}
+        };
+        for (const cv::Point2d& corner : room.region.outline)
+        {
+            record.outline.emplace_back(corner.x, corner.y);
+        }
+        snapshot.rooms.push_back(std::move(record));
     }
     // The boxes as shown: the map's outline where it gave one.
     snapshot.objects = objects_.objects();

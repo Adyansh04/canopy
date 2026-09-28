@@ -99,6 +99,7 @@ private:
         std::string type;
         double      type_confidence = 0.0;
         std::string type_source;
+        bool        checked = false;  // An operator reviewed it in a map editor.
         Region      region;
     };
 

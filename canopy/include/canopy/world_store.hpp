@@ -11,6 +11,7 @@
  * re-mapped building starts clean instead of wearing someone else's objects.
  */
 
+#include <Eigen/Core>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -29,8 +30,11 @@ struct RoomRecord
     std::string type;
     double      type_confidence = 0.0;
     std::string type_source;
-    double      x = 0.0;  ///< A point inside the room, to find it again, m.
-    double      y = 0.0;
+    double      x       = 0.0;  ///< A point inside the room, to find it again, m.
+    double      y       = 0.0;
+    bool        checked = false;  ///< An operator reviewed it; carried for tools.
+    /// Its outline when saved, map frame, for tools: loading re-segments the map instead.
+    std::vector<Eigen::Vector2d> outline;
 };
 
 struct WorldSnapshot

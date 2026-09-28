@@ -184,6 +184,9 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     snapshot.next_room = 4;
     snapshot.rooms.push_back({ "R2", "room B", "office", 0.7, "objects", 3.5, -1.25 });
     MappedObject object;
+    // What a map editor adds: a reviewed room with its outline, an operator's label and box.
+    snapshot.rooms.back().checked = true;
+    snapshot.rooms.back().outline = { { 0.0, 0.0 }, { 1.0, 0.0 }, { 1.0, 1.5 } };
     object.id              = 12;
     object.votes           = { { "dustbin", 2.5F }, { "bucket", 0.4F } };
     object.name            = "metal bin";
@@ -235,6 +238,9 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     EXPECT_EQ(loaded->rooms[0].name, "room B");
     EXPECT_DOUBLE_EQ(loaded->rooms[0].y, -1.25);
     ASSERT_EQ(loaded->objects.size(), 1U);  // Not the torn one.
+    EXPECT_TRUE(loaded->rooms[0].checked);
+    ASSERT_EQ(loaded->rooms[0].outline.size(), 3U);
+    EXPECT_DOUBLE_EQ(loaded->rooms[0].outline[2].y(), 1.5);
     const MappedObject& back = loaded->objects[0];
     EXPECT_EQ(back.id, 12);
     EXPECT_EQ(back.label(), "trash can");
