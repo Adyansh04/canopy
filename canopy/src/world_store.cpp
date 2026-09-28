@@ -5,6 +5,10 @@
 
 #include "canopy/world_store.hpp"
 
+#include <fcntl.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <yaml-cpp/yaml.h>
 
 #include <cmath>
@@ -121,16 +125,17 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
     yaml << YAML::Key << "height" << YAML::Value << snapshot.geometry.height;
     yaml << YAML::EndMap;
     yaml << YAML::Key << "next_room" << YAML::Value << snapshot.next_room;
+    yaml << YAML::Key << "next_object" << YAML::Value << snapshot.next_object;
     yaml << YAML::Key << "voxel" << YAML::Value << snapshot.voxel;
     yaml << YAML::Key << "rooms" << YAML::Value << YAML::BeginSeq;
     for (const RoomRecord& room : snapshot.rooms)
     {
         yaml << YAML::Flow << YAML::BeginMap;
-        yaml << YAML::Key << "id" << YAML::Value << room.id;
-        yaml << YAML::Key << "name" << YAML::Value << room.name;
-        yaml << YAML::Key << "type" << YAML::Value << room.type;
+        yaml << YAML::Key << "id" << YAML::Value << YAML::DoubleQuoted << room.id;
+        yaml << YAML::Key << "name" << YAML::Value << YAML::DoubleQuoted << room.name;
+        yaml << YAML::Key << "type" << YAML::Value << YAML::DoubleQuoted << room.type;
         yaml << YAML::Key << "type_confidence" << YAML::Value << room.type_confidence;
-        yaml << YAML::Key << "type_source" << YAML::Value << room.type_source;
+        yaml << YAML::Key << "type_source" << YAML::Value << YAML::DoubleQuoted << room.type_source;
         yaml << YAML::Key << "x" << YAML::Value << room.x;
         yaml << YAML::Key << "y" << YAML::Value << room.y;
         yaml << YAML::Key << "checked" << YAML::Value << room.checked;
@@ -148,15 +153,15 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
     {
         yaml << YAML::BeginMap;
         yaml << YAML::Key << "id" << YAML::Value << object.id;
-        yaml << YAML::Key << "label" << YAML::Value << object.label();
+        yaml << YAML::Key << "label" << YAML::Value << YAML::DoubleQuoted << object.label();
         yaml << YAML::Key << "votes" << YAML::Value << YAML::Flow << YAML::BeginMap;
         for (const auto& [label, weight] : object.votes)
         {
-            yaml << YAML::Key << label << YAML::Value << weight;
+            yaml << YAML::Key << YAML::DoubleQuoted << label << YAML::Value << weight;
         }
         yaml << YAML::EndMap;
-        yaml << YAML::Key << "name" << YAML::Value << object.name;
-        yaml << YAML::Key << "caption" << YAML::Value << object.caption;
+        yaml << YAML::Key << "name" << YAML::Value << YAML::DoubleQuoted << object.name;
+        yaml << YAML::Key << "caption" << YAML::Value << YAML::DoubleQuoted << object.caption;
         yaml << YAML::Key << "centre" << YAML::Value << YAML::Flow << YAML::BeginSeq
              << object.box_centre.x() << object.box_centre.y() << YAML::EndSeq;
         yaml << YAML::Key << "size" << YAML::Value << YAML::Flow << YAML::BeginSeq
@@ -169,7 +174,9 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
         yaml << YAML::Key << "top_seen" << YAML::Value << object.top_seen;
         yaml << YAML::Key << "state" << YAML::Value << stateName(object.state);
         yaml << YAML::Key << "best_view_score" << YAML::Value << object.best_view_score;
-        yaml << YAML::Key << "operator_label" << YAML::Value << object.operator_label;
+        yaml << YAML::Key << "operator_label" << YAML::Value << YAML::DoubleQuoted
+             << object.operator_label;
+        yaml << YAML::Key << "operator_named" << YAML::Value << object.operator_named;
         yaml << YAML::Key << "box_pinned" << YAML::Value << object.box_pinned;
         yaml << YAML::Key << "checked" << YAML::Value << object.checked;
         yaml << YAML::EndMap;
@@ -310,12 +317,44 @@ saveOccupancy(const std::string& directory, const cv::Mat& cells, const GridGeom
     return writeAtomically(root / "map.yaml", yaml.str(), std::ios::out);
 }
 
-std::optional<std::filesystem::file_time_type> worldStamp(const std::string& directory)
+std::optional<WorldStamp> worldStamp(const std::string& directory)
+{
+    struct stat info
+    {
+    };
+    if (::stat((std::filesystem::path(directory) / "world.yaml").c_str(), &info) != 0)
+    {
+        return std::nullopt;
+    }
+    return WorldStamp{ static_cast<std::uint64_t>(info.st_ino),
+                       (static_cast<std::int64_t>(info.st_mtim.tv_sec) * 1000000000) +
+                           info.st_mtim.tv_nsec };
+}
+
+WorldLock::WorldLock(const std::string& directory, bool exclusive)
 {
     std::error_code error;
-    const auto      stamp =
-        std::filesystem::last_write_time(std::filesystem::path(directory) / "world.yaml", error);
-    return error ? std::nullopt : std::optional(stamp);
+    std::filesystem::create_directories(directory, error);
+    const std::string path = (std::filesystem::path(directory) / ".lock").string();
+    // Read-only when another user made it: flock needs no write access.
+    fd_ = ::open(path.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0666);
+    if (fd_ < 0)
+    {
+        fd_ = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    }
+    if (fd_ >= 0)
+    {
+        ::flock(fd_, exclusive ? LOCK_EX : LOCK_SH);
+    }
+}
+
+WorldLock::~WorldLock()
+{
+    if (fd_ >= 0)
+    {
+        ::flock(fd_, LOCK_UN);
+        ::close(fd_);
+    }
 }
 
 std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string& error)
@@ -338,6 +377,7 @@ std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string
                                   grid["width"].as<int>(),
                                   grid["height"].as<int>() };
         snapshot.next_room    = yaml["next_room"].as<int>(1);
+        snapshot.next_object  = yaml["next_object"].as<int>(1);
         snapshot.voxel        = yaml["voxel"].as<double>(0.0);
         for (const YAML::Node& room : yaml["rooms"])
         {
@@ -374,6 +414,7 @@ std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string
             object.state           = stateOf(node["state"].as<std::string>("active"));
             object.best_view_score = node["best_view_score"].as<double>(0.0);
             object.operator_label  = node["operator_label"].as<std::string>("");
+            object.operator_named  = node["operator_named"].as<bool>(false);
             object.box_pinned      = node["box_pinned"].as<bool>(false);
             object.checked         = node["checked"].as<bool>(false);
             if (object.box_pinned)
@@ -500,6 +541,7 @@ std::string setAsideWorld(const std::string& directory, std::string& aside)
         return "cannot create " + to.string() + ": " + error.message();
     }
     for (const char* name : { "world.yaml",
+                              "edits.log",
                               "objects.bin",
                               "coverage.bin",
                               "map.pgm",

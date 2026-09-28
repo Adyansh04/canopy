@@ -290,11 +290,18 @@ TEST(WorldStore, StampsTheWorldsLastWrite)
     ASSERT_EQ(saveWorld(directory, snapshot), "");
     const auto written = worldStamp(directory);
     ASSERT_TRUE(written.has_value());
-    // A map editor's save moves it on, which is how the node knows not to save over it.
+    EXPECT_EQ(worldStamp(directory), written);
+    // A map editor's save moves it on, which is how the node knows not to save over it; so does
+    // one landing in the same clock tick, since every save renames a new file into place.
+    const std::filesystem::path yaml = std::filesystem::path(directory) / "world.yaml";
     std::filesystem::last_write_time(
-        std::filesystem::path(directory) / "world.yaml",
-        *written + std::chrono::seconds(5));
+        yaml,
+        std::filesystem::last_write_time(yaml) + std::chrono::seconds(5));
     EXPECT_NE(worldStamp(directory), written);
+    const auto touched = worldStamp(directory);
+    ASSERT_EQ(saveWorld(directory, snapshot), "");
+    std::filesystem::last_write_time(yaml, std::filesystem::last_write_time(yaml));
+    EXPECT_NE(worldStamp(directory)->inode, touched->inode);
 }
 
 TEST(WorldStore, ReportsAMissingWorld)

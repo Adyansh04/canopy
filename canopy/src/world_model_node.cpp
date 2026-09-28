@@ -378,9 +378,25 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
     if (!world_dir_.empty())
     {
         std::string error;
-        pending_restore_ = loadWorld(world_dir_, error);
-        world_stamp_     = worldStamp(world_dir_);
-        if (pending_restore_)
+        {
+            const WorldLock lock(world_dir_, false);
+            world_stamp_     = worldStamp(world_dir_);
+            pending_restore_ = loadWorld(world_dir_, error);
+        }
+        if (!pending_restore_ && world_stamp_)
+        {
+            // There, but unreadable: moved aside, not saved over by the first autosave.
+            std::string       aside;
+            const std::string failure = setAsideWorld(world_dir_, aside);
+            world_stamp_.reset();
+            RCLCPP_WARN(
+                get_logger(),
+                "the world in %s cannot be read (%s); starting empty, %s",
+                world_dir_.c_str(),
+                error.c_str(),
+                failure.empty() ? ("it moved to " + aside).c_str() : failure.c_str());
+        }
+        else if (pending_restore_)
         {
             RCLCPP_INFO(
                 get_logger(),
@@ -537,7 +553,11 @@ WorldModelNode::~WorldModelNode()
 {
     if (!world_dir_.empty() && dirty_)
     {
-        saveNow();
+        const std::string failure = saveNow();
+        if (!failure.empty())
+        {
+            RCLCPP_WARN(get_logger(), "mapping since the last save is lost: %s", failure.c_str());
+        }
     }
 }
 
@@ -1202,7 +1222,10 @@ void WorldModelNode::storeCrop(
     std::vector<std::uint8_t> jpeg;
     cv::imencode(".jpg", crop, jpeg, { cv::IMWRITE_JPEG_QUALITY, 85 });
     crops_[object.id] = std::move(jpeg);
-    described_.erase(object.id);  // A better view is worth another description.
+    if (!object.operator_named)
+    {
+        described_.erase(object.id);  // A better view is worth another description.
+    }
 }
 
 void WorldModelNode::storeRoomView()
@@ -1272,7 +1295,7 @@ void WorldModelNode::onDescription(const canopy_msgs::msg::Description::ConstSha
         return;
     }
     MappedObject* object = objects_.find(number);
-    if (object == nullptr)
+    if (object == nullptr || object->operator_named)
     {
         return;
     }
@@ -1346,11 +1369,11 @@ void WorldModelNode::resegment()
     RCLCPP_INFO(get_logger(), "segmented %zu rooms", rooms_.size());
 }
 
-void WorldModelNode::applyRestore()
+bool WorldModelNode::applyRestore()
 {
     if (!pending_restore_)
     {
-        return;
+        return false;
     }
     WorldSnapshot snapshot = std::move(*pending_restore_);
     pending_restore_.reset();
@@ -1367,9 +1390,16 @@ void WorldModelNode::applyRestore()
             "the saved world was built %s; starting empty, %s",
             other_voxel ? "with another voxel size" : "on a different map",
             failure.empty() ? ("the old one moved to " + aside).c_str() : failure.c_str());
-        return;
+        return false;
     }
-    objects_.restore(std::move(snapshot.objects));
+    // Everything kept per object id belongs to the world being replaced; the crops come back from
+    // disk below, and the map fit on the next publish.
+    fitted_.clear();
+    crops_.clear();
+    described_.clear();
+    requested_at_.clear();
+    looked_again_.clear();
+    objects_.restore(std::move(snapshot.objects), snapshot.next_object);
     coverage_.restoreLayers(snapshot.quality, snapshot.surface_quality, snapshot.flags);
     coverage_.setSurfaces(objects_.surfaces());
     if (snapshot.structure_hits.size() == geometry_.cellCount())
@@ -1425,6 +1455,7 @@ void WorldModelNode::applyRestore()
         get_logger(),
         "resumed %zu objects and the camera coverage",
         objects_.objects().size());
+    return true;
 }
 
 int WorldModelNode::roomLabelAt(double x, double y) const
@@ -1966,22 +1997,39 @@ void WorldModelNode::onGetApproachPose(
 
 void WorldModelNode::onReload(const std_srvs::srv::Trigger::Response::SharedPtr& response)
 {
-    std::string error;
-    pending_restore_ = world_dir_.empty() ? std::nullopt : loadWorld(world_dir_, error);
-    if (!pending_restore_)
+    response->success = false;
+    if (world_dir_.empty())
     {
-        response->success = false;
-        response->message = world_dir_.empty() ? "world_dir is not set" : error;
+        response->message = "world_dir is not set";
         return;
     }
-    world_stamp_ = worldStamp(world_dir_);
-    // Without a map yet it waits, as the startup restore does, for the first one.
-    if (!cells_.empty())
+    std::string                  error;
+    std::optional<WorldStamp>    stamp;
+    std::optional<WorldSnapshot> snapshot;
     {
-        applyRestore();
+        const WorldLock lock(world_dir_, false);
+        stamp    = worldStamp(world_dir_);
+        snapshot = loadWorld(world_dir_, error);
     }
-    response->success = true;
-    response->message = "reloaded " + world_dir_;
+    if (!snapshot)
+    {
+        response->message = error;  // Whatever was waiting to be restored still is.
+        return;
+    }
+    world_stamp_     = stamp;
+    pending_restore_ = std::move(snapshot);
+    // Without a map yet it waits, as the startup restore does, for the first one.
+    if (cells_.empty())
+    {
+        response->success = true;
+        response->message = "queued until the first map arrives";
+        return;
+    }
+    response->success = applyRestore();
+    response->message = response->success ?
+                            "reloaded " + world_dir_ :
+                            "the world on disk was built on another map or voxel size; it was "
+                            "moved aside and this node's world kept";
 }
 
 void WorldModelNode::onSave(
@@ -2006,14 +2054,16 @@ std::string WorldModelNode::saveNow()
     {
         return "nothing to save";
     }
+    const WorldLock lock(world_dir_, true);
     // Written by someone else since, most likely a map editor: theirs is the newer world.
     if (const auto stamp = worldStamp(world_dir_); stamp && stamp != world_stamp_)
     {
         return "world.yaml changed on disk since this node wrote it; ~/reload takes the edits";
     }
     WorldSnapshot snapshot;
-    snapshot.geometry = geometry_;
-    snapshot.voxel    = objects_.params().voxel;
+    snapshot.next_object = objects_.nextId();
+    snapshot.geometry    = geometry_;
+    snapshot.voxel       = objects_.params().voxel;
     snapshot.cells.assign(cells_.datastart, cells_.dataend);
     const cv::Mat plan = floorPlan();
     snapshot.plan.assign(plan.datastart, plan.dataend);
@@ -2039,10 +2089,15 @@ std::string WorldModelNode::saveNow()
                 }
             }
         }
-        RoomRecord record{
-            room.id, room.name,    room.type, room.type_confidence, room.type_source, x,
-            y,       room.checked, {}
-        };
+        RoomRecord record{ .id              = room.id,
+                           .name            = room.name,
+                           .type            = room.type,
+                           .type_confidence = room.type_confidence,
+                           .type_source     = room.type_source,
+                           .x               = x,
+                           .y               = y,
+                           .checked         = room.checked,
+                           .outline         = {} };
         for (const cv::Point2d& corner : room.region.outline)
         {
             record.outline.emplace_back(corner.x, corner.y);
@@ -2069,6 +2124,21 @@ std::string WorldModelNode::saveNow()
         const std::filesystem::path crops = std::filesystem::path(world_dir_) / "crops";
         std::error_code             error;
         std::filesystem::create_directories(crops, error);
+        // Only objects that still exist: a merged or pruned one's crop would show beside nothing.
+        std::erase_if(crops_, [this](const auto& entry) {
+            return objects_.find(entry.first) == nullptr;
+        });
+        for (const auto& entry : std::filesystem::directory_iterator(crops, error))
+        {
+            const std::string stem = entry.path().stem().string();
+            int               id   = 0;
+            if (stem.size() > 1 && stem[0] == 'O' &&
+                std::from_chars(stem.data() + 1, stem.data() + stem.size(), id).ec == std::errc{} &&
+                objects_.find(id) == nullptr)
+            {
+                std::filesystem::remove(entry.path(), error);
+            }
+        }
         for (const auto& [id, jpeg] : crops_)
         {
             std::ofstream out(crops / (objectId(id) + ".jpg"), std::ios::binary | std::ios::trunc);

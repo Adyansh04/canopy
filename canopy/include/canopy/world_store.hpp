@@ -43,8 +43,9 @@ struct WorldSnapshot
     GridGeometry               geometry;
     std::vector<std::uint8_t>  cells;  ///< Cell classes of the map it was built on.
     std::vector<std::uint8_t>  plan;   ///< The floor plan saved as map.pgm; empty from old saves.
-    int                        next_room = 1;
-    double                     voxel     = 0.0;  ///< Objects' voxel edge, m; 0 from old saves.
+    int                        next_room   = 1;
+    int                        next_object = 1;    ///< Ids are never reused, nor their crops.
+    double                     voxel       = 0.0;  ///< Objects' voxel edge, m; 0 from old saves.
     std::vector<RoomRecord>    rooms;
     std::vector<MappedObject>  objects;
     std::vector<std::uint8_t>  quality;
@@ -79,9 +80,34 @@ bool worldFits(
 std::string
 saveOccupancy(const std::string& directory, const cv::Mat& cells, const GridGeometry& geometry);
 
-/// world.yaml's last write in @p directory, if there is one: whether someone else wrote it since.
-[[nodiscard]] std::optional<std::filesystem::file_time_type>
-worldStamp(const std::string& directory);
+/// Which write of world.yaml is on disk: every save renames a new file into place.
+struct WorldStamp
+{
+    std::uint64_t inode                               = 0;
+    std::int64_t  mtime_ns                            = 0;
+    bool          operator==(const WorldStamp&) const = default;
+};
+
+/// world.yaml's stamp in @p directory, if there is one: whether someone else wrote it since.
+[[nodiscard]] std::optional<WorldStamp> worldStamp(const std::string& directory);
+
+/**
+ * @brief Holds @p directory's `.lock` while a world is read or written, so a map editor saving the
+ * same world never interleaves its files with this process's.
+ */
+class WorldLock
+{
+public:
+    WorldLock(const std::string& directory, bool exclusive);
+    ~WorldLock();
+    WorldLock(const WorldLock&)            = delete;
+    WorldLock& operator=(const WorldLock&) = delete;
+    WorldLock(WorldLock&&)                 = delete;
+    WorldLock& operator=(WorldLock&&)      = delete;
+
+private:
+    int fd_ = -1;
+};
 
 /**
  * @brief Reads a snapshot written by saveWorld().

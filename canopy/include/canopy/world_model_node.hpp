@@ -148,10 +148,11 @@ private:
     [[nodiscard]] cv::Mat clearedMask() const;
     /// The box an object is shown and approached by: the map's outline of it when it has one.
     [[nodiscard]] Footprint footprintOf(const MappedObject& object) const;
-    void                    applyRestore();
-    void                    typeRooms();
-    void                    publishState();
-    void                    publishMarkers(const std::vector<CoverageTally>& tallies);
+    /// Takes pending_restore_ onto the current map; false when it did not fit and was set aside.
+    bool applyRestore();
+    void typeRooms();
+    void publishState();
+    void publishMarkers(const std::vector<CoverageTally>& tallies);
     /// The run so far: viewpoints in order, glimpses, and where the camera looks.
     void appendRunMarkers(
         visualization_msgs::msg::MarkerArray& markers, const rclcpp::Time& stamp, int& id) const;
@@ -314,7 +315,7 @@ private:
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr            save_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr            reload_srv_;
     // world.yaml as this node last wrote or read it: a different stamp is someone else's edit.
-    std::optional<std::filesystem::file_time_type> world_stamp_;
+    std::optional<WorldStamp> world_stamp_;
 
     rclcpp::TimerBase::SharedPtr integrate_timer_;
     rclcpp::TimerBase::SharedPtr publish_timer_;
