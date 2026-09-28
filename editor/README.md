@@ -1,18 +1,31 @@
-# editor
+# Map editor
 
 A web page for checking a saved world by hand once a run is over. Models make mistakes a person
 fixes in seconds: a dining table labelled "bowl", the floor mapped as a desk, a storage room typed
-"office". The page lists what deserves a second look and turns each fix into one edit.
+"office". The page lists what deserves a second look and turns each fix into one edit. Not a ROS
+package. How to use each part, with screenshots: [doc/guide.md](doc/guide.md).
+
+| File | Does |
+|---|---|
+| `canopy_editor.py` | Loads a world directory, applies edits with undo, saves them, and serves the page and a JSON API. |
+| `static/` | The page: the map on a canvas, the selection panel, and the review and removed lists. |
+| `test_canopy_editor.py` | Unit tests against canopy's example world; no ROS. |
+| `doc/` | The guide and its screenshots. |
+
+## Running
 
 ```bash
 python3 editor/canopy_editor.py /data/worlds/home      # then open http://127.0.0.1:8765/
 ros2 service call /canopy/reload std_srvs/srv/Trigger  # if canopy is still running on that world
 ```
 
-Python and PyYAML, nothing else, rather than C++: a human-paced tool that edits files and serves
-one page. `--host 0.0.0.0` lets a tablet on the same network edit. The editor then prints an
-address with a token: open it once, with this machine's address in place of 0.0.0.0, and the page
-keeps the token as a cookie. Anyone else on the network is refused.
+- `--host 0.0.0.0` lets a tablet on the same network edit. The editor then prints an address with
+  a token. Open it once, with this machine's address in place of 0.0.0.0, and the page keeps the
+  token as a cookie. Anyone else on the network is refused.
+- Best edit a world canopy is done with. If it is still running, it may save while you edit, every
+  minute by default. Save then offers to **rebase**: it reads canopy's newer world and makes your
+  edits again on it. Call `~/reload` after saving.
+- `semantic_map.png` is drawn by canopy, so it shows the edits only once canopy has saved again.
 
 ## What it does
 
@@ -20,17 +33,11 @@ keeps the token as a cookie. Anyone else on the network is refused.
   a part off by drawing a box; move, turn or resize its box; add one the models missed.
 - **Rooms:** set the type and the name; mark it checked. Clearing a type hands the room back to
   canopy's typer.
-- **Review:** each object and room that looks wrong, and why:
-  - a phantom, weakly seen;
-  - the floor itself;
-  - the describer disagreeing with the label;
-  - a split vote;
-  - a piece inside something much stronger;
-  - a room typed with low confidence.
-
-  Checking an item takes it off the list. **Remove the likely phantoms** takes out every weakly
-  seen, floor or piece item at once. That rule also flags real objects now and then (2 of 132 in
-  the test flat), so read the list it asks about.
+- **Review:** each object and room that looks wrong, and why: a weakly seen phantom, the floor
+  itself, the describer disagreeing with the label, a split vote, a piece inside something much
+  stronger, a room typed with low confidence. Checking an item takes it off the list. **Remove the
+  likely phantoms** takes out every weakly seen, floor or piece item at once. That rule also flags
+  real objects now and then (2 of 132 in the test flat), so read the list it asks about.
 - **Removed:** what canopy's `~/clean_up` or a person removed, and why. Such objects stay in the
   file, off the map. **Restore** brings one back, checked, so the clean-up leaves it alone.
 - **Undo and redo** back to the last save, with nothing written until **Save**. Saving appends
@@ -40,11 +47,6 @@ canopy keeps an operator's label while its votes go on counting underneath, keep
 keeps a name they gave from the describer, and never lets the typer or describer retype a room they
 typed. It refuses to save over a world edited since it last wrote it, until `~/reload` takes the
 edits.
-
-Best edit a world canopy is done with. If it is still running, it may save while you edit, every
-minute by default. The editor then refuses to save, and offers to **rebase**: it reads canopy's
-newer world and makes your edits again on it. Call `~/reload` after saving. `semantic_map.png` is
-drawn by canopy, so it shows the edits only once canopy has saved again.
 
 ## The API
 
@@ -58,14 +60,26 @@ The page is one client of a JSON API; anything else can drive the same edits.
 | `POST /api/undo`, `/api/redo`, `/api/save`, `/api/reload` | Save answers 409 if canopy wrote the world since. |
 | `POST /api/rebase` | After a 409: reads canopy's world and makes this session's edits again on it. |
 
-The `op`s are:
-- objects: `label`, `name`, `check`, `delete`, `merge` (`ids`, `into`), `split` (`id`, `polygon`,
-  `label`), `box` (`id`, `centre`, `size`, `yaw`), `add` (`label`, `centre`, `size`, `yaw`,
-  `z_min`, `z_max`), `remove` (`ids`, `reason`) and `restore` (`ids`);
-- rooms: `room_type`, `room_name` and `room_check`, each with `room`.
+| `op` | Takes |
+|---|---|
+| `label`, `name` | `id`, and `label` or `name`; empty hands it back to the votes or the describer |
+| `check`, `delete` | `id`; `check` also `checked` |
+| `merge` | `ids`, `into` |
+| `split` | `id`, `polygon`, `label` |
+| `box` | `id`, `centre`, `size`, `yaw` |
+| `add` | `label`, `centre`, `size`, `yaw`, `z_min`, `z_max` |
+| `remove`, `restore` | `ids`; `remove` also `reason` |
+| `room_type`, `room_name`, `room_check` | `room`, and `type`, `name` or `checked` |
 
 Coordinates are metres in the map frame, and yaws are radians. Off loopback, a client sends the
 token as the `canopy_token` cookie.
+
+## Why Python
+
+A tool a person drives, whose work is file edits and one web page, run beside the robot rather than
+on it. It needs nothing but PyYAML.
+
+## Tests
 
 ```bash
 python3 -m unittest editor/test_canopy_editor.py
