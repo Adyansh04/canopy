@@ -254,9 +254,9 @@ class EditorTest(unittest.TestCase):
         self.assertEqual(again.rooms[room]["name"], "renamed by canopy")
         self.assertEqual(again.objects[sofa]["operator_label"], "couch")
         self.assertEqual(again.objects[lamp]["label"], "lamp")
-        [made] = [r for r in again.objects.values() if r["label"] == "wardrobe"]
+        [made] = [r for r in again.objects.values() if r["name"] == "the tall one"]
+        self.assertEqual(made["label"], "wardrobe")
         self.assertNotEqual(made["id"], lamp)
-        self.assertEqual(made["name"], "the tall one")
 
     def test_refuses_a_file_that_is_no_canopy_world(self):
         data = bytearray((self.directory / "objects.bin").read_bytes())
