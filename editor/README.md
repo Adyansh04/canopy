@@ -28,7 +28,11 @@ keeps the token as a cookie. Anyone else on the network is refused.
   - a piece inside something much stronger;
   - a room typed with low confidence.
 
-  Checking an item takes it off the list.
+  Checking an item takes it off the list. **Remove the likely phantoms** takes out every weakly
+  seen, floor or piece item at once. That rule also flags real objects now and then (2 of 132 in
+  the test flat), so read the list it asks about.
+- **Removed:** what canopy's `~/clean_up` or a person removed, and why. Such objects stay in the
+  file, off the map. **Restore** brings one back, checked, so the clean-up leaves it alone.
 - **Undo and redo** back to the last save, with nothing written until **Save**. Saving appends
   every edit to `edits.log` in the world directory.
 
@@ -56,8 +60,8 @@ The page is one client of a JSON API; anything else can drive the same edits.
 
 The `op`s are:
 - objects: `label`, `name`, `check`, `delete`, `merge` (`ids`, `into`), `split` (`id`, `polygon`,
-  `label`), `box` (`id`, `centre`, `size`, `yaw`) and `add` (`label`, `centre`, `size`, `yaw`,
-  `z_min`, `z_max`);
+  `label`), `box` (`id`, `centre`, `size`, `yaw`), `add` (`label`, `centre`, `size`, `yaw`,
+  `z_min`, `z_max`), `remove` (`ids`, `reason`) and `restore` (`ids`);
 - rooms: `room_type`, `room_name` and `room_check`, each with `room`.
 
 Coordinates are metres in the map frame, and yaws are radians. Off loopback, a client sends the

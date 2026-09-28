@@ -202,17 +202,17 @@ img.crop {
   border: 1px solid var(--line);
 }
 
-#review {
+#review, #removed {
   margin: 0;
   padding-left: 20px;
 }
 
-#review li {
+#review li, #removed li {
   margin: 4px 0;
   cursor: pointer;
 }
 
-#review li:hover { color: var(--accent); }
+#review li:hover, #removed li:hover { color: var(--accent); }
 
 kbd {
   padding: 0 4px;

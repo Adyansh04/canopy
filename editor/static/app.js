@@ -284,11 +284,15 @@ function draw() {
     }
   });
 
-  for (const object of world.objects.filter((o) => o.shown)) {
+  const isChosen = (object) => selected && selected.kind === "object" && selected.id === object.id;
+  // A removed object only while it is selected, from the Removed list.
+  for (const object of world.objects.filter((o) => o.shown || isChosen(o))) {
     const box = boxOf(object);
-    const chosen = selected && selected.kind === "object" && selected.id === object.id;
+    const chosen = isChosen(object);
     let stroke = colour("--object");
-    if (object.checked) {
+    if (!object.shown) {
+      stroke = colour("--danger");
+    } else if (object.checked) {
       stroke = colour("--checked");
     } else if (suspicion("object", object.id)) {
       stroke = colour("--suspect");
@@ -431,6 +435,7 @@ function renderObject(object) {
     ),
     object.crop ? el("img", { class: "crop", src: `/api/crops/O${object.id}.jpg`, alt: `what the camera saw of O${object.id}` }) : null,
     reasons ? el("ul", { class: "reasons" }, reasons.reasons.map((r) => el("li", {}, r))) : null,
+    object.removed_by ? el("ul", { class: "reasons" }, el("li", {}, object.removed_by)) : null,
     field("What it is", label),
     el("div", { class: "row" },
       el("button", { onclick: () => edit({ op: "label", id: object.id, label: label.value }, `O${object.id} is now ${label.value}`) }, "Set label"),
@@ -448,6 +453,7 @@ function renderObject(object) {
       el("dt", {}, "voxels"), el("dd", {}, object.voxels),
     ),
     el("div", { class: "row" },
+      object.state === "removed" ? el("button", { class: "primary", onclick: () => edit({ op: "restore", ids: [object.id] }, `O${object.id} restored, and checked`) }, "Restore") : null,
       el("button", { onclick: () => edit({ op: "check", id: object.id, checked: !object.checked }, object.checked ? `O${object.id} unchecked` : `O${object.id} checked`) }, object.checked ? "Uncheck" : "Mark checked (C)"),
       el("button", { onclick: () => startMode("merge") }, "Merge with…"),
       el("button", { onclick: () => startMode("split") }, "Split off…"),
@@ -545,6 +551,30 @@ function renderReview() {
     }),
   );
   document.getElementById("review-count").textContent = world.suggestions.length;
+  const phantoms = world.suggestions.filter((s) => s.phantom).length;
+  const button = document.getElementById("remove-phantoms");
+  button.hidden = !phantoms;
+  button.textContent = `Remove the ${phantoms} likely phantoms…`;
+}
+
+function renderRemoved() {
+  const removed = world.objects.filter((object) => object.state === "removed" && object.removed_by);
+  document.getElementById("removed-section").hidden = !removed.length;
+  document.getElementById("removed-count").textContent = removed.length;
+  document.getElementById("removed").replaceChildren(
+    ...removed.map((object) =>
+      el("li", { onclick: () => goTo({ kind: "object", id: object.id }) }, el("strong", {}, `O${object.id} ${object.label}`), " — ", object.removed_by),
+    ),
+  );
+}
+
+function removePhantoms() {
+  const phantoms = world.suggestions.filter((s) => s.phantom);
+  const names = phantoms.map((s) => `O${s.id} ${objectById(s.id).label}`).join(", ");
+  const question = `Remove ${phantoms.length} objects that look like no object at all?\n\n${names}\n\nThey stay in the file, listed under Removed, and each can be restored.`;
+  if (window.confirm(question)) {
+    edit({ op: "remove", ids: phantoms.map((s) => s.id), reason: "removed by hand: a likely phantom" }, `${phantoms.length} likely phantoms removed`);
+  }
 }
 
 function goTo(item) {
@@ -569,6 +599,7 @@ function show(next) {
   }
   renderPanel();
   renderReview();
+  renderRemoved();
   redraw();
 }
 
@@ -792,6 +823,7 @@ document.getElementById("undo").addEventListener("click", () => command("/api/un
 document.getElementById("redo").addEventListener("click", () => command("/api/redo", "redone"));
 document.getElementById("add").addEventListener("click", () => startMode("add"));
 document.getElementById("save").addEventListener("click", save);
+document.getElementById("remove-phantoms").addEventListener("click", removePhantoms);
 document.getElementById("reload").addEventListener("click", () => {
   if (!world.unsaved || window.confirm(`Discard ${world.unsaved} unsaved edits?`)) {
     command("/api/reload", "read the world from disk again");

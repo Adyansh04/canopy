@@ -27,7 +27,13 @@
       <section>
         <h2>Review <span id="review-count" class="badge"></span></h2>
         <p class="muted small">What deserves a second look. Checking an item takes it off the list.</p>
+        <button id="remove-phantoms" hidden title="Out of the map but kept in the file: each can be restored"></button>
         <ol id="review"></ol>
+      </section>
+      <section id="removed-section" hidden>
+        <h2>Removed <span id="removed-count" class="badge"></span></h2>
+        <p class="muted small">Taken out by canopy's clean-up or by hand, and why. Select one to restore it.</p>
+        <ol id="removed"></ol>
       </section>
       <section class="small muted">
         <h2>Keys</h2>

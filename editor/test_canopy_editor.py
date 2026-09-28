@@ -189,6 +189,22 @@ class EditorTest(unittest.TestCase):
         self.assertGreater(created, highest)
         self.assertGreater(self.reopened().next_object, created)
 
+    def test_removes_and_restores_what_it_keeps_in_the_file(self):
+        a, b = [i for i, r in self.world.objects.items() if r["state"] == "active"][:2]
+        reason = "removed by hand: a likely phantom"
+        self.world.apply({"op": "remove", "ids": [a, b], "reason": reason})
+        again = self.reopened()
+        self.assertEqual(
+            (again.objects[a]["state"], again.objects[a]["removed_by"]), ("removed", reason)
+        )
+        shown = {o["id"]: o["shown"] for o in again.view()["objects"]}
+        self.assertFalse(shown[a] or shown[b])
+        again.apply({"op": "restore", "ids": [a]})
+        restored = again.objects[a]
+        self.assertEqual(
+            (restored["state"], restored["removed_by"], restored["checked"]), ("active", "", True)
+        )
+
     def test_types_and_names_a_room_for_good(self):
         room = next(iter(self.world.rooms))
         self.world.apply({"op": "room_type", "room": room, "type": "Storage Room"})
@@ -207,6 +223,7 @@ class EditorTest(unittest.TestCase):
         self.world.apply({"op": "check", "id": slab, "checked": False})
         flagged = {s["id"]: s for s in self.world.suggestions() if s["kind"] == "object"}
         self.assertIn("flat on the floor: the floor itself?", flagged[slab]["reasons"])
+        self.assertTrue(flagged[slab]["phantom"])
         self.world.apply({"op": "check", "id": slab})
         self.assertNotIn(slab, {s["id"] for s in self.world.suggestions()})
 

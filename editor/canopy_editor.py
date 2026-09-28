@@ -547,6 +547,25 @@ class World:
     def _op_delete(self, op):
         del self.objects[self._object(op["id"])]
 
+    def _op_remove(self, op):
+        """Out of the map but kept in the file, with why, as canopy's clean-up leaves what it
+        takes: restore brings it back."""
+        reason = text(op.get("reason")).strip() or "removed by hand"
+        for object_id in self._ids(op):
+            self.objects[object_id].update(state="removed", removed_by=reason)
+
+    def _op_restore(self, op):
+        for object_id in self._ids(op):
+            record = self.objects[object_id]
+            # Vouched for: canopy's clean-up leaves a checked object be, and misses start again.
+            record.update(
+                state="active",
+                removed_by="",
+                misses=0,
+                checked=True,
+                observations=max(record["observations"], 2),
+            )
+
     def _op_merge(self, op):
         into = self.objects[self._object(op["into"])]
         others = [self.objects[i] for i in self._ids(op) if i != into["id"]]
@@ -738,6 +757,7 @@ class World:
             "weight": sum(votes.values()),
             "observations": record["observations"],
             "state": record["state"],
+            "removed_by": record["removed_by"],
             "centre": record["centre"][:2],
             "size": record["size"][:2],
             "yaw": record["yaw"],
@@ -752,7 +772,8 @@ class World:
         }
 
     def suggestions(self):
-        """What deserves a second look, most doubtful first; nothing checked, nothing removed."""
+        """What deserves a second look, most doubtful first; nothing checked, nothing removed.
+        `phantom` marks what is likely no object at all, for removing in one go."""
         out = []
         live = [
             r
@@ -766,6 +787,7 @@ class World:
         ranges = {r["id"]: z_range(r["_voxels"], self.voxel) for r in live}
         for record in live:
             reasons = []
+            phantom = False
             object_id = record["id"]
             label = record["operator_label"] or record["label"]
             name = record["name"].lower()
@@ -774,10 +796,12 @@ class World:
                 reasons.append(
                     f"seen {record['observations']} times with little confidence: a phantom?"
                 )
+                phantom = True
             if ranges[object_id][1] < FLOOR_TOP and (
                 label not in FLAT_LABELS or name.endswith("floor")
             ):
                 reasons.append("flat on the floor: the floor itself?")
+                phantom = True
             if not record["operator_label"]:
                 if name and not self._agrees(label, name):
                     reasons.append(f"the describer called it '{record['name']}'")
@@ -798,9 +822,12 @@ class World:
                         and overlap(record["_voxels"], other["_voxels"]) >= PIECE_SHARE
                     ):
                         reasons.append(f"mostly inside O{other['id']} ({other['label']})")
+                        phantom = True
                         break
             if reasons:
-                out.append({"kind": "object", "id": object_id, "reasons": reasons})
+                out.append(
+                    {"kind": "object", "id": object_id, "reasons": reasons, "phantom": phantom}
+                )
         for room in self.rooms.values():
             if room["checked"] or room["type_source"] == "operator":
                 continue
