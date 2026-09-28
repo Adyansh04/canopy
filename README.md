@@ -29,7 +29,7 @@ flowchart LR
 | [`canopy_msgs`](canopy_msgs) | Its interfaces: instance masks, rooms, objects, describer requests, and the search and exploration services. |
 | [`canopy_perception`](canopy_perception) | The front end: a detector and a describer that ask the model servers, and a mock detector for simulators. |
 | [`servers`](servers) | The models, on the host GPU: YOLOE-26 detection, SigLIP 2 embeddings, and Gemini or a local Qwen VLM for names and room types. Not a ROS package. |
-| [`editor`](editor) | A web page for checking a saved world by hand after a run: relabel, rename, delete, merge, split, move or add objects, and retype rooms. Not a ROS package. |
+| [`editor`](editor) | A web page for checking a saved world by hand after a run: relabel, rename, delete, merge, split, move or add objects, and retype rooms. Not a ROS package. How to use it: [editor/doc/guide.md](editor/doc/guide.md). |
 
 Built for ROS 2 Jazzy (Ubuntu 24.04), C++20.
 
@@ -53,6 +53,10 @@ What the run leaves in `world_dir`:
 |---|---|---|
 | ![Semantic map](canopy/doc/apartment/semantic_map.png) | ![Floor plan against the simulator's truth](canopy/doc/apartment_truth.png) | ![The robot's walk](canopy/doc/apartment_walk.png) |
 | `semantic_map.png`: rooms named, objects boxed and labelled. | The saved floor plan with the scene's real walls (blue) and furniture (orange) drawn over it. | The robot's path, blue early to red late, and each viewpoint. |
+
+The [map editor](editor/doc/guide.md) is for checking that world by hand afterwards:
+
+![The map editor with the explored flat open](editor/doc/overview.png)
 
 ## Building
 
