@@ -131,6 +131,8 @@ private:
         const std_srvs::srv::Trigger::Response::SharedPtr& response);
     /// Takes world_dir's world as it is on disk now, e.g. after a map editor changed it.
     void onReload(const std_srvs::srv::Trigger::Response::SharedPtr& response);
+    /// Removes what exploring left that is not an object (ObjectMap::cleanUp).
+    void onCleanUp(const std_srvs::srv::Trigger::Response::SharedPtr& response);
 
     /// Integrates queued depth frames and masks old enough for their transform to exist.
     void integratePending();
@@ -248,6 +250,7 @@ private:
     double        max_wall_crack_ = 0.3;  // Free gap in such a wall closed in the plan, m.
     double        min_furniture_depth_ = 0.2;  // Thinner solid bands are walls to the map fit, m.
     double        second_look_reach_   = 3.0;  // Farthest walk back to a glimpse, m.
+    CleanupParams cleanup_params_;             // What ~/clean_up takes out.
     std::set<int> looked_again_;               // Glimpses already given their second look.
     std::map<int, Footprint> fitted_;          // Object boxes taken from the map, by id.
     std::optional<Viewpoint> heading_to_;      // The viewpoint being visited, for RViz.
@@ -314,6 +317,7 @@ private:
     rclcpp::Service<canopy_msgs::srv::GetApproachPose>::SharedPtr approach_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr            save_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr            reload_srv_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr            clean_up_srv_;
     // world.yaml as this node last wrote or read it: a different stamp is someone else's edit.
     std::optional<WorldStamp> world_stamp_;
 

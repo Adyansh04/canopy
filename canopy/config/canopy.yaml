@@ -197,6 +197,19 @@
       fit_adrift_free: 0.5
       fit_min_adrift_share: 0.04
 
+    # ~/clean_up, for once exploring is over: marks removed what is surely not an object. A top
+    # under floor_top, m, is the floor unless a flat_labels kind; a floor-standing object
+    # fragment_share inside one with fragment_ratio times its votes is a piece of it. On four
+    # real-detector runs of the test flat these took out 15 of 77 objects that matched nothing,
+    # and none of 132 real ones. Anything an operator labelled, named, placed or checked is
+    # left alone.
+    cleanup:
+      floor_top: 0.14
+      flat_labels: ["rug", "mat", "carpet", "doormat"]
+      floor_standing: 0.15
+      fragment_share: 0.5
+      fragment_ratio: 4.0
+
     floor_plan:
       # Walls hidden from the LiDAR at every height, behind a wardrobe or a tall shelf, are
       # carried straight on for up to this long in the saved floor plan, m: a wall is a gap with

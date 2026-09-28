@@ -93,6 +93,7 @@ Along the way:
 | Srv | `~/find_objects`, `~/get_approach_pose` | finding things |
 | Srv | `~/save` | `std_srvs/Trigger`: writes the world to `world_dir` (it also saves every minute), unless someone else changed it on disk since |
 | Srv | `~/reload` | `std_srvs/Trigger`: takes the world in `world_dir` as it is on disk now, e.g. after the map editor |
+| Srv | `~/clean_up` | `std_srvs/Trigger`: once exploring is over, marks removed what is surely not an object (the floor, a piece inside something far more seen), with the reason; the map editor can bring any back |
 
 - **Parameters**, each with its reason: `config/canopy.yaml`.
 - **Room types and synonyms**: `config/room_types.yaml`. "dustbin" finds what the detector calls a
@@ -140,7 +141,7 @@ Whatever drives the robot (a behavior tree, a state machine, an agent) repeats:
 1. `~/next_viewpoint` in `frontier` mode until it answers done. Walk to each pose, face each
    heading, then `~/report_viewpoint` whether the pose was reached.
 2. The same in `coverage` mode, waiting a couple of seconds at each heading for the detector.
-3. `~/save`.
+3. `~/clean_up`, then `~/save`.
 
 `~/next_viewpoint` may also answer *unavailable* (no map or pose yet, or SLAM still catching up
 with the last viewpoint: ask again shortly) or *stuck* (the last few viewpoints all went unreached

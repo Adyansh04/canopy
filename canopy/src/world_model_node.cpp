@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstring>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <limits>
 #include <numbers>
@@ -341,6 +342,18 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         objects.support_labels);
     objects_ = ObjectMap(objects);
 
+    cleanup_params_.floor_top =
+        declare_parameter<double>("cleanup.floor_top", cleanup_params_.floor_top);
+    cleanup_params_.flat_labels = declare_parameter<std::vector<std::string>>(
+        "cleanup.flat_labels",
+        cleanup_params_.flat_labels);
+    cleanup_params_.floor_standing =
+        declare_parameter<double>("cleanup.floor_standing", cleanup_params_.floor_standing);
+    cleanup_params_.fragment_share =
+        declare_parameter<double>("cleanup.fragment_share", cleanup_params_.fragment_share);
+    cleanup_params_.fragment_ratio =
+        declare_parameter<double>("cleanup.fragment_ratio", cleanup_params_.fragment_ratio);
+
     segmentation_params_.min_persistence =
         declare_parameter<double>("rooms.min_persistence", segmentation_params_.min_persistence);
     segmentation_params_.min_peak =
@@ -528,6 +541,11 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         [this](
             const TriggerSrv::Request::SharedPtr& /*request*/,
             const TriggerSrv::Response::SharedPtr& response) { onReload(response); });
+    clean_up_srv_ = create_service<TriggerSrv>(
+        "~/clean_up",
+        [this](
+            const TriggerSrv::Request::SharedPtr& /*request*/,
+            const TriggerSrv::Response::SharedPtr& response) { onCleanUp(response); });
 
     integrate_timer_ =
         create_wall_timer(std::chrono::milliseconds(50), [this] { integratePending(); });
@@ -2030,6 +2048,20 @@ void WorldModelNode::onReload(const std_srvs::srv::Trigger::Response::SharedPtr&
                             "reloaded " + world_dir_ :
                             "the world on disk was built on another map or voxel size; it was "
                             "moved aside and this node's world kept";
+}
+
+void WorldModelNode::onCleanUp(const std_srvs::srv::Trigger::Response::SharedPtr& response)
+{
+    const std::vector<std::string> removed = objects_.cleanUp(cleanup_params_);
+    for (const std::string& line : removed)
+    {
+        RCLCPP_INFO(get_logger(), "clean-up removed %s", line.c_str());
+    }
+    // Their surfaces go with them; they stay in the world, marked, for a person to restore.
+    coverage_.setSurfaces(objects_.surfaces());
+    dirty_            = dirty_ || !removed.empty();
+    response->success = true;
+    response->message = std::format("removed {} objects", removed.size());
 }
 
 void WorldModelNode::onSave(
