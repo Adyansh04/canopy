@@ -27,6 +27,9 @@ made with grove-g1's `g1_bringup` tools:
   from the nearest one, and the LiDAR sees only part of it.
 - `apartment_mujoco.jpg` is the flat itself, rendered offscreen from grove-g1's
   `g1_apartment_scene.xml` with MuJoCo's own renderer, from the south-west.
+- `apartment_approach.png` is where canopy's `~/get_approach_pose` sends the G1 for each object
+  of that world, from where the robot starts, with grove-g1's values for the G1, drawn over
+  `semantic_map.png`.
 - `apartment_walk.png` is the robot's walk, blue early to red late, with each viewpoint
   (`run_summary.py --plot`), from an earlier run with the mock detector.
 - `frontier_pass_end.png` is SLAM's map as the frontier pass ended, from an earlier run

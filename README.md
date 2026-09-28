@@ -64,6 +64,15 @@ The [map editor](editor/doc/guide.md) is for checking that world by hand afterwa
 
 ![The map editor with the explored flat open](editor/doc/overview.png)
 
+Asked to go to an object, canopy picks where the robot should stand, 0.72 m off for the G1. That
+is square to one of the object's sides and near its middle where one is clear, and round a corner
+where walls or furniture hem every side in. Each blue dot is such a pose for an object of that
+world, with the robot starting at the star, and its arrow is the way the robot faces. The potted
+plant in the living room's corner (red cross) has none: the walls and furniture round it leave no
+spot with the G1's clearance.
+
+![Where the robot stands to reach each object](canopy/doc/apartment_approach.png)
+
 ## Building
 
 In a colcon workspace:
