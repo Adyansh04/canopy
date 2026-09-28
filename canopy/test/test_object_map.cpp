@@ -1026,6 +1026,60 @@ TEST(ObjectMap, KeepsAnOperatorsLabelAndBoxOverWhatTheVoxelsSay)
     EXPECT_NEAR(back.z_max, 0.74, 0.03);  // The height still comes from the voxels.
 }
 
+/// A block of voxels from @p x0 to @p x1 along x, a chair's depth and height.
+MappedObject block(const ObjectMap& map, int id, double x0, double x1, int observations)
+{
+    MappedObject object;
+    object.id           = id;
+    object.votes        = { { "chair", 10.0F } };
+    object.observations = observations;
+    object.first_seen   = 1.0;
+    object.last_seen    = 50.0;
+    for (int i = 0; 0.04 * i < x1 - x0; ++i)
+    {
+        for (int j = 0; j < 12; ++j)
+        {
+            for (int k = 0; k < 20; ++k)
+            {
+                object.voxels.push_back(map.keyOf({ x0 + (0.04 * i), 0.04 * j, 0.04 * k }));
+            }
+        }
+    }
+    return object;
+}
+
+TEST(ObjectMap, KeepsTwoObjectsAnOperatorToldApart)
+{
+    ObjectMap    map;
+    MappedObject left    = block(map, 1, 0.0, 0.48, 30);
+    MappedObject right   = block(map, 2, 0.48, 0.96, 30);  // Touching: one chair to the merge pass.
+    left.operator_label  = "chair";
+    right.operator_label = "chair";
+    map.restore({ left, right }, 9);
+    map.mergeDuplicates();
+    EXPECT_EQ(map.objects().size(), 2U);
+    EXPECT_EQ(map.nextId(), 9);  // The saved counter, not the highest id plus one.
+}
+
+TEST(ObjectMap, KeepsWhatAnOperatorSaidThroughAMerge)
+{
+    ObjectMap    map;
+    MappedObject named   = block(map, 1, 0.0, 0.48, 5);
+    MappedObject plain   = block(map, 2, 0.48, 0.96, 40);
+    named.operator_label = "chair";  // The same label as its neighbour: the merge pass joins them.
+    named.name           = "the reading chair";
+    named.operator_named = true;
+    named.checked        = true;
+    map.restore({ named, plain });
+    map.mergeDuplicates();
+    ASSERT_EQ(map.objects().size(), 1U);
+    const MappedObject& kept = map.objects().front();
+    EXPECT_EQ(kept.id, 1);  // Fewer sightings, but the one the operator worked on.
+    EXPECT_EQ(kept.operator_label, "chair");
+    EXPECT_EQ(kept.name, "the reading chair");
+    EXPECT_TRUE(kept.checked);
+}
+
 TEST(ObjectMap, KeysRoundTrip)
 {
     const ObjectMap       map;

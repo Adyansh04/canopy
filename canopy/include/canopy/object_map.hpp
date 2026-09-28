@@ -137,6 +137,14 @@ struct MappedObject
     /// An operator placed the box: the voxels no longer refit it.
     bool box_pinned = false;
     bool checked    = false;  ///< An operator reviewed it; carried for tools.
+    /// An operator named it: the describer leaves its name and caption alone.
+    bool operator_named = false;
+
+    /// Whether an operator has said anything about it; such an object keeps its id in a merge.
+    [[nodiscard]] bool touchedByOperator() const
+    {
+        return !operator_label.empty() || operator_named || box_pinned || checked;
+    }
 
     /// The operator's label, else the one with the most votes.
     [[nodiscard]] std::string label() const;
@@ -201,8 +209,12 @@ public:
     [[nodiscard]] MappedObject*       find(int id);
     [[nodiscard]] const MappedObject* find(int id) const;
 
-    /// Replaces everything, e.g. from a saved world. Ids continue after the highest.
-    void restore(std::vector<MappedObject> objects);
+    /// Replaces everything, e.g. from a saved world. Ids continue from @p next_id, or after the
+    /// highest if that is higher: an id, and the crop saved under it, is never reused.
+    void restore(std::vector<MappedObject> objects, int next_id = 1);
+
+    /// The id the next new object gets.
+    [[nodiscard]] int nextId() const { return next_id_; }
 
     /// Support-type objects as coverage surfaces, top faces only.
     [[nodiscard]] std::vector<Surface> surfaces() const;

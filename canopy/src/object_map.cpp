@@ -815,11 +815,18 @@ void ObjectMap::mergeInto(MappedObject& keep, MappedObject& drop) const
     keep.first_seen      = std::min(keep.first_seen, drop.first_seen);
     keep.last_seen       = std::max(keep.last_seen, drop.last_seen);
     keep.best_view_score = std::max(keep.best_view_score, drop.best_view_score);
-    if (keep.name.empty())
+    // What an operator said about either survives the merge.
+    if (keep.name.empty() || (drop.operator_named && !keep.operator_named))
     {
-        keep.name    = drop.name;
-        keep.caption = drop.caption;
+        keep.name           = drop.name;
+        keep.caption        = drop.caption;
+        keep.operator_named = drop.operator_named;
     }
+    if (keep.operator_label.empty())
+    {
+        keep.operator_label = drop.operator_label;
+    }
+    keep.checked = keep.checked || drop.checked;
     refreshShape(keep);
 }
 
@@ -832,7 +839,9 @@ int ObjectMap::mergeDuplicates()
         {
             MappedObject& a = objects_[i];
             MappedObject& b = objects_[j];
-            if (a.state == ObjectState::kRemoved || b.state == ObjectState::kRemoved)
+            // Two objects an operator labelled were told apart on purpose, as a split leaves them.
+            if (a.state == ObjectState::kRemoved || b.state == ObjectState::kRemoved ||
+                (!a.operator_label.empty() && !b.operator_label.empty()))
             {
                 continue;
             }
@@ -855,8 +864,10 @@ int ObjectMap::mergeDuplicates()
             {
                 continue;
             }
-            // The better-established object keeps its id.
-            const bool keep_a = a.observations >= b.observations;
+            // The one an operator worked on keeps its id, else the better established.
+            const bool keep_a = a.touchedByOperator() != b.touchedByOperator() ?
+                                    a.touchedByOperator() :
+                                    a.observations >= b.observations;
             mergeInto(keep_a ? a : b, keep_a ? b : a);
             objects_.erase(objects_.begin() + static_cast<std::ptrdiff_t>(keep_a ? j : i));
             ++merged;
@@ -983,10 +994,10 @@ const MappedObject* ObjectMap::find(int id) const
     return found == objects_.end() ? nullptr : &*found;
 }
 
-void ObjectMap::restore(std::vector<MappedObject> objects)
+void ObjectMap::restore(std::vector<MappedObject> objects, int next_id)
 {
     objects_ = std::move(objects);
-    next_id_ = 1;
+    next_id_ = std::max(next_id, 1);
     for (MappedObject& object : objects_)
     {
         next_id_ = std::max(next_id_, object.id + 1);
