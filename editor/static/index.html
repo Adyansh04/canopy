@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Canopy map editor</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <strong>canopy map editor</strong>
+    <span id="path" class="muted"></span>
+    <span class="spacer"></span>
+    <button id="undo" title="Undo (Ctrl+Z)">Undo</button>
+    <button id="redo" title="Redo (Ctrl+Y)">Redo</button>
+    <button id="add" title="Draw a box for an object the models missed">Add object</button>
+    <button id="reload" title="Discard unsaved edits and read the world from disk again">Reload</button>
+    <button id="save" class="primary" title="Write world.yaml and objects.bin (Ctrl+S)">Save</button>
+  </header>
+  <main>
+    <div id="stage">
+      <canvas id="map"></canvas>
+      <div id="hint" class="hint"></div>
+    </div>
+    <aside>
+      <section id="selection"><p class="muted">Click an object or a room on the map.</p></section>
+      <section>
+        <h2>Review <span id="review-count" class="badge"></span></h2>
+        <p class="muted small">What deserves a second look. Checking an item takes it off the list.</p>
+        <ol id="review"></ol>
+      </section>
+      <section class="small muted">
+        <h2>Keys</h2>
+        <p>Drag to pan, wheel to zoom. On a selected box: drag it to move, a corner to resize, the
+          round handle to turn. <kbd>C</kbd> checks it, <kbd>Del</kbd> deletes it,
+          <kbd>N</kbd> goes to the next review item, <kbd>Esc</kbd> cancels.</p>
+      </section>
+    </aside>
+  </main>
+  <footer id="status" role="status"></footer>
+  <datalist id="labels"></datalist>
+  <datalist id="room-types"></datalist>
+  <script src="/app.js"></script>
+</body>
+</html>
