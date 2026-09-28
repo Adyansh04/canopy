@@ -198,6 +198,12 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     // One world.yaml names with nothing in objects.bin, as a save cut short leaves it.
     MappedObject torn;
     torn.id    = 13;
+    object.operator_label  = "trash can";
+    object.checked         = true;
+    object.box_pinned      = true;
+    object.box_centre      = { 1.0, 2.0 };
+    object.box_size        = { 0.3, 0.4 };
+    object.box_yaw         = 0.5;
     torn.votes = { { "sofa", 1.0F } };
     snapshot.objects.push_back(torn);
     snapshot.plan            = { kFree, kOccupied, kOccupied };
@@ -231,7 +237,13 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     ASSERT_EQ(loaded->objects.size(), 1U);  // Not the torn one.
     const MappedObject& back = loaded->objects[0];
     EXPECT_EQ(back.id, 12);
-    EXPECT_EQ(back.label(), "dustbin");
+    EXPECT_EQ(back.label(), "trash can");
+    EXPECT_FLOAT_EQ(back.votes.at("dustbin"), 2.5F);
+    EXPECT_TRUE(back.checked);
+    EXPECT_TRUE(back.box_pinned);
+    EXPECT_DOUBLE_EQ(back.box_centre.y(), 2.0);
+    EXPECT_DOUBLE_EQ(back.box_size.y(), 0.4);
+    EXPECT_DOUBLE_EQ(back.box_yaw, 0.5);
     EXPECT_EQ(back.caption, object.caption);
     EXPECT_EQ(back.voxels, object.voxels);
     EXPECT_EQ(back.embedding, object.embedding);

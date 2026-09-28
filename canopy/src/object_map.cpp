@@ -136,6 +136,10 @@ double jointExtent(const MappedObject& a, const MappedObject& b)
 
 std::string MappedObject::label() const
 {
+    if (!operator_label.empty())
+    {
+        return operator_label;
+    }
     const auto best =
         std::max_element(votes.begin(), votes.end(), [](const auto& a, const auto& b) {
             return a.second < b.second;
@@ -145,6 +149,10 @@ std::string MappedObject::label() const
 
 float MappedObject::confidence() const
 {
+    if (!operator_label.empty())
+    {
+        return 1.0F;
+    }
     float total = 0.0F;
     float best  = 0.0F;
     for (const auto& [label, weight] : votes)
@@ -433,6 +441,10 @@ void ObjectMap::refreshShape(MappedObject& object) const
         --top;
     }
     object.top = z_min + (static_cast<double>(top) + 0.5) * params_.voxel;
+    if (object.box_pinned)
+    {
+        return;
+    }
 
     // Along the walls unless the tightest box is much smaller: a partial or round footprint
     // fits the walls as well as any angle, and must not turn diagonal for a sliver.
@@ -1014,7 +1026,8 @@ std::map<int, Footprint> fitToMap(
     std::vector<Owner> owners;
     for (const MappedObject& object : objects)
     {
-        if (object.state == ObjectState::kActive && object.support == 0)
+        // An operator's box is where they put it.
+        if (object.state == ObjectState::kActive && object.support == 0 && !object.box_pinned)
         {
             owners.push_back({ &object,
                                std::cos(object.box_yaw),

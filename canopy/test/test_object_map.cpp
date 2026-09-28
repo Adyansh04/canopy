@@ -996,6 +996,36 @@ TEST(MapFit, LeavesTheWallAWardrobeStandsAgainst)
     EXPECT_GT(fitted.at(1).size.y(), 1.0);               // ...and back to the wall.
 }
 
+TEST(ObjectMap, KeepsAnOperatorsLabelAndBoxOverWhatTheVoxelsSay)
+{
+    ObjectMap    map;
+    MappedObject object;
+    object.id             = 1;
+    object.votes          = { { "bowl", 27.0F }, { "dining table", 25.0F } };
+    object.operator_label = "dining table";
+    object.box_pinned     = true;
+    object.box_centre     = { 3.0, 3.0 };
+    object.box_size       = { 1.6, 0.9 };
+    object.box_yaw        = 0.2;
+    // A metre-square slab at table height, nowhere near the operator's box.
+    for (int i = 0; i < 25; ++i)
+    {
+        for (int j = 0; j < 25; ++j)
+        {
+            object.voxels.push_back(map.keyOf({ 0.04 * i, 0.04 * j, 0.72 }));
+        }
+    }
+    map.restore({ object });
+    map.setFrame(0.3);  // Refits every other box.
+    const MappedObject& back = map.objects().front();
+    EXPECT_EQ(back.label(), "dining table");
+    EXPECT_FLOAT_EQ(back.confidence(), 1.0F);
+    EXPECT_DOUBLE_EQ(back.box_centre.x(), 3.0);
+    EXPECT_DOUBLE_EQ(back.box_size.x(), 1.6);
+    EXPECT_DOUBLE_EQ(back.box_yaw, 0.2);
+    EXPECT_NEAR(back.z_max, 0.74, 0.03);  // The height still comes from the voxels.
+}
+
 TEST(ObjectMap, KeysRoundTrip)
 {
     const ObjectMap       map;

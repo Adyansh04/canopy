@@ -168,6 +168,9 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
 
     std::ostringstream objects(std::ios::binary);
     put(objects, kMagic);
+        yaml << YAML::Key << "operator_label" << YAML::Value << object.operator_label;
+        yaml << YAML::Key << "box_pinned" << YAML::Value << object.box_pinned;
+        yaml << YAML::Key << "checked" << YAML::Value << object.checked;
     put(objects, kVersion);
     put(objects, static_cast<std::uint32_t>(snapshot.objects.size()));
     for (const MappedObject& object : snapshot.objects)
@@ -346,7 +349,18 @@ std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string
             object.top_seen        = node["top_seen"].as<bool>(false);
             object.state           = stateOf(node["state"].as<std::string>("active"));
             object.best_view_score = node["best_view_score"].as<double>(0.0);
-            slot_of[object.id]     = snapshot.objects.size();
+            object.operator_label  = node["operator_label"].as<std::string>("");
+            object.box_pinned      = node["box_pinned"].as<bool>(false);
+            object.checked         = node["checked"].as<bool>(false);
+            if (object.box_pinned)
+            {
+                // Its saved box is the operator's, and restore() keeps it.
+                object.box_centre = { node["centre"][0].as<double>(),
+                                      node["centre"][1].as<double>() };
+                object.box_size   = { node["size"][0].as<double>(), node["size"][1].as<double>() };
+                object.box_yaw    = node["yaw"].as<double>(0.0);
+            }
+            slot_of[object.id] = snapshot.objects.size();
             snapshot.objects.push_back(std::move(object));
         }
     }

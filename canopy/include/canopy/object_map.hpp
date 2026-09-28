@@ -132,10 +132,16 @@ struct MappedObject
     /// Its best view so far, for crops and captions: mask area weighted towards the image centre.
     double best_view_score = 0.0;
 
-    /// The label with the most votes.
+    /// What an operator said it is, from a map editor; the votes keep counting underneath.
+    std::string operator_label;
+    /// An operator placed the box: the voxels no longer refit it.
+    bool box_pinned = false;
+    bool checked    = false;  ///< An operator reviewed it; carried for tools.
+
+    /// The operator's label, else the one with the most votes.
     [[nodiscard]] std::string label() const;
 
-    /// Share of all votes the leading label holds, 0..1.
+    /// Share of all votes the leading label holds, 0..1; 1 for an operator's label.
     [[nodiscard]] float confidence() const;
 
     [[nodiscard]] double height() const { return z_max - z_min; }
