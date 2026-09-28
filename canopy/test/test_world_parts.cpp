@@ -183,6 +183,7 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     snapshot.geometry  = { 0.05, -2.0, 1.5, 3, 1 };
     snapshot.cells     = { kFree, kOccupied, kUnknown };
     snapshot.next_room = 4;
+    snapshot.voxel     = 0.04;
     snapshot.rooms.push_back({ "R2", "room B", "office", 0.7, "objects", 3.5, -1.25 });
     // What a map editor adds: a reviewed room with its outline, an operator's label and box.
     snapshot.rooms.back().checked = true;
@@ -235,6 +236,7 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     const cv::Mat served = (cv::Mat_<std::uint8_t>(1, 3) << kFree, kOccupied, kOccupied);
     EXPECT_TRUE(worldFits(*loaded, served, snapshot.geometry));
     EXPECT_EQ(loaded->next_room, 4);
+    EXPECT_DOUBLE_EQ(loaded->voxel, 0.04);
     ASSERT_EQ(loaded->rooms.size(), 1U);
     EXPECT_EQ(loaded->rooms[0].name, "room B");
     EXPECT_DOUBLE_EQ(loaded->rooms[0].y, -1.25);

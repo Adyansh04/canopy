@@ -44,6 +44,7 @@ struct WorldSnapshot
     std::vector<std::uint8_t>  cells;  ///< Cell classes of the map it was built on.
     std::vector<std::uint8_t>  plan;   ///< The floor plan saved as map.pgm; empty from old saves.
     int                        next_room = 1;
+    double                     voxel     = 0.0;  ///< Objects' voxel edge, m; 0 from old saves.
     std::vector<RoomRecord>    rooms;
     std::vector<MappedObject>  objects;
     std::vector<std::uint8_t>  quality;

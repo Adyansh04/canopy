@@ -1354,14 +1354,18 @@ void WorldModelNode::applyRestore()
     }
     WorldSnapshot snapshot = std::move(*pending_restore_);
     pending_restore_.reset();
-    if (!worldFits(snapshot, cells_, geometry_))
+    // Voxel keys only mean something at the edge they were made with.
+    const bool other_voxel =
+        snapshot.voxel > 0.0 && std::abs(snapshot.voxel - objects_.params().voxel) > 1e-9;
+    if (other_voxel || !worldFits(snapshot, cells_, geometry_))
     {
         // Kept, not saved over: the next autosave writes this run's world in its place.
         std::string       aside;
         const std::string failure = setAsideWorld(world_dir_, aside);
         RCLCPP_WARN(
             get_logger(),
-            "the saved world was built on a different map; starting empty, %s",
+            "the saved world was built %s; starting empty, %s",
+            other_voxel ? "with another voxel size" : "on a different map",
             failure.empty() ? ("the old one moved to " + aside).c_str() : failure.c_str());
         return;
     }
@@ -2009,6 +2013,7 @@ std::string WorldModelNode::saveNow()
     }
     WorldSnapshot snapshot;
     snapshot.geometry = geometry_;
+    snapshot.voxel    = objects_.params().voxel;
     snapshot.cells.assign(cells_.datastart, cells_.dataend);
     const cv::Mat plan = floorPlan();
     snapshot.plan.assign(plan.datastart, plan.dataend);

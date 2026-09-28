@@ -121,6 +121,7 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
     yaml << YAML::Key << "height" << YAML::Value << snapshot.geometry.height;
     yaml << YAML::EndMap;
     yaml << YAML::Key << "next_room" << YAML::Value << snapshot.next_room;
+    yaml << YAML::Key << "voxel" << YAML::Value << snapshot.voxel;
     yaml << YAML::Key << "rooms" << YAML::Value << YAML::BeginSeq;
     for (const RoomRecord& room : snapshot.rooms)
     {
@@ -337,6 +338,7 @@ std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string
                                   grid["width"].as<int>(),
                                   grid["height"].as<int>() };
         snapshot.next_room    = yaml["next_room"].as<int>(1);
+        snapshot.voxel        = yaml["voxel"].as<double>(0.0);
         for (const YAML::Node& room : yaml["rooms"])
         {
             RoomRecord record;
