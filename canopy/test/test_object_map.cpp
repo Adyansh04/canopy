@@ -891,6 +891,34 @@ TEST(MapFit, SplitsATableFromTheChairsPushedUnderIt)
     EXPECT_LT(fitted.at(3).size.x(), 0.7);
 }
 
+TEST(MapFit, LeavesATableSetByHandItsCellsAndTheChairItsOwn)
+{
+    const GridGeometry geometry{ 0.05, 0.0, 0.0, 120, 80 };
+    cv::Mat            furniture(geometry.height, geometry.width, CV_8UC1, cv::Scalar(0));
+    const auto         blob = [&](double x0, double y0, double x1, double y1) {
+        const CellIndex low  = geometry.toCell(x0, y0);
+        const CellIndex high = geometry.toCell(x1, y1);
+        furniture(cv::Rect(low.x, low.y, high.x - low.x, high.y - low.y)) = 255;
+    };
+    blob(2.0, 1.0, 4.0, 2.0);  // The table...
+    blob(2.5, 2.0, 3.0, 2.5);  // ...and the chair against it, one blob.
+    MappedObject table;
+    table.id         = 1;
+    table.box_centre = { 3.0, 1.5 };
+    table.box_size   = { 2.0, 1.0 };
+    table.box_pinned = true;
+    MappedObject chair;
+    chair.id                              = 2;
+    chair.box_centre                      = { 2.75, 2.25 };
+    chair.box_size                        = { 0.4, 0.4 };
+    const std::map<int, Footprint> fitted = fitToMap({ table, chair }, furniture, geometry);
+
+    EXPECT_FALSE(fitted.contains(1));
+    ASSERT_TRUE(fitted.contains(2));
+    EXPECT_NEAR(fitted.at(2).centre.y(), 2.25, 0.05);
+    EXPECT_LT(fitted.at(2).size.x(), 0.7);
+}
+
 TEST(MapFit, GivesACounterItsBackRatherThanTheStoveBesideIt)
 {
     // A counter and the stove at its end, one blob; the counter fused from its front 0.3 m only.

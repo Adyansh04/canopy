@@ -1110,8 +1110,9 @@ std::map<int, Footprint> fitToMap(
     std::vector<Owner> owners;
     for (const MappedObject& object : objects)
     {
-        // An operator's box is where they put it.
-        if (object.state == ObjectState::kActive && object.support == 0 && !object.box_pinned)
+        // An operator's box is where they put it, but still holds the plan's cells under it: else
+        // the chair beside a table set by hand takes the table's.
+        if (object.state == ObjectState::kActive && object.support == 0)
         {
             owners.push_back({ &object,
                                std::cos(object.box_yaw),
@@ -1217,7 +1218,7 @@ std::map<int, Footprint> fitToMap(
         const double share    = owner.cells * cell_area;
         const double box_area = owner.object->box_size.x() * owner.object->box_size.y();
         const bool   drifted  = share >= params.min_adrift_share && adrift(*owner.object);
-        if (owner.cells == 0 || share > params.max_growth * box_area ||
+        if (owner.object->box_pinned || owner.cells == 0 || share > params.max_growth * box_area ||
             (share < params.min_share * box_area && !drifted))
         {
             continue;

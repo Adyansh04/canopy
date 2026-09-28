@@ -294,6 +294,7 @@ struct MapFitParams
  *
  * Each furniture cell goes to the box it lies deepest in, counted in box widths, or outside them
  * all to the nearest for its size; an object keeps its share only when that is about its own size.
+ * A box an operator set holds the cells under it and is not refitted.
  *
  * @param furniture CV_8U on @p geometry, non-zero where the map is occupied but not by a wall.
  * @param plan      CV_8U Cell values of the floor plan, to tell a drifted box; may be empty.
