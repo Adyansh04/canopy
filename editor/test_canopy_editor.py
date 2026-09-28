@@ -198,10 +198,28 @@ class EditorTest(unittest.TestCase):
             shown = {o["id"]: o for o in body["world"]["objects"]}
             self.assertEqual(shown[record["id"]]["label"], "lamp")
             self.assertEqual(body["world"]["unsaved"], 1)
-            bad = urllib.request.Request(base + "/api/edit", data=b'{"op": "paint"}')
+            json_type = {"Content-Type": "application/json"}
+            bad = urllib.request.Request(
+                base + "/api/edit", data=b'{"op": "paint"}', headers=json_type
+            )
             with self.assertRaises(urllib.error.HTTPError) as refused:
                 urllib.request.urlopen(bad)
             self.assertEqual(refused.exception.code, 400)
+            # What another web page could send: a plain form post, or JSON from its own origin.
+            for headers in (
+                {"Content-Type": "text/plain"},
+                {**json_type, "Origin": "http://evil.example"},
+            ):
+                forged = urllib.request.Request(
+                    base + "/api/save", data=b"{}", headers=headers, method="POST"
+                )
+                with self.assertRaises(urllib.error.HTTPError) as refused:
+                    urllib.request.urlopen(forged)
+                self.assertEqual(refused.exception.code, 403)
+            rebound = urllib.request.Request(base + "/api/world", headers={"Host": "evil.example"})
+            with self.assertRaises(urllib.error.HTTPError) as refused:
+                urllib.request.urlopen(rebound)
+            self.assertEqual(refused.exception.code, 403)
         finally:
             server.shutdown()
             server.server_close()

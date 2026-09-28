@@ -756,6 +756,7 @@ STATIC = {
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/style.css": ("style.css", "text/css; charset=utf-8"),
 }
+LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 
 
 def handler_for(world):
@@ -765,7 +766,22 @@ def handler_for(world):
         def log_message(self, fmt, *args):
             sys.stderr.write("%s\n" % (fmt % args))
 
+        def _trusted(self):
+            """Whether a request can be the page's own. Bound to loopback, only a loopback Host is
+            (a rebound DNS name is not); a POST must be JSON from this origin, which no other web
+            page can send without a preflight this server never answers."""
+            host = self.headers.get("Host") or ""
+            if self.server.loopback and host.rsplit(":", 1)[0].strip("[]") not in LOOPBACK:
+                return False
+            if self.command != "POST":
+                return True
+            origin = self.headers.get("Origin")
+            kind = (self.headers.get("Content-Type") or "").split(";")[0].strip()
+            return kind == "application/json" and origin in (None, f"http://{host}")
+
         def do_GET(self):
+            if not self._trusted():
+                return self._json(HTTPStatus.FORBIDDEN, {"error": "not from this editor"})
             if self.path in STATIC:
                 name, kind = STATIC[self.path]
                 return self._send(HTTPStatus.OK, (HERE / "static" / name).read_bytes(), kind)
@@ -781,6 +797,8 @@ def handler_for(world):
             return self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
         def do_POST(self):
+            if not self._trusted():
+                return self._json(HTTPStatus.FORBIDDEN, {"error": "not from this editor"})
             try:
                 length = int(self.headers.get("Content-Length") or 0)
                 body = json.loads(self.rfile.read(length) or b"{}")
@@ -821,6 +839,7 @@ def handler_for(world):
 
 def serve(world, host="127.0.0.1", port=8765):
     server = ThreadingHTTPServer((host, port), handler_for(world))
+    server.loopback = host in LOOPBACK
     return server
 
 
