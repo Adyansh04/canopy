@@ -70,7 +70,8 @@ Along the way:
 - Parts of one object seen from different sides merge when they touch.
 - An object the camera should see but does not collects misses: stale, then removed.
 - Furniture boxes snap to the outline the map shows under them, so an approach pose is computed
-  from where the sofa really is.
+  from where the sofa really is. It stands square to a side, as near its middle as a short walk
+  allows, and at a corner only when no side is clear (`approach.*` in `config/canopy.yaml`).
 
 ## Node: `canopy` (executable `world_model`)
 

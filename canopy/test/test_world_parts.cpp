@@ -158,7 +158,7 @@ TEST(ApproachPose, StandsClearOfATableAndFacesIt)
     ViewpointPlanner planner;
     planner.prepare(cells, geometry, { 1.0, 1.0, 0.0 });
     const Footprint table{ { 3.0, 3.0 }, { 1.2, 0.8 }, 0.0 };
-    const auto pose = approachPose(planner.clearance(), planner.travel(), geometry, table, 0.0, {});
+    const auto      pose = approachPose(cells, planner.travel(), geometry, table, 0.0, {});
     ASSERT_TRUE(pose.has_value());
     const double gap = std::hypot(
         std::max(std::abs(pose->x - 3.0) - 0.6, 0.0),
@@ -166,15 +166,187 @@ TEST(ApproachPose, StandsClearOfATableAndFacesIt)
     EXPECT_GE(gap, 0.55);
     EXPECT_LE(gap, 0.9);
     // Asked to stand further off than max_standoff, it still finds a spot.
-    EXPECT_TRUE(
-        approachPose(planner.clearance(), planner.travel(), geometry, table, 2.0, {}).has_value());
-    // It faces the table.
+    EXPECT_TRUE(approachPose(cells, planner.travel(), geometry, table, 2.0, {}).has_value());
+    // The middle of the end nearest the robot, square to it.
+    EXPECT_NEAR(pose->x, 1.8, 1e-9);
+    EXPECT_NEAR(pose->y, 3.0, 1e-9);
+    EXPECT_NEAR(pose->yaw, 0.0, 1e-9);
+}
+
+/// A walled room filling @p geometry, with @p blocks (x, y, width, height, m) solid.
+cv::Mat roomWith(const GridGeometry& geometry, const std::vector<cv::Rect2d>& blocks)
+{
+    cv::Mat cells(geometry.height, geometry.width, CV_8UC1, cv::Scalar(kOccupied));
+    cv::rectangle(
+        cells,
+        cv::Point(2, 2),
+        cv::Point(geometry.width - 3, geometry.height - 3),
+        cv::Scalar(kFree),
+        cv::FILLED);
+    for (const cv::Rect2d& block : blocks)
+    {
+        const CellIndex low = geometry.toCell(block.x, block.y);
+        // The far corner is drawn too: its cell is the last inside the block.
+        const CellIndex high =
+            geometry.toCell(block.x + block.width - 1e-6, block.y + block.height - 1e-6);
+        cv::rectangle(
+            cells,
+            cv::Point(low.x, low.y),
+            cv::Point(high.x, high.y),
+            cv::Scalar(kOccupied),
+            cv::FILLED);
+    }
+    return cells;
+}
+
+TEST(ApproachPose, StandsAtASideWhenTheMarginReachesTheStandoff)
+{
+    // 0.72 m from anything, standing 0.72 m off: the table itself must not rule its sides out.
+    // The map shows it a cell bigger than its box, as the floor plan does furniture.
+    const GridGeometry geometry{ 0.05, 0.0, 0.0, 120, 120 };
+    const cv::Mat      cells = roomWith(geometry, { { 2.35, 2.55, 1.3, 0.9 } });
+    ViewpointPlanner   planner;
+    planner.prepare(cells, geometry, { 1.0, 1.0, 0.0 });
+    ApproachParams params;
+    params.standoff = 0.72;
+    params.margin   = 0.27;
+    const Footprint table{ { 3.0, 3.0 }, { 1.2, 0.8 }, 0.0 };
+    const auto      pose = approachPose(cells, planner.travel(), geometry, table, 0.0, params);
+    ASSERT_TRUE(pose.has_value());
+    EXPECT_NEAR(pose->x, 3.0 - 0.6 - 0.72, 1e-9);  // The middle of the near end, not a corner.
+    EXPECT_NEAR(pose->y, 3.0, 1e-9);
+}
+
+TEST(ApproachPose, TakesTheMiddleOfAFreeSideWhenChairsFillTheNearOne)
+{
+    const GridGeometry geometry{ 0.05, 0.0, 0.0, 120, 120 };
+    // A 2 x 1.2 m table, a chair at the middle of each long side.
+    const cv::Mat cells = roomWith(
+        geometry,
+        { { 2.0, 2.4, 2.0, 1.2 }, { 2.75, 1.9, 0.5, 0.5 }, { 2.75, 3.6, 0.5, 0.5 } });
+    ViewpointPlanner planner;
+    planner.prepare(cells, geometry, { 3.0, 0.8, 0.0 });
+    const Footprint table{ { 3.0, 3.0 }, { 2.0, 1.2 }, 0.0 };
+    const auto      pose = approachPose(cells, planner.travel(), geometry, table, 0.0, {});
+    ASSERT_TRUE(pose.has_value());
+    EXPECT_NEAR(std::abs(pose->x - 3.0), 1.6, 1e-9);  // An end's middle...
+    EXPECT_NEAR(pose->y, 3.0, 1e-9);
     EXPECT_NEAR(
-        std::remainder(pose->yaw - std::atan2(3.0 - pose->y, 3.0 - pose->x), 2.0 * M_PI),
+        std::remainder(pose->yaw - (pose->x > 3.0 ? std::numbers::pi : 0.0), 2.0 * std::numbers::pi),
         0.0,
-        1e-6);
-    // And came from the side the robot starts on.
-    EXPECT_LT(pose->x + pose->y, 6.0);
+        1e-9);
+}
+
+TEST(ApproachPose, SlidesAlongTheFreeSideWhenItsMiddleIsTaken)
+{
+    const GridGeometry geometry{ 0.05, 0.0, 0.0, 120, 120 };
+    // A counter against the north wall, cupboards at both ends, a stool at its middle.
+    const cv::Mat cells = roomWith(
+        geometry,
+        { { 2.0, 5.1, 2.0, 0.6 },
+          { 1.4, 5.1, 0.6, 0.6 },
+          { 4.0, 5.1, 0.6, 0.6 },
+          { 2.8, 4.3, 0.4, 0.4 } });
+    ViewpointPlanner planner;
+    planner.prepare(cells, geometry, { 3.0, 1.0, 0.0 });
+    const Footprint counter{ { 3.0, 5.4 }, { 2.0, 0.6 }, 0.0 };
+    const auto      pose = approachPose(cells, planner.travel(), geometry, counter, 0.0, {});
+    ASSERT_TRUE(pose.has_value());
+    // In front of it, square to it, as near its middle as the stool allows.
+    EXPECT_NEAR(pose->y, 4.5, 1e-9);
+    EXPECT_GT(std::abs(pose->x - 3.0), 0.7);
+    EXPECT_LT(std::abs(pose->x - 3.0), 1.0);
+    EXPECT_NEAR(pose->yaw, 0.5 * std::numbers::pi, 1e-9);
+}
+
+TEST(ApproachPose, RoundsACornerOnlyWhenEverySideIsBlocked)
+{
+    const GridGeometry geometry{ 0.05, 0.0, 0.0, 120, 120 };
+    // A table with a rail a metre off each side, and gaps at the corners.
+    const cv::Mat cells = roomWith(
+        geometry,
+        { { 2.4, 2.6, 1.2, 0.8 },
+          { 2.4, 4.35, 1.2, 0.1 },
+          { 2.4, 1.55, 1.2, 0.1 },
+          { 4.55, 2.6, 0.1, 0.8 },
+          { 1.35, 2.6, 0.1, 0.8 } });
+    ViewpointPlanner planner;
+    planner.prepare(cells, geometry, { 1.0, 1.0, 0.0 });
+    const Footprint table{ { 3.0, 3.0 }, { 1.2, 0.8 }, 0.0 };
+    const auto      pose = approachPose(cells, planner.travel(), geometry, table, 0.0, {});
+    ASSERT_TRUE(pose.has_value());
+    EXPECT_GT(std::abs(pose->x - 3.0), 0.6);  // Past both sides' ends: a corner...
+    EXPECT_GT(std::abs(pose->y - 3.0), 0.4);
+    EXPECT_NEAR(  // ...facing the middle.
+        std::remainder(pose->yaw - std::atan2(3.0 - pose->y, 3.0 - pose->x), 2.0 * std::numbers::pi),
+        0.0,
+        1e-9);
+}
+
+TEST(ApproachPose, KeepsItsMarginFromAChairWhenAskedToStandCloser)
+{
+    const GridGeometry geometry{ 0.05, 0.0, 0.0, 120, 120 };
+    // A chair 0.8 m off the table's near end.
+    const cv::Mat    cells = roomWith(geometry, { { 2.4, 2.6, 1.2, 0.8 }, { 1.4, 2.8, 0.2, 0.4 } });
+    ViewpointPlanner planner;
+    planner.prepare(cells, geometry, { 1.0, 1.0, 0.0 });
+    const Footprint table{ { 3.0, 3.0 }, { 1.2, 0.8 }, 0.0 };
+    const auto      pose = approachPose(cells, planner.travel(), geometry, table, 0.01, {});
+    ASSERT_TRUE(pose.has_value());
+    const double to_table = std::hypot(
+        std::max(std::abs(pose->x - 3.0) - 0.6, 0.0),
+        std::max(std::abs(pose->y - 3.0) - 0.4, 0.0));
+    const double to_chair = std::hypot(
+        std::max(std::abs(pose->x - 1.5) - 0.1, 0.0),
+        std::max(std::abs(pose->y - 3.0) - 0.2, 0.0));
+    EXPECT_GE(to_table, 0.55 - 1e-9);  // robot_radius + margin, for the target too...
+    EXPECT_GE(to_chair, 0.55);         // ...and everything else.
+}
+
+TEST(ApproachPose, TakesASidesMiddleOfARotatedTable)
+{
+    // Turned 20 degrees, and drawn a cell bigger than its box, as the floor plan draws furniture.
+    const GridGeometry geometry{ 0.05, 0.0, 0.0, 120, 120 };
+    cv::Mat            cells = roomWith(geometry, {});
+    const Footprint    table{ { 3.0, 3.0 }, { 1.4, 0.8 }, 20.0 * std::numbers::pi / 180.0 };
+    cv::Mat            solid(cells.size(), CV_8UC1, cv::Scalar(0));
+    fillFootprint(solid, geometry, table, geometry.resolution);
+    cells.setTo(kOccupied, solid);
+    ViewpointPlanner planner;
+    planner.prepare(cells, geometry, { 1.0, 3.0, 0.0 });
+    ApproachParams params;
+    params.standoff = 0.72;
+    params.margin   = 0.27;
+    const auto pose = approachPose(cells, planner.travel(), geometry, table, 0.0, params);
+    ASSERT_TRUE(pose.has_value());
+    const double dx = pose->x - 3.0;
+    const double dy = pose->y - 3.0;
+    const double u  = (std::cos(table.yaw) * dx) + (std::sin(table.yaw) * dy);
+    const double v  = (-std::sin(table.yaw) * dx) + (std::cos(table.yaw) * dy);
+    EXPECT_NEAR(u, -0.7 - 0.72, 1e-9);  // The middle of the end facing the robot.
+    EXPECT_NEAR(v, 0.0, 1e-9);
+    EXPECT_NEAR(std::remainder(pose->yaw - table.yaw, 2.0 * std::numbers::pi), 0.0, 1e-9);
+}
+
+TEST(ApproachPose, TakesANearSpotBesideAStoolOverAFarSidesMiddle)
+{
+    const GridGeometry geometry{ 0.05, 0.0, 0.0, 120, 120 };
+    // A 2 m table set in a wall across the room, whose far side is a walk round the wall's east
+    // end; a stool at the middle of its near side.
+    const cv::Mat cells = roomWith(
+        geometry,
+        { { 2.0, 2.6, 2.0, 0.8 },
+          { 0.1, 2.95, 1.9, 0.1 },
+          { 4.0, 2.95, 1.0, 0.1 },
+          { 2.8, 2.1, 0.4, 0.4 } });
+    ViewpointPlanner planner;
+    planner.prepare(cells, geometry, { 3.0, 1.0, 0.0 });
+    const Footprint table{ { 3.0, 3.0 }, { 2.0, 0.8 }, 0.0 };
+    const auto      pose = approachPose(cells, planner.travel(), geometry, table, 0.0, {});
+    ASSERT_TRUE(pose.has_value());
+    EXPECT_NEAR(pose->y, 2.0, 1e-9);  // The near side, beside the stool...
+    EXPECT_GT(std::abs(pose->x - 3.0), 0.6);
+    EXPECT_NEAR(pose->yaw, 0.5 * std::numbers::pi, 1e-9);  // ...square to it.
 }
 
 TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)

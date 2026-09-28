@@ -152,6 +152,8 @@ geometry_msgs::msg::Point point(double x, double y, double z)
 constexpr std::size_t kNumberedVisits = 5;
 /// The trail takes a pose once the robot has moved this far, m.
 constexpr double kTrailSpacing = 0.1;
+/// Widest standoff an approach request may ask for, m.
+constexpr double kMaxStandoff = 10.0;
 
 }  // namespace
 
@@ -370,6 +372,9 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         declare_parameter<double>("approach.standoff", approach_params_.standoff);
     approach_params_.max_standoff =
         declare_parameter<double>("approach.max_standoff", approach_params_.max_standoff);
+    approach_params_.margin = declare_parameter<double>("approach.margin", approach_params_.margin);
+    approach_params_.off_middle_weight =
+        declare_parameter<double>("approach.off_middle_weight", approach_params_.off_middle_weight);
 
     const std::string types = declare_parameter<std::string>("room_types_file", "");
     if (!types.empty())
@@ -1991,10 +1996,16 @@ void WorldModelNode::onGetApproachPose(
                             " is on the map";
         return;
     }
-    footprint       = footprintOf(*object);
-    target_id       = objectId(object->id);
+    footprint = footprintOf(*object);
+    target_id = objectId(object->id);
+    // Every standoff out to it is sampled: a bogus one would allocate without end.
+    if (!(request->standoff <= kMaxStandoff))
+    {
+        response->message = std::format("a standoff over {} m", kMaxStandoff);
+        return;
+    }
     const auto pose = approachPose(
-        planner_.clearance(),
+        cells_,
         planner_.travel(),
         geometry_,
         footprint,

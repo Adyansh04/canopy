@@ -247,9 +247,15 @@
       # Fewer wall cells than this and the plain map is segmented instead.
       min_cells: 200
 
+    # ~/get_approach_pose: standoff m from the target's footprint, and margin m beyond
+    # planner.robot_radius from anything else. Among clear spots square to a side or round a
+    # corner, the least walk wins, each metre off a side's middle counting as off_middle_weight
+    # metres of it; standoffs wider, up to max_standoff, only when none is clear.
     approach:
       standoff: 0.60
       max_standoff: 1.80
+      margin: 0.10
+      off_middle_weight: 3.0
 
     # Ask a describer (canopy_perception's object_describer) to name objects from their best crop.
     describe: false
