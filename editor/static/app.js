@@ -30,7 +30,9 @@ async function call(path, body) {
   });
   const answer = await response.json();
   if (!response.ok) {
-    throw new Error(answer.error || response.statusText);
+    const error = new Error(answer.error || response.statusText);
+    error.status = response.status;
+    throw error;
   }
   return answer;
 }
@@ -53,6 +55,20 @@ async function command(path, message) {
     show(answer.world);
     say(answer.message || message);
   } catch (error) {
+    say(error.message, true);
+  }
+}
+
+async function save() {
+  try {
+    const answer = await call("/api/save", {});
+    show(answer.world);
+    say(answer.message);
+  } catch (error) {
+    // canopy saved since the page read the world: this session's edits can be made again on it.
+    if (error.status === 409 && window.confirm(`${error.message}\n\nRebase your ${world.unsaved} edits now?`)) {
+      return command("/api/rebase", "made again");
+    }
     say(error.message, true);
   }
 }
@@ -633,7 +649,7 @@ canvas.addEventListener("mousedown", (event) => {
   if (handle && !mode) {
     const object = objectById(selected.id);
     preview = { id: object.id, centre: [...object.centre], size: [...object.size], yaw: object.yaw };
-    drag = { kind: handle.kind, index: handle.index, from: [x, y], origin: { ...preview, centre: [...preview.centre], size: [...preview.size] } };
+    drag = { kind: handle.kind, index: handle.index, from: [x, y], at: [sx, sy], moved: false, origin: { ...preview, centre: [...preview.centre], size: [...preview.size] } };
     return;
   }
   drag = { kind: "pan", from: [sx, sy], view: { ...view }, moved: false };
@@ -654,10 +670,13 @@ canvas.addEventListener("mousemove", (event) => {
     const [u, v] = local(frame, x, y);
     drawn = { yaw: drag.yaw, corners: [[0, 0], [u, 0], [u, v], [0, v]].map(([a, b]) => fromLocal(frame, a, b)) };
   } else if (drag.kind === "move") {
+    drag.moved = drag.moved || Math.hypot(sx - drag.at[0], sy - drag.at[1]) > 3;
     preview.centre = [drag.origin.centre[0] + x - drag.from[0], drag.origin.centre[1] + y - drag.from[1]];
   } else if (drag.kind === "rotate") {
+    drag.moved = drag.moved || Math.hypot(sx - drag.at[0], sy - drag.at[1]) > 3;
     preview.yaw = Math.atan2(y - drag.origin.centre[1], x - drag.origin.centre[0]) - Math.PI / 2;
   } else if (drag.kind === "corner") {
+    drag.moved = drag.moved || Math.hypot(sx - drag.at[0], sy - drag.at[1]) > 3;
     // The opposite corner stays where it is.
     const signs = [[1, 1], [-1, 1], [-1, -1], [1, -1]][drag.index];
     const fixed = fromLocal(drag.origin, (-signs[0] * drag.origin.size[0]) / 2, (-signs[1] * drag.origin.size[1]) / 2);
@@ -687,7 +706,10 @@ window.addEventListener("mouseup", async (event) => {
   }
   if (finished.kind === "move" || finished.kind === "rotate" || finished.kind === "corner") {
     const box = preview;
-    await edit({ op: "box", id: box.id, centre: box.centre, size: box.size, yaw: box.yaw }, `O${box.id}'s box set by hand`);
+    // A click on the box is no edit: only a drag pins it.
+    if (finished.moved) {
+      await edit({ op: "box", id: box.id, centre: box.centre, size: box.size, yaw: box.yaw }, `O${box.id}'s box set by hand`);
+    }
     preview = null;
     redraw();
     return;
@@ -731,7 +753,7 @@ window.addEventListener("keydown", (event) => {
   const typing = ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName);
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
-    return command("/api/save", "saved");
+    return save();
   }
   if (typing) {
     if (event.key === "Enter") {
@@ -769,7 +791,7 @@ window.addEventListener("keydown", (event) => {
 document.getElementById("undo").addEventListener("click", () => command("/api/undo", "undone"));
 document.getElementById("redo").addEventListener("click", () => command("/api/redo", "redone"));
 document.getElementById("add").addEventListener("click", () => startMode("add"));
-document.getElementById("save").addEventListener("click", () => command("/api/save", "saved"));
+document.getElementById("save").addEventListener("click", save);
 document.getElementById("reload").addEventListener("click", () => {
   if (!world.unsaved || window.confirm(`Discard ${world.unsaved} unsaved edits?`)) {
     command("/api/reload", "read the world from disk again");
