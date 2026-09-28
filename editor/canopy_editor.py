@@ -12,7 +12,9 @@ page, run beside the robot rather than on it.
 
 import argparse
 import array
+import contextlib
 import copy
+import fcntl
 import json
 import math
 import os
@@ -22,6 +24,8 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
+import urllib.parse
 import zlib
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -37,10 +41,44 @@ VOCABULARY = HERE.parent / "canopy_perception" / "config" / "detector.yaml"
 KEY_BITS = 21
 KEY_MASK = (1 << KEY_BITS) - 1
 KEY_OFFSET = 1 << 20
-DEFAULT_VOXEL = 0.04
-# Share of footprint points left off each box side, as canopy's objects.box_trim.
+# objects.bin's header, as world_store.cpp writes it.
+MAGIC = 0x4D573147
+BIN_VERSION = 1
+# Share of footprint points left off each box side, as canopy's ObjectParams::box_trim.
 BOX_TRIM = 0.02
 UNDO_DEPTH = 100
+
+# What canopy's loadWorld takes for a field an older world.yaml lacks (world_store.cpp).
+OBJECT_DEFAULTS = {
+    "label": "",
+    "votes": None,
+    "name": "",
+    "caption": "",
+    "yaw": 0.0,
+    "observations": 0,
+    "first_seen": 0.0,
+    "last_seen": 0.0,
+    "misses": 0,
+    "top_seen": False,
+    "state": "active",
+    "best_view_score": 0.0,
+    "operator_label": "",
+    "operator_named": False,
+    "removed_by": "",
+    "box_pinned": False,
+    "checked": False,
+}
+OBJECT_TEXT = ("label", "name", "caption", "state", "operator_label", "removed_by")
+ROOM_DEFAULTS = {
+    "name": "",
+    "type": "",
+    "type_confidence": 0.0,
+    "type_source": "",
+    "x": 0.0,
+    "y": 0.0,
+    "checked": False,
+}
+ROOM_TEXT = ("id", "name", "type", "type_source")
 
 # Review rules, measured on four real-detector runs of the test flat: the weak and floor rules
 # flagged 33 of 77 objects that matched nothing, and 2 of 132 true ones.
@@ -61,6 +99,28 @@ class EditError(ValueError):
 
 class Conflict(RuntimeError):
     """Someone else wrote the world since it was opened; the API answers 409."""
+
+
+def text(value):
+    """A free-text field as text: YAML reads an unquoted 3 as a number, and JSON has null."""
+    return "" if value is None else str(value)
+
+
+def number(value, what):
+    """A finite number from an edit; JSON's true is no number, and Python's JSON reads NaN."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise EditError(f"{what} must be a finite number")
+    return float(value)
+
+
+def pair(value, what):
+    if not isinstance(value, list) or len(value) != 2:
+        raise EditError(f"{what} must be two numbers")
+    return [number(v, what) for v in value]
+
+
+def top_vote(votes):
+    return max(votes, key=votes.get) if votes else ""
 
 
 # --- voxels ---------------------------------------------------------------------------------
@@ -97,7 +157,7 @@ def overlap(inner, outer):
     if not inner or not outer:
         return 0.0
     keys = sorted(inner)
-    sample = keys[:: max(1, len(keys) // 600)]
+    sample = keys[:: -(-len(keys) // 600)]
     near = sum(
         1
         for key in sample
@@ -187,32 +247,81 @@ def shell(centre, size, yaw, z_min, z_max, voxel):
 # --- the world on disk ----------------------------------------------------------------------
 
 
+@contextlib.contextmanager
+def world_lock(directory, exclusive):
+    """canopy's WorldLock on world_dir/.lock: no save interleaves with another save or a load,
+    whichever program makes it."""
+    handle = None
+    # Read-only when another user made the file: flock needs no write access.
+    for flags in (os.O_RDWR | os.O_CREAT, os.O_RDONLY):
+        with contextlib.suppress(OSError):
+            handle = os.open(directory / ".lock", flags, 0o666)
+            break
+    try:
+        if handle is not None:
+            fcntl.flock(handle, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+        yield
+    finally:
+        if handle is not None:
+            os.close(handle)
+
+
+def stamp_of(path):
+    """Which save of world.yaml is on disk: canopy replaces the file, so a save within one mtime
+    tick still has a new inode."""
+    info = os.stat(path)
+    return info.st_ino, info.st_mtime_ns
+
+
+def standing(edits):
+    """The edits that undo and redo left standing, in order."""
+    done, undone = [], []
+    for entry in edits:
+        if entry["op"] == "undo":
+            undone.append(done.pop())
+        elif entry["op"] == "redo":
+            done.append(undone.pop())
+        else:
+            done.append(entry)
+            undone.clear()
+    return done
+
+
 class World:
     """A canopy world directory: world.yaml, objects.bin, the map and the crops."""
 
     def __init__(self, directory, config=CONFIG):
         self.directory = Path(directory)
-        self.lock = threading.Lock()
-        self.history = []  # (before, after) images of what each edit touched.
+        self.lock = threading.RLock()
+        self.history = []  # (before, after) images of what each edit touched, since the save.
         self.future = []
-        self.edits = []  # This session's ops, appended to edits.log on save.
+        self.edits = []  # This session's ops since the save, appended to edits.log by it.
+        self.labels, self.synonyms, self.room_types, self.default_voxel = read_config(Path(config))
         self.load()
-        self.labels, self.synonyms, self.room_types = read_config(Path(config))
 
     # -- loading and saving --
 
     def load(self):
-        self.stamp = os.stat(self.directory / "world.yaml").st_mtime_ns
-        with open(self.directory / "world.yaml") as stream:
-            self.yaml = yaml.safe_load(stream)
-        if self.yaml.get("version") != 1:
-            raise ValueError("world.yaml has an unknown version")
-        self.voxel = float(self.yaml.get("voxel") or DEFAULT_VOXEL)
-        self.rooms = {room["id"]: room for room in self.yaml.get("rooms") or []}
-        self.objects = {}
-        records = {int(record["id"]): record for record in self.yaml.get("objects") or []}
-        data = (self.directory / "objects.bin").read_bytes()
-        self.magic, version, count = struct.unpack_from("<III", data, 0)
+        """Reads the world as it is on disk; nothing here changes unless all of it reads."""
+        with world_lock(self.directory, exclusive=False):
+            stamp = stamp_of(self.directory / "world.yaml")
+            with open(self.directory / "world.yaml") as stream:
+                body = yaml.safe_load(stream)
+            data = (self.directory / "objects.bin").read_bytes()
+        if not isinstance(body, dict) or body.get("version") != 1:
+            raise ValueError("world.yaml is not a version 1 canopy world")
+        magic, version, count = struct.unpack_from("<III", data, 0)
+        if magic != MAGIC or version != BIN_VERSION:
+            raise ValueError("objects.bin is not a version 1 canopy object file")
+        records = {}
+        for entry in body.get("objects") or []:
+            record = {**OBJECT_DEFAULTS, **entry}
+            for key in OBJECT_TEXT:
+                record[key] = text(record[key])
+            record["votes"] = {text(k): float(v) for k, v in (record["votes"] or {}).items()}
+            record["id"] = int(record["id"])
+            records[record["id"]] = record
+        objects = {}
         at = 12
         for _ in range(count):
             object_id, voxels = struct.unpack_from("<iI", data, at)
@@ -226,29 +335,44 @@ class World:
             record = records.get(object_id)
             if record is None:
                 continue  # canopy drops these too: voxels with no record are a torn save.
-            record["_voxels"] = set(keys)
-            record["_embedding"] = embedding
-            record["_embedded"] = embedded
-            self.objects[object_id] = record
-        self.map = read_map(self.directory)
-        self.history.clear()
-        self.future.clear()
-        self.edits.clear()
+            record.update(_voxels=set(keys), _embedding=embedding, _embedded=embedded)
+            objects[object_id] = record
+        rooms = {}
+        for entry in body.get("rooms") or []:
+            room = {**ROOM_DEFAULTS, **entry}
+            for key in ROOM_TEXT:
+                room[key] = text(room[key])
+            rooms[room["id"]] = room
+        world_map = read_map(self.directory)
+        with self.lock:
+            self.stamp, self.yaml, self.map = stamp, body, world_map
+            self.voxel = float(body.get("voxel") or self.default_voxel)
+            self.rooms, self.objects = rooms, objects
+            # Past every id canopy handed out, torn ones too: crops and edits.log name objects by
+            # id, so none is used twice.
+            self.next_object = max(int(body.get("next_object") or 1), max(records, default=0) + 1)
+            self.history.clear()
+            self.future.clear()
+            self.edits.clear()
+
+    def reload(self):
+        self.load()
+        return "read the world from disk again"
 
     def save(self):
-        with self.lock:
-            if os.stat(self.directory / "world.yaml").st_mtime_ns != self.stamp:
+        with self.lock, world_lock(self.directory, exclusive=True):
+            if stamp_of(self.directory / "world.yaml") != self.stamp:
                 raise Conflict(
-                    "world.yaml changed on disk since the editor opened it: canopy saved it. "
-                    "Reload the world here, or your edits would undo canopy's."
+                    "canopy saved the world since the editor read it: rebase to make your edits "
+                    "again on its version, or reload to drop them."
                 )
-            body = copy.copy(self.yaml)
+            body = {**self.yaml, "next_object": self.next_object}
             body["rooms"] = list(self.rooms.values())
             body["objects"] = [
                 {k: v for k, v in record.items() if not k.startswith("_")}
                 for record in self.objects.values()
             ]
-            blob = [struct.pack("<III", self.magic, 1, len(self.objects))]
+            blob = [struct.pack("<III", MAGIC, BIN_VERSION, len(self.objects))]
             for object_id, record in self.objects.items():
                 keys = array.array("Q", sorted(record["_voxels"]))
                 embedding = record["_embedding"]
@@ -259,47 +383,80 @@ class World:
             # objects.bin first and world.yaml last, as canopy writes them: a torn save leaves a
             # world.yaml that still names what objects.bin holds.
             write_atomically(self.directory / "objects.bin", b"".join(blob))
-            text = yaml.safe_dump(body, sort_keys=False, default_flow_style=None, width=100)
-            write_atomically(self.directory / "world.yaml", text.encode())
-            crops = self.directory / "crops"
-            if crops.is_dir():
-                for crop in crops.glob("O*.jpg"):
-                    number = crop.stem[1:]
-                    if number.isdigit() and int(number) not in self.objects:
-                        crop.unlink()
+            content = yaml.safe_dump(body, sort_keys=False, default_flow_style=None, width=100)
+            write_atomically(self.directory / "world.yaml", content.encode())
             if self.edits:
                 with open(self.directory / "edits.log", "a") as log:
                     for edit in self.edits:
                         log.write(json.dumps(edit) + "\n")
-            self.stamp = os.stat(self.directory / "world.yaml").st_mtime_ns
+            self.stamp = stamp_of(self.directory / "world.yaml")
             saved = len(self.edits)
+            # Undo reaches back to the save: what is on disk is what a rebase starts from.
             self.edits.clear()
+            self.history.clear()
+            self.future.clear()
             return f"saved {saved} edits to {self.directory}"
+
+    def rebase(self):
+        """Reads the world canopy saved since, and makes this session's edits again on it."""
+        with self.lock:
+            ops = standing(self.edits)
+            self.load()
+            remade = {}  # An object an edit made then, by the one it makes now.
+            failed = []
+            for entry in ops:
+                op = {k: v for k, v in entry.items() if k not in ("time", "created")}
+                for key in ("id", "into"):
+                    if key in op:
+                        op[key] = remade.get(op[key], op[key])
+                if isinstance(op.get("ids"), list):
+                    op["ids"] = [remade.get(i, i) for i in op["ids"]]
+                try:
+                    created = self.apply(op)
+                except (EditError, KeyError, TypeError, ValueError) as error:
+                    failed.append(f"{op['op']}: {error}")
+                    continue
+                remade.update(zip(entry.get("created", []), created, strict=False))
+            message = f"made {len(ops) - len(failed)} of {len(ops)} edits again on canopy's world"
+            return message + (f"; not {', '.join(failed)}" if failed else "")
 
     # -- edits --
 
     def apply(self, op):
         with self.lock:
+            if not isinstance(op, dict):
+                raise EditError("an edit is a JSON object")
             name = op.get("op")
             handler = getattr(self, f"_op_{name}", None) if isinstance(name, str) else None
             if handler is None:
                 raise EditError(f"unknown op {name!r}")
             objects, rooms = self._touched(op)
             before = self._image(objects, rooms)
-            created = handler(op) or []
+            known = set(self.objects)
+            try:
+                created = handler(op) or []
+            except BaseException:
+                # Half an edit is worse than none: put back what it touched, drop what it made.
+                self._restore(before)
+                for object_id in set(self.objects) - known:
+                    del self.objects[object_id]
+                raise
             # What an edit made did not exist before it: undo takes it away again.
             before["objects"].update(dict.fromkeys(created))
             after = self._image(objects | set(created), rooms)
             self.history.append((before, after))
             del self.history[:-UNDO_DEPTH]
             self.future.clear()
-            self.edits.append({"time": time.time(), **op})
+            entry = {"time": time.time(), **op}
+            if created:
+                entry["created"] = created  # For a rebase, whose made objects get new ids.
+            self.edits.append(entry)
             return created
 
     def undo(self):
         with self.lock:
             if not self.history:
-                raise EditError("nothing to undo")
+                raise EditError("nothing to undo since the save")
             before, after = self.history.pop()
             self._restore(before)
             self.future.append((before, after))
@@ -319,8 +476,8 @@ class World:
         for key in ("id", "into"):
             if key in op:
                 ids.add(self._object(op[key]))
-        for value in op.get("ids", []):
-            ids.add(self._object(value))
+        if isinstance(op.get("ids"), list):
+            ids.update(self._object(value) for value in op["ids"])
         rooms = {self._room(op["room"])} if "room" in op else set()
         return ids, rooms
 
@@ -345,13 +502,20 @@ class World:
             raise EditError(f"no object O{object_id}")
         return object_id
 
+    def _ids(self, op):
+        if not isinstance(op.get("ids"), list) or not op["ids"]:
+            raise EditError(f"{op['op']} needs ids, a list")
+        return list(dict.fromkeys(self._object(value) for value in op["ids"]))
+
     def _room(self, value):
         if value not in self.rooms:
             raise EditError(f"no room {value}")
         return value
 
     def _next_id(self):
-        return max(self.objects, default=0) + 1
+        new_id = self.next_object
+        self.next_object += 1
+        return new_id
 
     def _refit(self, record, yaw=None):
         """Recompute a record's box from its voxels, as canopy will when it loads the world."""
@@ -364,13 +528,15 @@ class World:
 
     def _op_label(self, op):
         record = self.objects[self._object(op["id"])]
-        votes = record.get("votes") or {}
-        record["operator_label"] = str(op.get("label", "")).strip().lower()
+        record["operator_label"] = text(op.get("label")).strip().lower()
         # As canopy writes it: the operator's label, or the votes' when that is cleared.
-        record["label"] = record["operator_label"] or (max(votes, key=votes.get) if votes else "")
+        record["label"] = record["operator_label"] or top_vote(record["votes"])
 
     def _op_name(self, op):
-        self.objects[self._object(op["id"])]["name"] = str(op.get("name", "")).strip()
+        record = self.objects[self._object(op["id"])]
+        record["name"] = text(op.get("name")).strip()
+        # The describer leaves a name an operator gave alone; clearing it hands it back.
+        record["operator_named"] = bool(record["name"])
 
     def _op_check(self, op):
         self.objects[self._object(op["id"])]["checked"] = bool(op.get("checked", True))
@@ -380,7 +546,7 @@ class World:
 
     def _op_merge(self, op):
         into = self.objects[self._object(op["into"])]
-        others = [self.objects[self._object(i)] for i in op["ids"] if self._object(i) != into["id"]]
+        others = [self.objects[i] for i in self._ids(op) if i != into["id"]]
         if not others:
             raise EditError("merge needs a second object")
         # The embedding as canopy keeps it: a mean of the views, weighted by how many made each.
@@ -397,8 +563,15 @@ class World:
             into["misses"] = min(into["misses"], other["misses"])
             into["top_seen"] = into["top_seen"] or other["top_seen"]
             into["best_view_score"] = max(into["best_view_score"], other["best_view_score"])
-            into["name"] = into["name"] or other["name"]
-            into["caption"] = into["caption"] or other["caption"]
+            # What an operator said about either survives, as in canopy's own merge.
+            if not into["name"] or (other["operator_named"] and not into["operator_named"]):
+                into.update(
+                    name=other["name"],
+                    caption=other["caption"],
+                    operator_named=other["operator_named"],
+                )
+            into["operator_label"] = into["operator_label"] or other["operator_label"]
+            into["checked"] = into["checked"] or other["checked"]
             del self.objects[other["id"]]
         if vectors and all(len(v) == len(vectors[0][0]) for v, _ in vectors):
             total = sum(n for _, n in vectors)
@@ -406,15 +579,14 @@ class World:
             norm = math.sqrt(sum(x * x for x in mean)) or 1.0
             into["_embedding"] = [x / norm for x in mean]
             into["_embedded"] = total
-        votes = into["votes"]
-        into["label"] = into.get("operator_label") or max(votes, key=votes.get)
-        into["state"] = "active"
-        into["box_pinned"] = False
+        into["label"] = into["operator_label"] or top_vote(into["votes"])
+        into.update(state="active", removed_by="", box_pinned=False)
         self._refit(into)
 
     def _op_box(self, op):
         record = self.objects[self._object(op["id"])]
-        centre, size, yaw = op["centre"], op["size"], float(op["yaw"])
+        centre, size = pair(op.get("centre"), "centre"), pair(op.get("size"), "size")
+        yaw = number(op.get("yaw"), "yaw")
         if min(size) <= 0:
             raise EditError("a box needs a positive size")
         old_c, old_s, old_yaw = record["centre"], record["size"], record["yaw"]
@@ -432,34 +604,43 @@ class World:
                 key_of(centre[0] + c1 * u - s1 * v, centre[1] + s1 * u + c1 * v, z, self.voxel)
             )
         record["_voxels"] = moved
-        record.update(
-            centre=list(centre), size=[size[0], size[1], old_s[2]], yaw=yaw, box_pinned=True
-        )
+        record.update(centre=centre, size=[size[0], size[1], old_s[2]], yaw=yaw, box_pinned=True)
 
     def _op_split(self, op):
         parent = self.objects[self._object(op["id"])]
-        label = str(op.get("label", "")).strip().lower()
+        label = text(op.get("label")).strip().lower()
         if not label:
             raise EditError("a split needs a label for the part")
-        polygon = op["polygon"]
+        polygon = op.get("polygon")
+        if not isinstance(polygon, list) or len(polygon) < 3:
+            raise EditError("a split needs an area of three corners or more")
+        polygon = [pair(corner, "a corner") for corner in polygon]
         part = {k for k in parent["_voxels"] if inside(polygon, *centre_of(k, self.voxel)[:2])}
         if not part:
             raise EditError("the drawn area holds none of its voxels")
         if part == parent["_voxels"]:
             raise EditError("the drawn area holds all of it: relabel it instead")
         new_id = self._next_id()
+        name = text(op.get("name")).strip()
         child = copy.deepcopy({k: v for k, v in parent.items() if k != "_voxels"})
+        # A different thing from here on: none of the parent's look, name or best view.
         child.update(
             id=new_id,
             label=label,
             operator_label=label,
             votes={label: 1.0},
-            name=str(op.get("name", "")).strip(),
+            name=name,
+            operator_named=bool(name),
             caption="",
+            best_view_score=0.0,
             box_pinned=False,
             checked=False,
             _voxels=part,
+            _embedding=[],
+            _embedded=0,
         )
+        # Both labelled by hand, or canopy's merge pass joins two touching chairs again.
+        parent["operator_label"] = parent["operator_label"] or parent["label"]
         parent["_voxels"] = parent["_voxels"] - part
         parent["box_pinned"] = False
         self._refit(parent)
@@ -468,33 +649,34 @@ class World:
         return [new_id]
 
     def _op_add(self, op):
-        label = str(op.get("label", "")).strip().lower()
+        label = text(op.get("label")).strip().lower()
         if not label:
             raise EditError("a new object needs a label")
-        centre, size, yaw = op["centre"], op["size"], float(op.get("yaw", 0.0))
-        z_min, z_max = float(op.get("z_min", 0.0)), float(op.get("z_max", 0.8))
+        centre, size = pair(op.get("centre"), "centre"), pair(op.get("size"), "size")
+        yaw = number(op.get("yaw", 0.0), "yaw")
+        z_min = number(op.get("z_min", 0.0), "z_min")
+        z_max = number(op.get("z_max", 0.8), "z_max")
         if min(size) <= 0 or z_max <= z_min:
             raise EditError("a new object needs a positive size and height")
         new_id = self._next_id()
+        name = text(op.get("name")).strip()
         now = time.time()
         self.objects[new_id] = {
+            **OBJECT_DEFAULTS,
             "id": new_id,
             "label": label,
             "votes": {label: 1.0},
-            "name": str(op.get("name", "")).strip(),
-            "caption": "",
-            "centre": list(centre),
+            "name": name,
+            "centre": centre,
             "size": [size[0], size[1], z_max - z_min],
             "yaw": yaw,
             # Confirmed as far as canopy is concerned: an operator saw it.
             "observations": 2,
             "first_seen": now,
             "last_seen": now,
-            "misses": 0,
             "top_seen": True,
-            "state": "active",
-            "best_view_score": 0.0,
             "operator_label": label,
+            "operator_named": bool(name),
             "box_pinned": True,
             "checked": True,
             "_voxels": shell(centre, size, yaw, z_min, z_max, self.voxel),
@@ -504,14 +686,16 @@ class World:
         return [new_id]
 
     def _op_room_name(self, op):
-        self.rooms[self._room(op["room"])]["name"] = str(op.get("name", "")).strip()
+        self.rooms[self._room(op["room"])]["name"] = text(op.get("name")).strip()
 
     def _op_room_type(self, op):
         room = self.rooms[self._room(op["room"])]
+        kind = text(op.get("type")).strip().lower()
+        # Cleared, the room goes back to canopy's typer.
         room.update(
-            type=str(op.get("type", "")).strip().lower(),
-            type_confidence=1.0,
-            type_source="operator",
+            type=kind,
+            type_confidence=1.0 if kind else 0.0,
+            type_source="operator" if kind else "",
         )
 
     def _op_room_check(self, op):
@@ -522,14 +706,7 @@ class World:
     def view(self):
         with self.lock:
             objects = [self._object_view(r) for r in self.objects.values()]
-            rooms = [
-                {
-                    **room,
-                    "outline": room.get("outline") or [],
-                    "checked": room.get("checked", False),
-                }
-                for room in self.rooms.values()
-            ]
+            rooms = [{**room, "outline": room.get("outline") or []} for room in self.rooms.values()]
             return {
                 "directory": str(self.directory),
                 "map": {k: v for k, v in self.map.items() if k != "image"},
@@ -546,29 +723,29 @@ class World:
 
     def _object_view(self, record):
         z_low, z_high = z_range(record["_voxels"], self.voxel) if record["_voxels"] else (0.0, 0.0)
-        votes = record.get("votes") or {}
+        votes = record["votes"]
         return {
             "id": record["id"],
-            "label": record.get("operator_label") or record.get("label", ""),
-            "operator_label": record.get("operator_label", ""),
-            "voted_label": max(votes, key=votes.get) if votes else "",
-            "name": record.get("name", ""),
-            "caption": record.get("caption", ""),
+            "label": record["operator_label"] or record["label"],
+            "operator_label": record["operator_label"],
+            "voted_label": top_vote(votes),
+            "name": record["name"],
+            "caption": record["caption"],
             "votes": dict(sorted(votes.items(), key=lambda kv: -kv[1])),
             "weight": sum(votes.values()),
-            "observations": record.get("observations", 0),
-            "state": record.get("state", "active"),
+            "observations": record["observations"],
+            "state": record["state"],
             "centre": record["centre"][:2],
             "size": record["size"][:2],
             "yaw": record["yaw"],
             "z_min": z_low,
             "z_max": z_high,
             "voxels": len(record["_voxels"]),
-            "box_pinned": record.get("box_pinned", False),
-            "checked": record.get("checked", False),
+            "box_pinned": record["box_pinned"],
+            "checked": record["checked"],
             "crop": (self.directory / "crops" / f"O{record['id']}.jpg").exists(),
             # What canopy shows: removed objects and one-off glimpses stay in the file unseen.
-            "shown": record.get("state") != "removed" and record.get("observations", 0) >= 2,
+            "shown": record["state"] != "removed" and record["observations"] >= 2,
         }
 
     def suggestions(self):
@@ -577,35 +754,35 @@ class World:
         live = [
             r
             for r in self.objects.values()
-            if r.get("state") != "removed"
-            and r.get("observations", 0) >= 2
-            and not r.get("checked")
+            if r["state"] != "removed"
+            and r["observations"] >= 2
+            and not r["checked"]
             and r["_voxels"]
         ]
-        weight = {r["id"]: sum((r.get("votes") or {}).values()) for r in live}
+        weight = {r["id"]: sum(r["votes"].values()) for r in live}
         ranges = {r["id"]: z_range(r["_voxels"], self.voxel) for r in live}
         for record in live:
             reasons = []
             object_id = record["id"]
-            label = record.get("operator_label") or record.get("label", "")
-            name = (record.get("name") or "").lower()
-            votes = record.get("votes") or {}
-            if weight[object_id] < WEAK_WEIGHT and record.get("observations", 0) <= WEAK_SIGHTINGS:
+            label = record["operator_label"] or record["label"]
+            name = record["name"].lower()
+            votes = record["votes"]
+            if weight[object_id] < WEAK_WEIGHT and record["observations"] <= WEAK_SIGHTINGS:
                 reasons.append(
-                    f"seen {record.get('observations', 0)} times with little confidence: a phantom?"
+                    f"seen {record['observations']} times with little confidence: a phantom?"
                 )
             if ranges[object_id][1] < FLOOR_TOP and (
                 label not in FLAT_LABELS or name.endswith("floor")
             ):
                 reasons.append("flat on the floor: the floor itself?")
-            if not record.get("operator_label"):
+            if not record["operator_label"]:
                 if name and not self._agrees(label, name):
                     reasons.append(f"the describer called it '{record['name']}'")
                 if votes and max(votes.values()) < SPLIT_SHARE * sum(votes.values()):
                     top = sorted(votes.items(), key=lambda kv: -kv[1])[:3]
                     reasons.append(
                         "the detector was split: "
-                        + ", ".join(f"{label} {votes:.0f}" for label, votes in top)
+                        + ", ".join(f"{word} {count:.0f}" for word, count in top)
                     )
             if ranges[object_id][0] < FLOOR_STANDING:
                 for other in live:
@@ -622,23 +799,19 @@ class World:
             if reasons:
                 out.append({"kind": "object", "id": object_id, "reasons": reasons})
         for room in self.rooms.values():
-            if room.get("checked") or room.get("type_source") == "operator":
+            if room["checked"] or room["type_source"] == "operator":
                 continue
-            if (
-                room.get("type_source") == "objects"
-                and room.get("type_confidence", 0.0) < LOW_ROOM_CONFIDENCE
-            ):
+            if room["type_source"] == "objects" and room["type_confidence"] < LOW_ROOM_CONFIDENCE:
                 out.append(
                     {
                         "kind": "room",
                         "id": room["id"],
                         "reasons": [
-                            f"typed {room.get('type')} from its objects at "
-                            f"{room.get('type_confidence', 0.0):.2f}"
+                            f"typed {room['type']} from its objects at {room['type_confidence']:.2f}"
                         ],
                     }
                 )
-            elif not room.get("type"):
+            elif not room["type"]:
                 out.append({"kind": "room", "id": room["id"], "reasons": ["no type yet"]})
         out.sort(key=lambda s: -len(s["reasons"]))
         return out
@@ -654,9 +827,9 @@ class World:
 
 
 def read_config(config):
-    """Known labels, synonyms (other word -> the table's) and room types, from canopy's config and
-    the detector's word list."""
-    labels, synonyms, types = set(), {}, []
+    """Known labels, synonyms (other word -> the table's), room types and the voxel size, from
+    canopy's config and the detector's word list."""
+    labels, synonyms, types, voxel = set(), {}, [], 0.04
     if VOCABULARY.exists():
         with open(VOCABULARY) as stream:
             body = yaml.safe_load(stream) or {}
@@ -672,7 +845,16 @@ def read_config(config):
         for word, others in (body.get("synonyms") or {}).items():
             for other in others:
                 synonyms[other.lower()] = word
-    return labels, synonyms, sorted(set(types) | {"hallway", "study", "bathroom"})
+    # For worlds saved before world.yaml carried it: the size canopy maps objects at.
+    params = config / "canopy.yaml"
+    if params.exists():
+        with open(params) as stream:
+            body = yaml.safe_load(stream) or {}
+        for node in body.values():
+            objects = (node or {}).get("ros__parameters", {}).get("objects") or {}
+            voxel = float(objects.get("voxel", voxel))
+    # A hallway is typed by its shape, not the table.
+    return labels, synonyms, sorted(set(types) | {"hallway"}), voxel
 
 
 def read_map(directory):
@@ -756,7 +938,7 @@ STATIC = {
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/style.css": ("style.css", "text/css; charset=utf-8"),
 }
-LOOPBACK = {"127.0.0.1", "localhost", "::1"}
+LOOPBACK = {"127.0.0.1", "localhost"}
 
 
 def handler_for(world):
@@ -771,7 +953,7 @@ def handler_for(world):
             (a rebound DNS name is not); a POST must be JSON from this origin, which no other web
             page can send without a preflight this server never answers."""
             host = self.headers.get("Host") or ""
-            if self.server.loopback and host.rsplit(":", 1)[0].strip("[]") not in LOOPBACK:
+            if self.server.loopback and host.rsplit(":", 1)[0] not in LOOPBACK:
                 return False
             if self.command != "POST":
                 return True
@@ -780,48 +962,62 @@ def handler_for(world):
             return kind == "application/json" and origin in (None, f"http://{host}")
 
         def do_GET(self):
-            if not self._trusted():
-                return self._json(HTTPStatus.FORBIDDEN, {"error": "not from this editor"})
-            if self.path in STATIC:
-                name, kind = STATIC[self.path]
+            self._answer(self._get)
+
+        def do_POST(self):
+            self._answer(self._post)
+
+        def _answer(self, route):
+            try:
+                if not self._trusted():
+                    return self._json(HTTPStatus.FORBIDDEN, {"error": "not from this editor"})
+                return route()
+            except Conflict as error:
+                return self._json(HTTPStatus.CONFLICT, {"error": str(error)})
+            except KeyError as error:
+                return self._json(HTTPStatus.BAD_REQUEST, {"error": f"missing {error}"})
+            except (EditError, TypeError, ValueError) as error:
+                return self._json(HTTPStatus.BAD_REQUEST, {"error": str(error)})
+            except Exception as error:
+                # Answered, so the page can say what went wrong instead of losing the connection.
+                traceback.print_exc()
+                message = f"{type(error).__name__}: {error}"
+                return self._json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": message})
+
+        def _get(self):
+            url = urllib.parse.urlsplit(self.path)
+            if url.path in STATIC:
+                name, kind = STATIC[url.path]
                 return self._send(HTTPStatus.OK, (HERE / "static" / name).read_bytes(), kind)
-            if self.path == "/api/world":
+            if url.path == "/api/world":
                 return self._json(HTTPStatus.OK, world.view())
-            if self.path == "/api/map.png":
+            if url.path == "/api/map.png":
                 return self._send(HTTPStatus.OK, world.map["image"], "image/png")
-            match = re.fullmatch(r"/api/crops/O(\d+)\.jpg", self.path)
+            match = re.fullmatch(r"/api/crops/O(\d+)\.jpg", url.path)
             if match:
                 crop = world.directory / "crops" / f"O{match.group(1)}.jpg"
                 if crop.exists():
                     return self._send(HTTPStatus.OK, crop.read_bytes(), "image/jpeg")
             return self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
-        def do_POST(self):
-            if not self._trusted():
-                return self._json(HTTPStatus.FORBIDDEN, {"error": "not from this editor"})
-            try:
-                length = int(self.headers.get("Content-Length") or 0)
-                body = json.loads(self.rfile.read(length) or b"{}")
-                if self.path == "/api/edit":
-                    created = world.apply(body)
-                    return self._json(HTTPStatus.OK, {"created": created, "world": world.view()})
-                if self.path == "/api/undo":
-                    world.undo()
-                elif self.path == "/api/redo":
-                    world.redo()
-                elif self.path == "/api/save":
-                    message = world.save()
-                    return self._json(HTTPStatus.OK, {"message": message, "world": world.view()})
-                elif self.path == "/api/reload":
-                    with world.lock:
-                        world.load()
-                else:
-                    return self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
-                return self._json(HTTPStatus.OK, {"world": world.view()})
-            except Conflict as error:
-                return self._json(HTTPStatus.CONFLICT, {"error": str(error)})
-            except (EditError, KeyError, TypeError, ValueError) as error:
-                return self._json(HTTPStatus.BAD_REQUEST, {"error": str(error)})
+        def _post(self):
+            length = int(self.headers.get("Content-Length") or 0)
+            body = json.loads(self.rfile.read(length) or b"{}")
+            path = urllib.parse.urlsplit(self.path).path
+            if path == "/api/edit":
+                created = world.apply(body)
+                return self._json(HTTPStatus.OK, {"created": created, "world": world.view()})
+            actions = {
+                "/api/undo": world.undo,
+                "/api/redo": world.redo,
+                "/api/save": world.save,
+                "/api/reload": world.reload,
+                "/api/rebase": world.rebase,
+            }
+            if path not in actions:
+                return self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
+            message = actions[path]()
+            return self._json(HTTPStatus.OK, {"message": message, "world": world.view()})
 
         def _json(self, status, body):
             self._send(status, json.dumps(body).encode(), "application/json")
@@ -850,7 +1046,10 @@ def main():
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--config", default=str(CONFIG), help="canopy's config, for labels")
     args = parser.parse_args()
-    world = World(args.world, args.config)
+    try:
+        world = World(args.world, args.config)
+    except (OSError, ValueError, struct.error, yaml.YAMLError) as error:
+        sys.exit(f"cannot edit {args.world}: {error}")
     server = serve(world, args.host, args.port)
     print(f"editing {args.world} at http://{args.host}:{server.server_address[1]}/", flush=True)
     try:
