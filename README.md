@@ -35,7 +35,13 @@ Built for ROS 2 Jazzy (Ubuntu 24.04), C++20.
 
 ## In pictures
 
-A simulated Unitree G1 exploring a six-room flat from no map, watched in RViz (`rviz:=true`):
+The flat the pictures come from, in MuJoCo: a living room with an open kitchen and dining table,
+a bedroom, a study with a day bed, an office, a storage room and the hallway between them, with 44
+props and the Unitree G1 where it starts:
+
+![The six-room flat in MuJoCo](canopy/doc/apartment_mujoco.jpg)
+
+The simulated G1 exploring it from no map, watched in RViz (`rviz:=true`):
 
 - each room is tinted and labelled with how much of it the cameras have seen;
 - **red** is still to see, **cyan** what no standing spot can see;

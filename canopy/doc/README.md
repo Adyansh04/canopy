@@ -24,6 +24,8 @@ pictures, made with grove-g1's `g1_bringup` tools:
 - `apartment_wardrobe.png` is the corner behind the bedroom's wardrobe, from the same command with
   `--crop 4 2.5 10.5 7.2`. The gap is narrower than a spot the robot can stand in, so it looks in
   from the nearest one, and the LiDAR sees only part of it.
+- `apartment_mujoco.jpg` is the flat itself, rendered offscreen from grove-g1's
+  `g1_apartment_scene.xml` with MuJoCo's own renderer, from the south-west.
 - `apartment_walk.png` is the robot's walk, blue early to red late, with each viewpoint
   (`run_summary.py --plot`), from an earlier run with the mock detector.
 - `frontier_pass_end.png` is SLAM's map as the frontier pass ended, from an earlier run
