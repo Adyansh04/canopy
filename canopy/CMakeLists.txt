@@ -101,6 +101,10 @@ if(BUILD_TESTING)
   ament_add_gmock(test_viewpoint_planner test/test_viewpoint_planner.cpp TIMEOUT 300)
   target_link_libraries(test_viewpoint_planner canopy_core)
 
+  # A world edited by hand, taken by a running node: no simulator, the map comes from the test.
+  find_package(launch_testing_ament_cmake REQUIRED)
+  add_launch_test(test/test_world_edit.launch.py TARGET test_world_edit TIMEOUT 120)
+
   canopy_add_lint_tests()
 endif()
 

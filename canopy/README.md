@@ -91,7 +91,8 @@ Along the way:
 | Pub | `~/describe_requests` | `canopy_msgs/DescribeRequest`, with `describe:=true` |
 | Srv | `~/next_viewpoint`, `~/report_viewpoint` | the exploration loop |
 | Srv | `~/find_objects`, `~/get_approach_pose` | finding things |
-| Srv | `~/save` | `std_srvs/Trigger`: writes the world to `world_dir` (it also saves every minute) |
+| Srv | `~/save` | `std_srvs/Trigger`: writes the world to `world_dir` (it also saves every minute), unless someone else changed it on disk since |
+| Srv | `~/reload` | `std_srvs/Trigger`: takes the world in `world_dir` as it is on disk now, e.g. after the map editor |
 
 - **Parameters**, each with its reason: `config/canopy.yaml`.
 - **Room types and synonyms**: `config/room_types.yaml`. "dustbin" finds what the detector calls a
@@ -112,7 +113,9 @@ Along the way:
 | `objects.bin`, `coverage.bin`, `crops/` | Object voxels, what the camera has seen with the map SLAM made, and each object's best view. |
 | `wall_hits.png` | The LiDAR's returns at wall height, to rebuild the floor plan offline. |
 
-A later run with the same `world_dir` on the same map picks all of it up and carries on.
+A later run with the same `world_dir` on the same map picks all of it up and carries on. What an
+operator fixed with the [map editor](../editor) stays fixed: their labels, boxes and room types
+win over later votes, the room typer and the describer.
 
 ## Running it
 
@@ -162,11 +165,13 @@ with the standard library and Pillow, and nothing the robot does waits on them.
 
 ## Tests
 
-Unit tests only, no ROS graph:
+No simulator:
 
 - `test_room_segmentation`: hand-drawn plans and two saved maps (`test/maps`).
 - `test_viewpoint_planner`: a ray-cast camera covering two rooms and a corridor.
 - `test_object_map`, `test_world_parts`.
+- `test_world_edit`: the node resumes the example world, and the map editor changes it on disk.
+  The node must refuse to save over that, take it with `~/reload`, and keep it.
 
 The end-to-end run lives with a robot: grove-g1 explores its simulated flat and scores rooms,
 coverage and objects against ground truth.
