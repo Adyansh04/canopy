@@ -202,6 +202,7 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     object.operator_label  = "trash can";
     object.checked         = true;
     object.box_pinned      = true;
+    object.removed_by      = "clean-up: the floor";
     object.box_centre      = { 1.0, 2.0 };
     object.box_size        = { 0.3, 0.4 };
     object.box_yaw         = 0.5;
@@ -250,6 +251,7 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     EXPECT_FLOAT_EQ(back.votes.at("dustbin"), 2.5F);
     EXPECT_TRUE(back.checked);
     EXPECT_TRUE(back.box_pinned);
+    EXPECT_EQ(back.removed_by, object.removed_by);
     EXPECT_DOUBLE_EQ(back.box_centre.y(), 2.0);
     EXPECT_DOUBLE_EQ(back.box_size.y(), 0.4);
     EXPECT_DOUBLE_EQ(back.box_yaw, 0.5);

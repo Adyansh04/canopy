@@ -177,6 +177,7 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
         yaml << YAML::Key << "operator_label" << YAML::Value << YAML::DoubleQuoted
              << object.operator_label;
         yaml << YAML::Key << "operator_named" << YAML::Value << object.operator_named;
+        yaml << YAML::Key << "removed_by" << YAML::Value << YAML::DoubleQuoted << object.removed_by;
         yaml << YAML::Key << "box_pinned" << YAML::Value << object.box_pinned;
         yaml << YAML::Key << "checked" << YAML::Value << object.checked;
         yaml << YAML::EndMap;
@@ -415,6 +416,7 @@ std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string
             object.best_view_score = node["best_view_score"].as<double>(0.0);
             object.operator_label  = node["operator_label"].as<std::string>("");
             object.operator_named  = node["operator_named"].as<bool>(false);
+            object.removed_by      = node["removed_by"].as<std::string>("");
             object.box_pinned      = node["box_pinned"].as<bool>(false);
             object.checked         = node["checked"].as<bool>(false);
             if (object.box_pinned)
