@@ -6,7 +6,14 @@ or CUDA. Not a ROS package (`COLCON_IGNORE`): canopy_perception's `detector` and
 
 | File | Does |
 |---|---|
-| `semantic_server.py` | Detection (YOLOE-26 over a word list, one forward pass for the whole list), image and text embeddings (SigLIP 2), and object and room descriptions (Gemini, falling back to a local VLM). REQ/REP on `tcp://127.0.0.1:5561`, and on 5562 for `describe`; msgpack bodies. |
+| `semantic_server.py` | Detection (YOLOE-26 over a word list, one forward pass for the whole list), image and text embeddings (SigLIP 2), and object and room descriptions (Gemini, falling back to a local VLM). REQ/REP on `tcp://127.0.0.1:5561`, and on 5562 for `describe`; msgpack bodies. This file is the command line; the parts are in `semantic/`. |
+| `semantic/config.py` | `DEFAULTS`, and the `--config` file, flags and `--set` overrides over them. |
+| `semantic/detection.py` | YOLOE-26 instance masks, one per region. |
+| `semantic/embedding.py` | SigLIP 2 embeddings, and the grey-backed crop of an instance they are taken of. |
+| `semantic/prompts.py` | What a describer is asked, and its answer read into the reply's fields. |
+| `semantic/describers.py` | The describer contract, the local VLM, the `none` fallback and the chain that falls through them. |
+| `semantic/gemini.py` | Gemini's REST API under per-model free-tier caps, shared by every process through a locked file. |
+| `semantic/server.py` | The request handlers, the backend registries and the ZMQ loop on the two ports. |
 | `start-vlm.sh` | The local VLM behind the `openai` describer: Qwen3.5-4B in llama.cpp's server, in a container, on `127.0.0.1:8080`. |
 | `setup.sh` | A uv virtualenv with pinned torch and model libraries, the YOLOE weights, the Hugging Face downloads and the llama.cpp image. |
 | `test_semantic_server.py` | Unit tests with fake models: no GPU, no network, no weights. |
@@ -20,7 +27,7 @@ or CUDA. Not a ROS package (`COLCON_IGNORE`): canopy_perception's `detector` and
 ```
 
 YOLOE-26l and SigLIP 2 take about 1.7 GB of VRAM together. Each backend is a flag (`--detector`,
-`--embedder`, `--describer`) or a `--config` YAML shaped like the server's `DEFAULTS`, and
+`--embedder`, `--describer`) or a `--config` YAML shaped like `DEFAULTS` in `semantic/config.py`, and
 `--self-test frame.png` runs one frame through without a socket.
 
 ## Endpoints
@@ -50,7 +57,7 @@ Rate limits), so the server spreads its calls over several:
 | room | Gemini 3.8 Flash, 3.6 Flash, then the first two above | 5, 20 for the Flash models |
 
 - Each model has its own caps, a little under Google's, counted in a file beside the key across
-  processes and restarts. `DEFAULTS["gemini"]` in `semantic_server.py` holds them; change them
+  processes and restarts. `DEFAULTS["gemini"]` in `semantic/config.py` holds them; change them
   with `--config`, since `--set` splits keys on the dots in a model's name.
 - A model at its cap, refused or busy is skipped for the next. A refusal on the daily quota parks it
   until midnight Pacific; one on the minute quota, for the delay Google names.

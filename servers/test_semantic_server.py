@@ -1,4 +1,4 @@
-"""Unit tests for servers/semantic_server.py: no GPU, no network, no model weights.
+"""Unit tests for the semantic server, servers/semantic/: no GPU, no network, no model weights.
 
 $CANOPY_HOME/.venv/bin/python -m unittest servers/test_semantic_server.py
 """
@@ -21,7 +21,23 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import semantic_server as ss  # noqa: E402
+from semantic.config import load_config  # noqa: E402
+from semantic.describers import (  # noqa: E402
+    DescriberChain,
+    NoDescriber,
+    OpenAIDescriber,
+    Unavailable,
+)
+from semantic.detection import YoloeDetector  # noqa: E402
+from semantic.embedding import GREY, masked_crop  # noqa: E402
+from semantic.gemini import (  # noqa: E402
+    FREE_TIER,
+    FREE_TIER_UNLISTED,
+    GeminiDescriber,
+    GeminiLimiter,
+)
+from semantic.prompts import parse_answer  # noqa: E402
+from semantic.server import DESCRIBERS, SemanticServer, _decode  # noqa: E402
 
 
 def utc(*fields):
@@ -41,7 +57,7 @@ CAPS = {
     "flash": {"per_minute": 2, "per_day": 3, "thinking": "low"},
 }
 ROUTES = {"object": ["lite", "flash"], "room": ["flash"]}
-ss.FREE_TIER.update(lite=(15, 500), flash=(5, 20))
+FREE_TIER.update(lite=(15, 500), flash=(5, 20))
 
 
 class Scratch(unittest.TestCase):
@@ -55,7 +71,7 @@ class Scratch(unittest.TestCase):
         self.clock = Clock(utc(2026, 9, 24, 19, 0))
 
     def limiter(self, models=CAPS):
-        return ss.GeminiLimiter(self.usage, models, clock=self.clock)
+        return GeminiLimiter(self.usage, models, clock=self.clock)
 
 
 class LimiterTest(Scratch):
@@ -63,10 +79,10 @@ class LimiterTest(Scratch):
         limiter = self.limiter()
         for _ in range(5):
             limiter.acquire("lite")
-        with self.assertRaisesRegex(ss.Unavailable, "a minute"):
+        with self.assertRaisesRegex(Unavailable, "a minute"):
             limiter.acquire("lite")
         self.clock.now += 59
-        with self.assertRaises(ss.Unavailable):
+        with self.assertRaises(Unavailable):
             limiter.acquire("lite")
         self.clock.now += 2
         limiter.acquire("lite")
@@ -76,7 +92,7 @@ class LimiterTest(Scratch):
         for _ in range(100):
             limiter.acquire("lite")
             self.clock.now += 13
-        with self.assertRaisesRegex(ss.Unavailable, "a day"):
+        with self.assertRaisesRegex(Unavailable, "a day"):
             limiter.acquire("lite")
         self.assertEqual(limiter.usage()["models"]["lite"]["count"], 100)
 
@@ -85,7 +101,7 @@ class LimiterTest(Scratch):
         for _ in range(3):
             limiter.acquire("flash")
             self.clock.now += 31
-        with self.assertRaisesRegex(ss.Unavailable, "3 requests a day"):
+        with self.assertRaisesRegex(Unavailable, "3 requests a day"):
             limiter.acquire("flash")
         limiter.acquire("lite")
 
@@ -95,10 +111,10 @@ class LimiterTest(Scratch):
         limiter.acquire("lite")
         limiter.acquire("lite")
         self.clock.now = utc(2026, 9, 25, 0, 30)  # past midnight UTC, 17:30 in California
-        with self.assertRaisesRegex(ss.Unavailable, "a day"):
+        with self.assertRaisesRegex(Unavailable, "a day"):
             limiter.acquire("lite")
         self.clock.now = utc(2026, 9, 25, 6, 59)  # 23:59 PDT
-        with self.assertRaises(ss.Unavailable):
+        with self.assertRaises(Unavailable):
             limiter.acquire("lite")
         self.clock.now = utc(2026, 9, 25, 7, 1)  # 00:01 PDT
         limiter.acquire("lite")
@@ -113,11 +129,11 @@ class LimiterTest(Scratch):
     def test_parked_until_the_next_pacific_day(self):
         limiter = self.limiter()
         limiter.park("lite")
-        with self.assertRaisesRegex(ss.Unavailable, "parked"):
+        with self.assertRaisesRegex(Unavailable, "parked"):
             limiter.acquire("lite")
         limiter.acquire("flash")
         self.clock.now = utc(2026, 9, 25, 6, 59)
-        with self.assertRaises(ss.Unavailable):
+        with self.assertRaises(Unavailable):
             limiter.acquire("lite")
         self.clock.now = utc(2026, 9, 25, 7, 1)
         limiter.acquire("lite")
@@ -125,7 +141,7 @@ class LimiterTest(Scratch):
     def test_parked_for_a_while(self):
         limiter = self.limiter()
         limiter.park("lite", 38)
-        with self.assertRaisesRegex(ss.Unavailable, "another 38 s"):
+        with self.assertRaisesRegex(Unavailable, "another 38 s"):
             limiter.acquire("lite")
         self.clock.now += 38
         limiter.acquire("lite")
@@ -136,11 +152,11 @@ class LimiterTest(Scratch):
             first.acquire("lite")
         second.acquire("lite")
         second.acquire("lite")
-        with self.assertRaises(ss.Unavailable):
+        with self.assertRaises(Unavailable):
             first.acquire("lite")
         second.park("lite")
         self.clock.now += 120
-        with self.assertRaisesRegex(ss.Unavailable, "parked"):
+        with self.assertRaisesRegex(Unavailable, "parked"):
             self.limiter().acquire("lite")
         self.assertEqual(self.limiter().usage()["models"]["lite"]["count"], 5)
 
@@ -148,23 +164,23 @@ class LimiterTest(Scratch):
         limiter = self.limiter({"flash": {"per_minute": 50, "per_day": 999}})
         for _ in range(5):
             limiter.acquire("flash")
-        with self.assertRaisesRegex(ss.Unavailable, "5 requests a minute"):
+        with self.assertRaisesRegex(Unavailable, "5 requests a minute"):
             limiter.acquire("flash")
         unlisted = self.limiter({"gemini-9-pro": {"per_minute": 50, "per_day": 999}})
-        self.assertEqual(unlisted._caps["gemini-9-pro"], ss.FREE_TIER_UNLISTED)
+        self.assertEqual(unlisted._caps["gemini-9-pro"], FREE_TIER_UNLISTED)
 
     def test_a_file_from_before_per_model_caps_holds_every_model(self):
         self.usage.write_text(
             json.dumps({"day": "2026-09-24", "count": 20, "exhausted": True, "recent": []})
         )
-        with self.assertRaisesRegex(ss.Unavailable, "parked"):
+        with self.assertRaisesRegex(Unavailable, "parked"):
             self.limiter().acquire("flash")
         self.clock.now = utc(2026, 9, 25, 7, 1)
         self.limiter().acquire("flash")
 
     def test_unreadable_state_fails_closed(self):
         self.usage.write_text("{not json")
-        with self.assertRaisesRegex(ss.Unavailable, "unreadable"):
+        with self.assertRaisesRegex(Unavailable, "unreadable"):
             self.limiter().acquire("lite")
 
 
@@ -220,7 +236,7 @@ class DecodeTest(unittest.TestCase):
             data = {**array, b"data": pickle.dumps(Payload())}
             message = msgpack.packb({"endpoint": "ping", "data": data})
             with self.assertRaisesRegex(ValueError, "object arrays"):
-                msgpack.unpackb(message, object_hook=ss._decode, raw=False)
+                msgpack.unpackb(message, object_hook=_decode, raw=False)
             self.assertFalse(marker.exists())
 
     def test_numeric_arrays_still_decode(self):
@@ -229,9 +245,8 @@ class DecodeTest(unittest.TestCase):
 
         image = np.arange(12, dtype=np.uint8).reshape(2, 2, 3)
         message = msgpack.packb({"image": image}, default=mnp.encode)
-        decoded = msgpack.unpackb(message, object_hook=ss._decode, raw=False)["image"]
+        decoded = msgpack.unpackb(message, object_hook=_decode, raw=False)["image"]
         np.testing.assert_array_equal(decoded, image)
-
 
 
 class Transport:
@@ -260,7 +275,7 @@ class GeminiTest(Scratch):
         self.key_file.write_text("GEMINI_API_KEY=test-key-123\n")
 
     def describer(self, transport, routes=ROUTES, limiter=None):
-        return ss.GeminiDescriber(
+        return GeminiDescriber(
             routes, CAPS, self.key_file, limiter or self.limiter(), transport=transport
         )
 
@@ -361,7 +376,7 @@ class GeminiTest(Scratch):
     def test_every_model_out_names_each_reason(self):
         transport = Transport((429, PER_DAY), (503, BUSY))
         with self.assertRaisesRegex(
-            ss.Unavailable,
+            Unavailable,
             "lite: refused on quota.*until midnight Pacific; flash: answered HTTP 503",
         ):
             self.describe(self.describer(transport))
@@ -369,7 +384,7 @@ class GeminiTest(Scratch):
     def test_a_model_that_failed_is_logged_one_at_its_cap_is_not(self):
         limiter = self.limiter({"lite": {"per_minute": 0, "per_day": 9}, "flash": CAPS["flash"]})
         log = io.StringIO()
-        with contextlib.redirect_stderr(log), self.assertRaises(ss.Unavailable):
+        with contextlib.redirect_stderr(log), self.assertRaises(Unavailable):
             self.describe(self.describer(Transport((503, BUSY)), limiter=limiter))
         self.assertNotIn("lite", log.getvalue())
         self.assertIn("flash: answered HTTP 503", log.getvalue())
@@ -380,9 +395,9 @@ class GeminiTest(Scratch):
         def hung(url, headers, body, timeout):
             waits.append(timeout)
             time.sleep(timeout)
-            raise ss.Unavailable("timed out")
+            raise Unavailable("timed out")
 
-        describer = ss.GeminiDescriber(
+        describer = GeminiDescriber(
             ROUTES,
             CAPS,
             self.key_file,
@@ -391,7 +406,7 @@ class GeminiTest(Scratch):
             min_attempt_s=0.01,
             transport=hung,
         )
-        with self.assertRaisesRegex(ss.Unavailable, "lite: timed out; flash: out of time"):
+        with self.assertRaisesRegex(Unavailable, "lite: timed out; flash: out of time"):
             self.describe(describer)
         self.assertEqual(len(waits), 1)
         self.assertLessEqual(waits[0], 0.05)
@@ -401,14 +416,14 @@ class GeminiTest(Scratch):
         limiter = self.limiter({"lite": {"per_minute": 1, "per_day": 9}})
         describer = self.describer(transport, {"object": ["lite"], "room": []}, limiter)
         self.describe(describer)
-        with self.assertRaisesRegex(ss.Unavailable, "a minute"):
+        with self.assertRaisesRegex(Unavailable, "a minute"):
             self.describe(describer)
         self.assertEqual(len(transport.calls), 1)
 
     def test_missing_key(self):
         self.key_file.unlink()
         transport = Transport()
-        with self.assertRaisesRegex(ss.Unavailable, "no Gemini key"):
+        with self.assertRaisesRegex(Unavailable, "no Gemini key"):
             self.describe(self.describer(transport))
         self.assertEqual(transport.calls, [])
 
@@ -443,21 +458,21 @@ ANSWER = {
 
 class ChainTest(Scratch):
     def test_falls_through_an_unavailable_describer(self):
-        chain = ss.DescriberChain(
-            [FakeDescriber("a", error=ss.Unavailable("rate limited")), FakeDescriber("b", ANSWER)]
+        chain = DescriberChain(
+            [FakeDescriber("a", error=Unavailable("rate limited")), FakeDescriber("b", ANSWER)]
         )
         self.assertEqual(chain.describe("object", [], OBJECT)["backend"], "b")
 
     def test_first_answer_wins(self):
         second = FakeDescriber("b", ANSWER)
-        chain = ss.DescriberChain([FakeDescriber("a", ANSWER), second])
+        chain = DescriberChain([FakeDescriber("a", ANSWER), second])
         self.assertEqual(chain.describe("object", [], OBJECT)["backend"], "a")
         self.assertEqual(second.calls, 0)
 
     def test_all_failing_names_every_reason(self):
-        chain = ss.DescriberChain(
+        chain = DescriberChain(
             [
-                FakeDescriber("a", error=ss.Unavailable("rate limited")),
+                FakeDescriber("a", error=Unavailable("rate limited")),
                 FakeDescriber("b", error=ValueError("no JSON in the answer")),
             ]
         )
@@ -475,16 +490,16 @@ class ChainTest(Scratch):
                 ).encode(),
             )
         )
-        chain = ss.DescriberChain(
+        chain = DescriberChain(
             [
-                ss.GeminiDescriber(
+                GeminiDescriber(
                     {"object": ["lite"], "room": []},
                     CAPS,
                     key_file,
                     self.limiter(),
                     transport=Transport((429, QUOTA)),
                 ),
-                ss.OpenAIDescriber("http://127.0.0.1:8080/v1", "qwen3.5-4b", transport=local),
+                OpenAIDescriber("http://127.0.0.1:8080/v1", "qwen3.5-4b", transport=local),
             ]
         )
         answer = chain.describe("object", [np.zeros((64, 64, 3), np.uint8)], OBJECT)
@@ -498,32 +513,32 @@ class ChainTest(Scratch):
         self.assertEqual(body["response_format"]["type"], "json_schema")
 
     def test_unreachable_local_vlm_is_unavailable(self):
-        describer = ss.OpenAIDescriber(
-            "http://127.0.0.1:8080/v1", "m", transport=Transport(ss.Unavailable("refused"))
+        describer = OpenAIDescriber(
+            "http://127.0.0.1:8080/v1", "m", transport=Transport(Unavailable("refused"))
         )
-        with self.assertRaises(ss.Unavailable):
+        with self.assertRaises(Unavailable):
             describer.describe("room", [], {"objects": ["bed"]})
 
     def test_none_echoes_the_detector(self):
-        answer = ss.NoDescriber().describe("object", [], OBJECT)
+        answer = NoDescriber().describe("object", [], OBJECT)
         self.assertEqual((answer["name"], answer["confidence"]), ("cup", 0.0))
-        room = ss.NoDescriber().describe("room", [], {"objects": [], "room_type": "Kitchen"})
+        room = NoDescriber().describe("room", [], {"objects": [], "room_type": "Kitchen"})
         self.assertEqual(room["room_type"], "kitchen")
         # No guess, no type: never 'other', which the world model would take as an answer.
-        self.assertEqual(ss.NoDescriber().describe("room", [], {"objects": {}})["room_type"], "")
+        self.assertEqual(NoDescriber().describe("room", [], {"objects": {}})["room_type"], "")
 
 
 class ParseAnswerTest(unittest.TestCase):
     def test_json_inside_prose_and_fences(self):
         text = 'Sure!\n```json\n{"name": "Mug", "caption": " A  mug. ", "label_ok": true}\n```'
-        answer = ss.parse_answer(text, "object")
+        answer = parse_answer(text, "object")
         self.assertEqual(
             (answer["name"], answer["caption"], answer["label_ok"]), ("mug", "A mug.", True)
         )
 
     def test_loose_types(self):
         def parse(**fields):
-            return ss.parse_answer(json.dumps({"name": "mug", **fields}), "object")
+            return parse_answer(json.dumps({"name": "mug", **fields}), "object")
 
         self.assertTrue(parse(label_ok="yes")["label_ok"])
         self.assertFalse(parse(label_ok="no")["label_ok"])
@@ -533,29 +548,29 @@ class ParseAnswerTest(unittest.TestCase):
         self.assertEqual(parse(confidence="high")["confidence"], 0.5)
         self.assertEqual(parse(confidence=-1)["confidence"], 0.0)
         self.assertEqual(
-            ss.parse_answer('{"Name": "mug", "Confidence": NaN}', "object")["confidence"], 0.5
+            parse_answer('{"Name": "mug", "Confidence": NaN}', "object")["confidence"], 0.5
         )
 
     def test_name_is_a_short_noun(self):
-        answer = ss.parse_answer('{"name": "A large red office chair."}', "object")
+        answer = parse_answer('{"name": "A large red office chair."}', "object")
         self.assertEqual(answer["name"], "red office chair")
 
     def test_room_type_is_one_of_the_list(self):
         def room(value):
-            return ss.parse_answer(json.dumps({"room_type": value}), "room")["room_type"]
+            return parse_answer(json.dumps({"room_type": value}), "room")["room_type"]
 
         self.assertEqual(room("Living_Room"), "living room")
         self.assertEqual(room("master bedroom"), "bedroom")
         self.assertEqual(room("Lounge"), "living room")
         self.assertEqual(room("walk-in closet"), "storage room")
         self.assertEqual(room("spaceship"), "other")
-        answer = ss.parse_answer('{"room_type": "kitchen"}', "room")
+        answer = parse_answer('{"room_type": "kitchen"}', "room")
         self.assertEqual((answer["name"], answer["room_type"]), ("kitchen", "kitchen"))
 
     def test_unusable_answers(self):
         for text in ("no json here", "[1, 2]", '{"name": ""}', '{"caption": "a thing"}'):
             with self.subTest(text=text), self.assertRaises(ValueError):
-                ss.parse_answer(text, "object")
+                parse_answer(text, "object")
 
 
 class FakeTensor:
@@ -597,7 +612,7 @@ class FakeYoloe:
 
 class YoloeTest(Scratch):
     def detector(self, model, prompt_free=False):
-        return ss.YoloeDetector(model, "cpu", self.dir, prompt_free=prompt_free)
+        return YoloeDetector(model, "cpu", self.dir, prompt_free=prompt_free)
 
     def test_vocabulary_is_set_only_when_it_changes(self):
         model = FakeYoloe()
@@ -681,8 +696,8 @@ class ServerTest(unittest.TestCase):
             [{"label": "mug", "score": 0.8, "roi": [1, 1, 2, 2], "mask": mask}]
         )
         self.embedder = FakeEmbedder()
-        chain = ss.DescriberChain([ss.NoDescriber()])
-        self.server = ss.SemanticServer(self.detector, self.embedder, chain)
+        chain = DescriberChain([NoDescriber()])
+        self.server = SemanticServer(self.detector, self.embedder, chain)
         self.image = np.full((4, 4, 3), 200, np.uint8)
 
     def test_segment_with_embeddings(self):
@@ -700,7 +715,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(reply["instances"][0]["embedding"].tolist(), [1.0, 0.0, 0.0, 0.0])
         crop = self.embedder.images[0]
         self.assertEqual(crop.shape, (2, 2, 3))
-        self.assertEqual(crop[0, 1].tolist(), [ss.GREY] * 3)  # outside the mask
+        self.assertEqual(crop[0, 1].tolist(), [GREY] * 3)  # outside the mask
         self.assertEqual(crop[1, 1].tolist(), [200] * 3)
 
     def test_segment_without_embed_matches_the_vision_server(self):
@@ -712,9 +727,9 @@ class ServerTest(unittest.TestCase):
 
     def test_masked_crop_is_a_padded_grey_square(self):
         image = np.full((20, 20, 3), 50, np.uint8)
-        crop = ss.masked_crop(image, [0, 0, 10, 5], np.full((5, 10), 255, np.uint8))
+        crop = masked_crop(image, [0, 0, 10, 5], np.full((5, 10), 255, np.uint8))
         self.assertEqual(crop.shape, (12, 12, 3))
-        self.assertEqual(crop[0, 0].tolist(), [ss.GREY] * 3)
+        self.assertEqual(crop[0, 0].tolist(), [GREY] * 3)
         self.assertEqual(crop[6, 6].tolist(), [50] * 3)
 
     def test_embed_text(self):
@@ -746,7 +761,10 @@ class ServerTest(unittest.TestCase):
     def test_without_an_embedder_embed_is_ignored(self):
         self.server.embedder = None
         reply = self.server.handle(
-            {"endpoint": "segment", "data": {"image": self.image, "phrases": ["mug"], "embed": True}}
+            {
+                "endpoint": "segment",
+                "data": {"image": self.image, "phrases": ["mug"], "embed": True},
+            }
         )
         self.assertNotIn("error", reply)
         self.assertTrue(all("embedding" not in instance for instance in reply["instances"]))
@@ -774,10 +792,10 @@ class ConfigTest(Scratch):
                 f"gemini.usage_file={self.usage}",
             ],
         )
-        config = ss.load_config(args)
+        config = load_config(args)
         self.assertEqual((config["detector"], config["describer"]), ("yoloe-pf", "openai"))
         self.assertEqual((config["yoloe"]["imgsz"], config["yoloe"]["half"]), (800, True))
-        self.assertEqual(ss.DESCRIBERS["gemini"](config)._routes["object"], ["gemma-4-26b-a4b-it"])
+        self.assertEqual(DESCRIBERS["gemini"](config)._routes["object"], ["gemma-4-26b-a4b-it"])
 
 
 if __name__ == "__main__":

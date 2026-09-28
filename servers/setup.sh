@@ -44,7 +44,7 @@ YOLOE_RELEASE="https://github.com/ultralytics/assets/releases/download/v8.4.0"
 YOLOE_FILES=(yoloe-26l-seg.pt yoloe-26l-seg-pf.pt mobileclip2_b.ts)
 
 SIGLIP="google/siglip2-base-patch16-256"
-# semantic_server.py's DEFAULTS["siglip2"]["revision"] loads the same one.
+# semantic/config.py's DEFAULTS["siglip2"]["revision"] loads the same one.
 SIGLIP_REVISION="3f9f96cb90da5dbc758b01813f2f6f1aee24c1ab"
 GGUF_REPO="unsloth/Qwen3.5-4B-GGUF"
 GGUF_REVISION="e87f176479d0855a907a41277aca2f8ee7a09523"

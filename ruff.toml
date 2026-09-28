@@ -9,7 +9,7 @@ line-ending = "lf"
 [lint.isort]
 combine-as-imports = true
 # Named, not inferred: ruff's guess from `src` changes with a package's directory layout.
-known-first-party = ["canopy_msgs", "canopy_perception"]
+known-first-party = ["canopy_msgs", "canopy_perception", "semantic"]
 
 [lint]
 select = [
