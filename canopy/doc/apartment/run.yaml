@@ -1,0 +1,9 @@
+# How this world was made: g1_bringup's test_explore_apartment.
+date: '2026-09-28'
+detector: semantic
+cameras: head,chest
+from_no_map: true
+exploration_min: 41.4
+objects: {found: 36, observable: 44, recall: 0.82, duplicates: 1, unmatched: 22}
+box_iou_median: 0.74
+map_to_world: [0.482, -0.049, 0.38]

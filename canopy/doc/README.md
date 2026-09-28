@@ -1,15 +1,19 @@
 # The apartment, explored
 
 `apartment/` is the world grove-g1's acceptance test saved after a simulated Unitree G1 explored a
-six-room flat from no map, with a head and a chest camera:
+six-room flat from no map, with a head and a chest camera and the real models (YOLOE-26, SigLIP 2
+and a Gemini describer), exported with the test's `G1_EXPLORE_TEST_EXPORT=1`:
 - `map.pgm` and `map.yaml`: the floor plan.
 - `semantic_map.png`: a picture of it with the rooms and objects drawn in.
 - `world.yaml`: every room and object.
 - `coverage.bin`, `objects.bin` and `wall_hits.png`: the layers the world model and the C++
   replays load.
+- `run.yaml`: how the run was made and what the test scored, including where the map lies in the
+  simulator's world (`map_to_world`).
 
-The object crops are left out. Its map lies in the simulator's world at (0.46, -0.02) m, -5.5°,
-as the test's "map to world" line printed it. The pictures, made with grove-g1's
+It is the models' map as they left it, mistakes included: 36 of the 44 objects the cameras can see
+were found. The rest were missed, mislabelled (the wardrobe as a cabinet), or doubled by phantoms
+(the floor as a desk). The object crops are left out. The pictures, made with grove-g1's
 `g1_bringup` tools:
 - `apartment_truth.png` draws the scene's walls (blue) and furniture (orange) over the saved floor
   plan (`compare_truth.py --overlay`).
@@ -17,7 +21,7 @@ as the test's "map to world" line printed it. The pictures, made with grove-g1's
   `--crop 4 2.5 10.5 7.2`. The gap is narrower than a spot the robot can stand in, so it looks in
   from the nearest one, and the LiDAR sees only part of it.
 - `apartment_walk.png` is the robot's walk, blue early to red late, with each viewpoint
-  (`run_summary.py --plot`).
+  (`run_summary.py --plot`), from an earlier run with the mock detector.
 - `frontier_pass_end.png` is SLAM's map as the frontier pass ended, from an earlier run
   (`snapshot_map.py`). Free is white, occupied black, unknown grey, and frontiers red. Most of the
   red is speckle between LiDAR beams, which the camera pass fills in.
