@@ -1,956 +1,1160 @@
 version: 1
-grid: {resolution: 0.05000000074505806, origin_x: -5.511045525610986, origin_y: -6.0000725699651198, width: 401, height: 241}
+grid: {resolution: 0.05000000074505806, origin_x: -5.511045525610986, origin_y: -6.00007256996512, width: 401,
+  height: 241}
 next_room: 9
+voxel: 0.04
 rooms:
-  - {id: R4, name: room D, type: office, type_confidence: 0.89746317077062177, type_source: objects, x: 6.0991538402634831, y: -3.3090965918746322}
-  - {id: R6, name: room F, type: office, type_confidence: 0.81305709467598175, type_source: objects, x: 11.97386339053034, y: -3.2721725846827869}
-  - {id: R1, name: room A, type: kitchen, type_confidence: 0.97235763202579339, type_source: objects, x: -1.2785155507559436, y: 0.036207623723466448}
-  - {id: R8, name: room H, type: hallway, type_confidence: 0.80000000000000004, type_source: objects, x: 8.6202418858564744, y: 0.016081966804703397}
-  - {id: R7, name: room G, type: bedroom, type_confidence: 0.85000002384185791, type_source: describer, x: 11.527113063656433, y: 3.3549584776687067}
-  - {id: R3, name: room C, type: bedroom, type_confidence: 0.94999998807907104, type_source: describer, x: 5.4637280893128937, y: 3.19396088847911}
+- id: R4
+  name: room D
+  type: office
+  type_confidence: 0.8974631707706218
+  type_source: objects
+  x: 6.099153840263483
+  y: -3.3090965918746322
+  checked: false
+  outline:
+  - [9.414, -1.075]
+  - [6.764, -1.075]
+  - [6.564, -0.925]
+  - [5.514, -0.925]
+  - [5.314, -1.075]
+  - [2.664, -1.075]
+  - [2.664, -2.775]
+  - [3.164, -2.775]
+  - [3.164, -3.925]
+  - [2.664, -3.975]
+  - [2.664, -5.825]
+  - [4.964, -5.825]
+  - [5.014, -5.525]
+  - [7.064, -5.475]
+  - [7.114, -5.875]
+  - [9.364, -5.825]
+- id: R6
+  name: room F
+  type: office
+  type_confidence: 0.8130570946759818
+  type_source: objects
+  x: 11.97386339053034
+  y: -3.272172584682787
+  checked: false
+  outline:
+  - [10.664, -5.875]
+  - [10.764, -5.625]
+  - [10.964, -5.675]
+  - [10.764, -5.525]
+  - [10.814, -5.125]
+  - [13.214, -5.125]
+  - [13.314, -5.525]
+  - [13.214, -5.625]
+  - [13.364, -5.725]
+  - [13.364, -5.875]
+  - [14.364, -5.875]
+  - [14.414, -4.325]
+  - [14.014, -4.175]
+  - [14.014, -3.025]
+  - [14.414, -2.975]
+  - [14.364, -1.075]
+  - [11.614, -0.975]
+  - [11.464, -1.075]
+  - [9.664, -1.075]
+  - [9.664, -5.875]
+- id: R1
+  name: room A
+  type: kitchen
+  type_confidence: 0.9723576320257934
+  type_source: objects
+  x: -1.2785155507559436
+  y: 0.03620762372346645
+  checked: false
+  outline:
+  - [-2.736, -5.775]
+  - [-2.736, -5.425]
+  - [-2.686, -5.525]
+  - [-2.586, -5.425]
+  - [-0.786, -5.425]
+  - [-0.386, -5.325]
+  - [-0.186, -5.425]
+  - [-0.236, -5.825]
+  - [2.364, -5.825]
+  - [2.414, -0.825]
+  - [2.714, -0.525]
+  - [2.864, -0.125]
+  - [2.814, 0.475]
+  - [2.414, 0.975]
+  - [2.464, 5.925]
+  - [-0.986, 5.975]
+  - [-1.036, 5.475]
+  - [-1.636, 5.575]
+  - [-3.436, 5.525]
+  - [-3.486, 5.325]
+  - [-4.386, 5.325]
+  - [-4.486, 5.025]
+  - [-5.286, 5.025]
+  - [-5.336, -0.725]
+  - [-4.736, -0.775]
+  - [-4.736, -2.175]
+  - [-5.336, -2.225]
+  - [-5.336, -5.225]
+  - [-5.286, -4.925]
+  - [-4.836, -4.925]
+  - [-4.886, -5.425]
+  - [-4.536, -5.525]
+  - [-4.636, -5.725]
+- id: R8
+  name: room H
+  type: hallway
+  type_confidence: 0.8
+  type_source: objects
+  x: 8.620241885856474
+  y: 0.016081966804703397
+  checked: false
+  outline:
+  - [14.414, 0.825]
+  - [12.164, 0.825]
+  - [12.114, 0.975]
+  - [11.564, 0.825]
+  - [11.014, 0.975]
+  - [10.964, 0.825]
+  - [6.214, 0.875]
+  - [6.164, 1.025]
+  - [5.614, 0.875]
+  - [4.964, 1.025]
+  - [4.914, 0.875]
+  - [2.614, 0.875]
+  - [2.864, 0.475]
+  - [2.914, -0.125]
+  - [2.564, -0.775]
+  - [5.364, -0.825]
+  - [5.414, -0.925]
+  - [6.014, -0.775]
+  - [6.614, -0.925]
+  - [6.714, -0.825]
+  - [11.414, -0.825]
+  - [11.514, -0.975]
+  - [12.114, -0.875]
+  - [12.564, -0.975]
+  - [12.664, -0.825]
+  - [14.414, -0.875]
+- id: R7
+  name: room G
+  type: bedroom
+  type_confidence: 0.8500000238418579
+  type_source: describer
+  x: 11.527113063656433
+  y: 3.3549584776687067
+  checked: false
+  outline:
+  - [10.464, 1.125]
+  - [11.014, 1.025]
+  - [14.414, 1.075]
+  - [14.414, 2.925]
+  - [14.064, 2.725]
+  - [14.014, 3.625]
+  - [14.164, 3.675]
+  - [14.464, 3.475]
+  - [14.464, 5.825]
+  - [13.414, 5.875]
+  - [13.164, 5.475]
+  - [11.214, 5.475]
+  - [11.164, 5.875]
+  - [8.714, 5.875]
+  - [8.714, 4.375]
+  - [9.114, 4.375]
+  - [9.114, 3.275]
+  - [8.714, 3.225]
+  - [8.714, 1.125]
+- id: R3
+  name: room C
+  type: bedroom
+  type_confidence: 0.949999988079071
+  type_source: describer
+  x: 5.463728089312894
+  y: 3.19396088847911
+  checked: false
+  outline:
+  - [2.914, 1.825]
+  - [2.964, 1.575]
+  - [3.314, 1.725]
+  - [3.364, 1.125]
+  - [8.414, 1.125]
+  - [8.464, 3.375]
+  - [7.414, 3.375]
+  - [7.314, 3.475]
+  - [7.314, 5.175]
+  - [7.464, 5.275]
+  - [8.264, 5.275]
+  - [8.264, 5.875]
+  - [5.614, 5.925]
+  - [5.714, 5.825]
+  - [5.664, 3.925]
+  - [4.164, 3.825]
+  - [4.064, 3.925]
+  - [4.064, 5.475]
+  - [3.564, 5.475]
+  - [3.414, 5.925]
+  - [2.764, 5.925]
+  - [2.664, 1.725]
 objects:
-  - id: 1
-    label: scissors
-    votes: {chair: 0.509765625, ironing board: 1.59912109, scissors: 3.38818359}
-    name: ""
-    caption: ""
-    centre: [0.27999560741274132, -0.0004188482322719741]
-    size: [0.40123688941979757, 0.32291673327905906, 0.12000000000000011]
-    yaw: 1.5603243512829303
-    observations: 6
-    first_seen: 1790574879.7835202
-    last_seen: 1790574881.1778324
-    misses: 4
-    top_seen: true
-    state: stale
-    best_view_score: 11253.5185546875
-  - id: 3
-    label: chair
-    votes: {bench: 0.373779297, chair: 57.1687012, stool: 1.44482422}
-    name: chair
-    caption: A dark brown upholstered dining chair with a high tufted back and slender dark wooden legs.
-    centre: [-3.2623488960819129, 1.8254661847425928]
-    size: [0.65362949501316514, 0.50258779815935117, 1]
-    yaw: 1.5603243512829303
-    observations: 65
-    first_seen: 1790574891.6839433
-    last_seen: 1790577233.6777554
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 92418.623434465553
-  - id: 4
-    label: chair
-    votes: {chair: 55.8212891}
-    name: chair
-    caption: The chair is upholstered in dark brown fabric with a rolled back and dark wooden legs.
-    centre: [-2.2378751827697143, 1.7752098866583026]
-    size: [0.55363497658658001, 0.4515433605188291, 1]
-    yaw: 1.5603243512829303
-    observations: 60
-    first_seen: 1790574891.6839433
-    last_seen: 1790577233.6777554
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 57561.819662537891
-  - id: 9
-    label: bowl
-    votes: {bed: 1.82421875, bench: 1.66967773, blanket: 1.51245117, book: 5.35473633, bottle: 1.19482422, bowl: 27.0917969, chair: 4.60888672, chessboard: 1.05273438, coffee table: 2.9597168, desk: 10.4230957, dining table: 25.2568359, knife: 0.336425781, mug: 5.16723633, plate: 2.26538086, sofa: 0.498046875, towel: 2.96826172}
-    name: dining table
-    caption: A wooden dining table partially covered with a blue and white checkered tablecloth.
-    centre: [-2.7347475488244712, 2.8238667332448304]
-    size: [1.6530538308521143, 1.9619329211899019, 0.84000000000000008]
-    yaw: 1.5603243512829303
-    observations: 145
-    first_seen: 1790574891.6839433
-    last_seen: 1790577233.6777554
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 90980.175012869295
-  - id: 11
-    label: microwave
-    votes: {microwave: 1.81835938}
-    name: ""
-    caption: ""
-    centre: [-3.1802071783838635, 3.8002115694785554]
-    size: [0.082092125952322154, 0.27998685018394326, 0.040000000000000036]
-    yaw: 1.5603243512829303
-    observations: 2
-    first_seen: 1790574898.8799365
-    last_seen: 1790574899.3838646
-    misses: 10
-    top_seen: true
-    state: removed
-    best_view_score: 1203.2594773237361
-  - id: 13
-    label: oven
-    votes: {door: 0.445556641, microwave: 1.25073242, oven: 21.2314453, refrigerator: 1.11865234, stove: 2.35595703}
-    name: oven
-    caption: A white and black freestanding gas range with a large glass door and multiple knobs.
-    centre: [-1.4605095390867577, 5.6262337769692818]
-    size: [0.54578387991412902, 0.80414486186665801, 0.92000000000000004]
-    yaw: 1.5603243512829303
-    observations: 33
-    first_seen: 1790574898.8799365
-    last_seen: 1790577208.8777158
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 73711.272624859703
-  - id: 14
-    label: chair
-    votes: {chair: 48.3024902, refrigerator: 2.89355469, rug: 0.399902344, stool: 1.21435547, umbrella: 0.51953125}
-    name: chair
-    caption: The object is a dark brown upholstered dining chair with black wooden legs and a rolled top backrest.
-    centre: [-3.2092198979732807, 3.574121657091256]
-    size: [0.65415308422677998, 0.59839634366372807, 1]
-    yaw: 1.5603243512829303
-    observations: 76
-    first_seen: 1790574898.8799365
-    last_seen: 1790577233.6777554
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 81442.212291694537
-  - id: 16
-    label: chair
-    votes: {chair: 47.9733887, chessboard: 0.577636719, refrigerator: 1.56494141, rug: 0.870361328, stool: 0.546875}
-    name: chair
-    caption: A partial view of a dark chair with curved wooden legs.
-    centre: [-2.3349942590454953, 3.5504388110516838]
-    size: [0.70415034344007288, 0.65362949501316536, 1]
-    yaw: 1.5603243512829303
-    observations: 70
-    first_seen: 1790574898.8799365
-    last_seen: 1790577233.6777554
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 45266.723971667234
-  - id: 21
-    label: bed
-    votes: {bed: 31.2919922, bench: 2.95825195, cabinet: 0.5390625, chair: 0.303955078, crib: 0.449462891, door: 1.28613281, dresser: 2.01855469, mirror: 1.42089844, pillow: 0.53515625, stool: 0.325927734}
-    name: bed
-    caption: A wooden four-poster bed with carved gothic details and white bedding.
-    centre: [4.8142150377300625, 4.8996630563941244]
-    size: [1.9108994481863251, 1.3666863366580975, 1.52]
-    yaw: 1.5603243512829303
-    observations: 54
-    first_seen: 1790574934.7756655
-    last_seen: 1790577107.8779168
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 91433.556511436153
-  - id: 24
-    label: coffee table
-    votes: {coffee table: 34.4863281, desk: 1.98681641, nightstand: 0.638671875, stool: 1.32519531}
-    name: coffee table
-    caption: A modern coffee table with a grey top and wooden legs featuring a light blue bowl on top.
-    centre: [-1.4871131479782118, -3.8521558284712083]
-    size: [0.60310590579955159, 1.1525549087188649, 0.52000000000000002]
-    yaw: 1.5603243512829303
-    observations: 36
-    first_seen: 1790575026.6756561
-    last_seen: 1790577171.277627
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 64751.219505819026
-  - id: 25
-    label: bowl
-    votes: {bowl: 32.9145508}
-    name: bowl
-    caption: A light blue ceramic bowl with a visible crack across the interior.
-    centre: [-1.1385340462518965, -4.0200152135603506]
-    size: [0.43997792470290159, 0.43872149061148175, 0.12000000000000005]
-    yaw: 1.5603243512829303
-    observations: 31
-    first_seen: 1790575026.6756561
-    last_seen: 1790575935.7777345
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 3128.9850472602993
-  - id: 26
-    label: sofa
-    votes: {bench: 4.52441406, chair: 13.9995117, pillow: 0.348632812, radiator: 6.82910156, shelf: 1.18896484, sofa: 23.5593262, stool: 2.11938477, tv stand: 0.52734375, umbrella: 0.803222656}
-    name: sofa
-    caption: A dark green tufted sofa with a curved wooden frame and legs.
-    centre: [-1.4631397072808257, -2.6500505883933876]
-    size: [0.81723185142031074, 1.8035637161321931, 0.72000000000000008]
-    yaw: 1.5603243512829303
-    observations: 73
-    first_seen: 1790575026.6756561
-    last_seen: 1790577171.277627
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 71442.784273246187
-  - id: 27
-    label: mug
-    votes: {mug: 15.9980469}
-    name: mug
-    caption: A ceramic mug with a grey exterior, white interior, and a light-colored handle.
-    centre: [-1.8399933942779401, -3.7993717989041085]
-    size: [0.31412042030778536, 0.56206570711745529, 0.16000000000000003]
-    yaw: 1.5603243512829303
-    observations: 24
-    first_seen: 1790575026.6756561
-    last_seen: 1790577171.277627
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 693.06475562858395
-  - id: 28
-    label: chair
-    votes: {bench: 0.781494141, chair: 39.0397949, pillow: 2.07470703, sofa: 1.12060547}
-    name: armchair
-    caption: A black armchair with a wooden frame and armrests.
-    centre: [-3.9862798685731051, -4.0224519965542935]
-    size: [1.0530812387191864, 0.95675184478790154, 1.04]
-    yaw: 1.5603243512829303
-    observations: 49
-    first_seen: 1790575026.6759558
-    last_seen: 1790575954.6779437
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 76261.571836362709
-  - id: 29
-    label: bench
-    votes: {bed: 0.435791016, bench: 7.20898438, cabinet: 0.51953125, chair: 0.958007812, desk: 5.8828125, dresser: 0.486328125, radiator: 3.35888672, tv stand: 0.486328125}
-    name: counter
-    caption: A long wooden counter featuring slatted panels and rounded corners.
-    centre: [-1.4858481243721458, -5.5313594150709786]
-    size: [0.46149429636421041, 2.4493421129827917, 0.76000000000000001]
-    yaw: 1.5603243512829303
-    observations: 30
-    first_seen: 1790575030.7816894
-    last_seen: 1790575917.7797382
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 43962.192266504659
-  - id: 30
-    label: television
-    votes: {microwave: 0.584960938, television: 5.83178711}
-    name: television
-    caption: A vintage box television with a dark screen, a wooden side panel, and control dials on the front right.
-    centre: [-1.4799737035859528, -5.5974870525391394]
-    size: [0.47955706077296328, 0.72289487867837066, 0.52000000000000013]
-    yaw: 1.5603243512829303
-    observations: 13
-    first_seen: 1790575030.782089
-    last_seen: 1790575917.7797382
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 9129.6967346873134
-  - id: 31
-    label: potted plant
-    votes: {potted plant: 5.74902344}
-    name: potted plant
-    caption: A green leafy plant in a round brown ceramic pot.
-    centre: [-4.9107837503206406, -5.3748148634694424]
-    size: [0.7520532457989082, 0.60572933418609476, 0.76000000000000001]
-    yaw: 1.5603243512829303
-    observations: 7
-    first_seen: 1790575033.7949071
-    last_seen: 1790575954.6779437
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 4631.2361933174543
-  - id: 32
-    label: cabinet
-    votes: {bench: 1.59277344, book: 0.38671875, cabinet: 8.92578125, ladder: 0.871826172, mirror: 1.44262695, shelf: 1.38305664, television: 0.963623047, tv stand: 1.47436523, wardrobe: 0.355712891}
-    name: cabinet
-    caption: A wooden cabinet with several empty shelves and a small book sitting on one shelf.
-    centre: [-5.1378839313829223, -1.5379277106212383]
-    size: [1.4016009285021587, 0.6849912314623765, 1.8800000000000001]
-    yaw: 1.5603243512829303
-    observations: 33
-    first_seen: 1790575033.7949071
-    last_seen: 1790577225.375916
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 51532.972431628034
-  - id: 33
-    label: chair
-    votes: {cat: 0.704589844, chair: 31.8947754, dog: 1.12255859, stool: 0.592773438}
-    name: armchair
-    caption: An armchair with a dark wooden frame and grey upholstered cushions and backrest.
-    centre: [13.838950650131489, 3.1744039918976852]
-    size: [0.85675732636131618, 0.90623373714770028, 1.0800000000000001]
-    yaw: 1.5603243512829303
-    observations: 39
-    first_seen: 1790575080.277765
-    last_seen: 1790576875.8781857
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 115219.83575907815
-  - id: 35
-    label: suitcase
-    votes: {bench: 2.69848633, desk: 1.3347168, nightstand: 0.844970703, suitcase: 8.60229492, toolbox: 1.58251953}
-    name: wooden chest
-    caption: A brown wooden chest with rope handles and metal-reinforced corners.
-    centre: [14.134501078790359, -3.600549511505402]
-    size: [1.1015077302916363, 0.41987857059666583, 0.52000000000000002]
-    yaw: 1.5603243512829303
-    observations: 23
-    first_seen: 1790575087.809943
-    last_seen: 1790576986.7788413
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 41422.11769612506
-  - id: 40
-    label: chair
-    votes: {chair: 32.3413086, stool: 1.80664062}
-    name: chair
-    caption: A blue plastic school chair with metal legs.
-    centre: [6.0131692910171051, -4.4750656931892472]
-    size: [0.55415856580019418, 0.55363223579987286, 1.04]
-    yaw: 1.5603243512829303
-    observations: 29
-    first_seen: 1790575162.7779591
-    last_seen: 1790576398.7779605
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 78776.146049213363
-  - id: 46
-    label: bowl
-    votes: {bowl: 6.50390625, mug: 4.30615234}
-    name: mug
-    caption: A teal ceramic mug with a visible handle.
-    centre: [6.6637065397781425, -5.5237650322404166]
-    size: [0.65049892511348162, 0.35364868052011467, 0.16000000000000003]
-    yaw: 1.5603243512829303
-    observations: 17
-    first_seen: 1790575185.8159606
-    last_seen: 1790576398.7779605
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 1475.6729279877618
-  - id: 47
-    label: desk
-    votes: {cabinet: 0.381103516, chair: 1.21313477, desk: 24.1030273, dresser: 0.38671875, filing cabinet: 0.430175781, shelf: 1.63842773, suitcase: 0.988525391, tv stand: 0.33984375}
-    name: desk
-    caption: A large grey metal desk with multiple drawers on both sides.
-    centre: [6.0401949826396804, -5.2066335126472243]
-    size: [1.3062145523858095, 2.0072178774806648, 0.88]
-    yaw: 1.5603243512829303
-    observations: 37
-    first_seen: 1790575162.7779591
-    last_seen: 1790576398.7779605
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 139004.53486041375
-  - id: 48
-    label: laptop
-    votes: {laptop: 1.77563477}
-    name: ""
-    caption: ""
-    centre: [6.0402030447550938, -4.3206306393184013]
-    size: [0.083348736351202185, 0.47997593173814662, 0.20000000000000007]
-    yaw: 1.5603243512829303
-    observations: 4
-    first_seen: 1790575185.8159606
-    last_seen: 1790576041.3839281
-    misses: 6
-    top_seen: true
-    state: stale
-    best_view_score: 398.64962272983394
-  - id: 52
-    label: kettle
-    votes: {kettle: 15.7521973, lamp: 0.455078125, paper towel: 0.307373047}
-    name: kettle
-    caption: The kettle is brown with a grey base, spout, and handle.
-    centre: [-2.880416650066691, 5.6002137149579996]
-    size: [0.24082658757573047, 0.32040348977886518, 0.28000000000000014]
-    yaw: 1.5603243512829303
-    observations: 24
-    first_seen: 1790575284.6779604
-    last_seen: 1790575970.5846915
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 7678.2433186308481
-  - id: 53
-    label: microwave
-    votes: {microwave: 15.907959, toaster: 1.24267578}
-    name: microwave
-    caption: A silver microwave with a black door window and a digital control panel on the right side.
-    centre: [-4.0395571082301185, 5.7222993100189292]
-    size: [0.55997146899762562, 0.64373708834259347, 0.35999999999999999]
-    yaw: 1.5603243512829303
-    observations: 21
-    first_seen: 1790575284.6779604
-    last_seen: 1790577214.7779119
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 10291.007881731168
-  - id: 54
-    label: refrigerator
-    votes: {dishwasher: 1.48925781, filing cabinet: 0.441650391, laptop: 0.30078125, refrigerator: 15.4621582}
-    name: refrigerator
-    caption: A silver double-door refrigerator with a digital display panel on the right door.
-    centre: [-5.0120926391701763, 5.499938567224655]
-    size: [0.70049344279500936, 0.60259328122288114, 1.8800000000000001]
-    yaw: 1.5603243512829303
-    observations: 25
-    first_seen: 1790575284.6779604
-    last_seen: 1790575851.4836323
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 20491.899318361284
-  - id: 56
-    label: trash can
-    votes: {bucket: 0.789306641, mug: 2.13720703, trash can: 3.82885742}
-    name: trash can
-    caption: A black cylindrical trash can seen from a high angle.
-    centre: [-0.800209438416571, 5.800002145505589]
-    size: [0.24124593410359282, 0.31998461881368273, 0.32000000000000001]
-    yaw: 1.5603243512829303
-    observations: 11
-    first_seen: 1790575284.6779604
-    last_seen: 1790577208.8777158
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 4753.2997990376316
-  - id: 57
-    label: countertop
-    votes: {countertop: 2.94995117}
-    name: countertop
-    caption: A light brown countertop piece showing its long, narrow side and textured edge.
-    centre: [-3.1348941794343332, 5.6351274663066695]
-    size: [0.45259327973276503, 2.5530099797549162, 0.12]
-    yaw: 1.5603243512829303
-    observations: 7
-    first_seen: 1790575284.6779604
-    last_seen: 1790575491.5844357
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 7227.7274028750253
-  - id: 58
-    label: cabinet
-    votes: {cabinet: 4.80029297, door: 0.346923828, microwave: 1.14916992, oven: 0.51171875, shelf: 0.718017578, window: 0.478515625}
-    name: cabinet
-    caption: The cabinet is white and features four panel doors.
-    centre: [-3.3592918342489773, 5.3276351155829937]
-    size: [0.37003553899999181, 2.8773312027931448, 1.24]
-    yaw: 1.5603243512829303
-    observations: 16
-    first_seen: 1790575284.7756145
-    last_seen: 1790577214.7779119
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 42501.32303327322
-  - id: 64
-    label: book
-    votes: {book: 11.1794434}
-    name: book
-    caption: A paper book titled Eat to Live with white, green and orange cover text.
-    centre: [-5.0402137728025913, -1.7804166858229415]
-    size: [0.35788815182026029, 0.32291647966112519, 0.23999999999999999]
-    yaw: 1.5603243512829303
-    observations: 17
-    first_seen: 1790575347.8778119
-    last_seen: 1790575983.8759081
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 6512.5981823501643
-  - id: 72
-    label: stool
-    votes: {coffee table: 0.69921875, stool: 0.737304688}
-    name: stool
-    caption: The stool has a light brown wooden frame and a padded beige top.
-    centre: [-1.9881140868054483, -3.7976033727576914]
-    size: [0.40592272759076625, 0.14947092995802924, 0.40000000000000002]
-    yaw: 1.5603243512829303
-    observations: 3
-    first_seen: 1790575368.8799489
-    last_seen: 1790575436.2757437
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 1011.6314827732276
-  - id: 76
-    label: shelf
-    votes: {cabinet: 0.332763672, shelf: 1.75073242}
-    name: cornice molding
-    caption: A light gray architectural cornice molding piece with rectangular panel details.
-    centre: [-3.7280000067789092, 2.3440000106280494]
-    size: [0.30832811465030091, 0.093665665733253939, 0.12]
-    yaw: 1.1071499012871617
-    observations: 5
-    first_seen: 1790575392.7761788
-    last_seen: 1790575646.8780563
-    misses: 6
-    top_seen: true
-    state: stale
-    best_view_score: 1434.6758605092764
-  - id: 112
-    label: desk
-    votes: {desk: 1.0078125}
-    name: ""
-    caption: ""
-    centre: [-5.4600000381469735, -2.8000000715255742]
-    size: [0.7999583191815689, 0.047958555828479597, 0.84000000000000008]
-    yaw: 1.5603243512829303
-    observations: 2
-    first_seen: 1790575825.3858347
-    last_seen: 1790575954.6779437
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 94178.790234375017
-  - id: 113
-    label: microwave
-    votes: {microwave: 2.56689453}
-    name: ""
-    caption: ""
-    centre: [-3.4400000572204585, 3.7999999523162846]
-    size: [0.081254381525288605, 0.16041217685440176, 0.040000000000000036]
-    yaw: 1.5603243512829303
-    observations: 3
-    first_seen: 1790575837.8761194
-    last_seen: 1790575867.8777277
-    misses: 7
-    top_seen: true
-    state: stale
-    best_view_score: 1079.5683916658163
-  - id: 124
-    label: piano
-    votes: {piano: 0.781738281}
-    name: ""
-    caption: ""
-    centre: [-1.4854461110743626, 5.3821596511137848]
-    size: [0.13970737017700863, 0.64996711130457197, 0.12]
-    yaw: 1.5603243512829303
-    observations: 2
-    first_seen: 1790575863.5785191
-    last_seen: 1790575864.5777221
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 353.56144672335358
-  - id: 129
-    label: refrigerator
-    votes: {refrigerator: 4.50439453}
-    name: refrigerator
-    caption: A silver refrigerator featuring a prominent handle and a digital control panel on the door.
-    centre: [-3.420209381083767, 1.5000021931631602]
-    size: [0.12167102361687895, 0.20041018388964724, 0.07999999999999996]
-    yaw: 1.5603243512829303
-    observations: 5
-    first_seen: 1790575892.7779429
-    last_seen: 1790575974.5799639
-    misses: 5
-    top_seen: true
-    state: stale
-    best_view_score: 15226.994839288294
-  - id: 139
-    label: cabinet
-    votes: {cabinet: 8.15478516, chair: 0.486328125, desk: 1.50390625, door: 2.25244141, dresser: 3.15332031, mirror: 0.971679688, picture frame: 0.399902344, shelf: 5.18359375, window: 0.733886719}
-    name: wooden cabinet
-    caption: A dark brown wooden cabinet with ornate silver metal corner brackets and vertical paneling.
-    centre: [7.9631638228067958, 4.3494095071178913]
-    size: [1.7040982692376934, 1.0656583444828778, 1.8]
-    yaw: 1.5603243512829303
-    observations: 45
-    first_seen: 1790576011.8783784
-    last_seen: 1790577275.0779135
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 53046.691789147633
-  - id: 141
-    label: desk
-    votes: {desk: 0.672607422}
-    name: ""
-    caption: ""
-    centre: [4.2802072022257214, 3.9197884591316745]
-    size: [0.082510999414172809, 0.31998485721918873, 0.12000000000000011]
-    yaw: 1.5603243512829303
-    observations: 2
-    first_seen: 1790576021.8760703
-    last_seen: 1790576022.8776708
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 1192.2830521540018
-  - id: 143
-    label: potted plant
-    votes: {potted plant: 1.06323242}
-    name: ""
-    caption: ""
-    centre: [4.8600001335144043, 0.93999999761581421]
-    size: [0.11999565646223206, 0.040837743178699669, 0.48000000000000009]
-    yaw: 1.5603243512829303
-    observations: 2
-    first_seen: 1790576065.7961373
-    last_seen: 1790576068.879679
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 2177.1289789419825
-  - id: 145
-    label: filing cabinet
-    votes: {filing cabinet: 0.782714844, mirror: 0.32421875}
-    name: ""
-    caption: ""
-    centre: [13.160119828766309, 0.9314114104997071]
-    size: [0.20417990337354072, 2.160302516209593, 0.92000000000000004]
-    yaw: 1.5603243512829303
-    observations: 3
-    first_seen: 1790576083.6784198
-    last_seen: 1790576888.6797519
-    misses: 0
-    top_seen: false
-    state: active
-    best_view_score: 13789.777580022812
-  - id: 146
-    label: pillow
-    votes: {bag: 0.357666016, bed: 22.8210449, bench: 9.90478516, blanket: 1.30053711, bottle: 0.5, bowl: 2.8918457, cat: 1.87817383, chair: 6.7668457, desk: 1.02539062, dog: 0.372070312, laptop: 0.441650391, mirror: 0.325927734, pillow: 44.2287598, plate: 0.372070312, sink: 3.09619141, sofa: 1.18798828, spoon: 0.345214844, stool: 1.87890625, suitcase: 1.04101562, tray: 1.57202148}
-    name: sofa
-    caption: A wooden sofa with a white cushion and a patterned backrest.
-    centre: [12.119398408304537, 5.4425197197062101]
-    size: [0.81126808363368674, 2.0740239038615309, 1.1600000000000001]
-    yaw: 1.5603243512829303
-    observations: 147
-    first_seen: 1790576083.8799255
-    last_seen: 1790577367.5776579
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 94466.133265774901
-  - id: 152
-    label: shelf
-    votes: {shelf: 0.743164062}
-    name: ""
-    caption: ""
-    centre: [11.280006789297829, -5.4393717852231251]
-    size: [0.40081765959802057, 0.32124099330372585, 0.080000000000000071]
-    yaw: 1.5603243512829303
-    observations: 2
-    first_seen: 1790576093.7819872
-    last_seen: 1790576114.5780959
-    misses: 0
-    top_seen: false
-    state: active
-    best_view_score: 5185.0224715908989
-  - id: 157
-    label: shelf
-    votes: {shelf: 0.621582031}
-    name: ""
-    caption: ""
-    centre: [13.099801446501548, -5.2789506532379935]
-    size: [0.16041265366541421, 0.27914981847676129, 1.1200000000000001]
-    yaw: 1.5603243512829303
-    observations: 2
-    first_seen: 1790576125.7822573
-    last_seen: 1790576154.7780318
-    misses: 5
-    top_seen: false
-    state: stale
-    best_view_score: 4459.6382781739812
-  - id: 162
-    label: bench
-    votes: {bag: 1.43945312, bench: 5.48925781, box: 2.46850586, bucket: 2.13842773, chair: 5.20117188, cooking pot: 0.647949219, desk: 1.16137695, ladder: 0.544921875, pillow: 1.81762695, shelf: 5.47949219, suitcase: 3.93286133, tv stand: 1.14306641}
-    name: shelf
-    caption: A wooden shelf with a black metal frame.
-    centre: [2.8370395837342186, -3.4626918495698296]
-    size: [1.7190704477627428, 0.65002015781367417, 1.8800000000000001]
-    yaw: 1.5603243512829303
-    observations: 56
-    first_seen: 1790576186.8803077
-    last_seen: 1790577317.6777325
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 63283.71900903713
-  - id: 167
-    label: trash can
-    votes: {trash can: 2.08666992, vase: 0.385009766}
-    name: trash can
-    caption: A black plastic waste basket with a tapered shape.
-    centre: [9.3399979594247302, -5.8002093763153955]
-    size: [0.24124593285525983, 0.3612387669268004, 0.36000000000000004]
-    yaw: 1.5603243512829303
-    observations: 5
-    first_seen: 1790576224.7820146
-    last_seen: 1790576333.7860842
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 1592.9276567874476
-  - id: 168
-    label: laptop
-    votes: {laptop: 12.7949219}
-    name: laptop
-    caption: A black laptop with an open screen displaying a blue desktop.
-    centre: [5.8395854525235542, -5.3595766582747517]
-    size: [0.48039480270332996, 0.40291249622828479, 0.23999999999999999]
-    yaw: 1.5603243512829303
-    observations: 15
-    first_seen: 1790576228.6817753
-    last_seen: 1790576398.7779605
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 10496.263204183488
-  - id: 188
-    label: vase
-    votes: {potted plant: 1.83886719, vase: 2.47949219}
-    name: potted plant
-    caption: A green leafy plant growing in a terracotta pot.
-    centre: [2.9626593784400086, 1.4765092179146342]
-    size: [0.55206695047750176, 0.65258505811770173, 1.3600000000000001]
-    yaw: 1.5603243512829303
-    observations: 5
-    first_seen: 1790576465.878417
-    last_seen: 1790576540.8778517
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 37875.756879558612
-  - id: 189
-    label: nightstand
-    votes: {chair: 3.6340332, desk: 0.445556641, nightstand: 8.95361328}
-    name: bookstand
-    caption: A dark wooden bookstand with carved legs and an angled ledge.
-    centre: [3.7893745732984958, 5.6897676288023868]
-    size: [0.32187258904443938, 0.50154610205059469, 0.76000000000000001]
-    yaw: 1.5603243512829303
-    observations: 14
-    first_seen: 1790576472.7775502
-    last_seen: 1790577104.5779071
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 21035.189386724029
-  - id: 190
-    label: clock
-    votes: {clock: 7.07177734}
-    name: pocket watch
-    caption: A small round antique pocket watch with a winding stem and loop at the top.
-    centre: [3.759790566464146, 5.6600020405752698]
-    size: [0.12125215015502719, 0.16041217685440132, 0.16000000000000003]
-    yaw: 1.5603243512829303
-    observations: 8
-    first_seen: 1790576472.7776501
-    last_seen: 1790577095.6779258
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 815.7218800066039
-  - id: 191
-    label: pillow
-    votes: {pillow: 8.61645508}
-    name: pillow
-    caption: A light grey pillow shown in two separate pieces against a grey background.
-    centre: [4.8879171463997917, 5.550466197483674]
-    size: [0.60783191489079069, 1.2004687764597035, 0.36000000000000004]
-    yaw: 1.5603243512829303
-    observations: 14
-    first_seen: 1790576472.7776501
-    last_seen: 1790577107.8779168
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 10288.457360350876
-  - id: 195
-    label: desk
-    votes: {desk: 0.647705078}
-    name: ""
-    caption: ""
-    centre: [2.5799999237060551, 3.440000057220459]
-    size: [0.55997146899762607, 0.045445327540714474, 0.40000000000000002]
-    yaw: 1.5603243512829303
-    observations: 2
-    first_seen: 1790576498.7756124
-    last_seen: 1790576499.7775259
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 45557.550656944513
-  - id: 197
-    label: mirror
-    votes: {filing cabinet: 0.305664062, mirror: 0.348632812}
-    name: ""
-    caption: ""
-    centre: [3.9401053291567165, 0.99005235121462054]
-    size: [0.11999559686085556, 1.9607325440260785, 0.68000000000000005]
-    yaw: 1.5603243512829303
-    observations: 2
-    first_seen: 1790576524.6839409
-    last_seen: 1790576536.7835574
-    misses: 0
-    top_seen: false
-    state: active
-    best_view_score: 4058.876879978925
-  - id: 202
-    label: trash can
-    votes: {trash can: 5.86987305}
-    name: trash can
-    caption: A small black cylindrical wastebasket.
-    centre: [8.8204146339051217, 1.239576770212603]
-    size: [0.32333558653514632, 0.43872202577553926, 0.36000000000000004]
-    yaw: 1.5603243512829303
-    observations: 10
-    first_seen: 1790576661.3816352
-    last_seen: 1790576889.779814
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 2404.7542590228841
-  - id: 213
-    label: desk
-    votes: {desk: 1.17749023}
-    name: floor
-    caption: A wooden floor with a visible shadow of a person.
-    centre: [12.213431206712039, 5.4749358249478526]
-    size: [0.76881084216633311, 1.9530319045584574, 0.080000000000000002]
-    yaw: 1.5603243512829303
-    observations: 3
-    first_seen: 1790576757.5816326
-    last_seen: 1790576829.591634
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 56025.500094417694
-  - id: 214
-    label: book
-    votes: {book: 1.49194336}
-    name: ""
-    caption: ""
-    centre: [8.8204185428224395, 4.0999955183062493]
-    size: [0.28333757949989996, 0.36081989096828065, 0.23999999999999999]
-    yaw: 1.5603243512829303
-    observations: 4
-    first_seen: 1790576761.2777901
-    last_seen: 1790576794.0859399
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 371.13501492887735
-  - id: 216
-    label: book
-    votes: {book: 0.659667969}
-    name: ""
-    caption: ""
-    centre: [8.820418544070705, 3.3599956279657226]
-    size: [0.24334004927566785, 0.35956327807273331, 0.23999999999999999]
-    yaw: 1.5603243512829303
-    observations: 2
-    first_seen: 1790576784.6798391
-    last_seen: 1790576794.0859399
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 109.70878601074219
-  - id: 228
-    label: desk
-    votes: {desk: 1.95263672}
-    name: floor
-    caption: The object is a wooden floor with visible planks and varying shades of brown.
-    centre: [9.5391140156429302, 2.1754014518312892]
-    size: [2.1998815324527348, 1.8116321239643822, 0.080000000000000002]
-    yaw: 1.5603243512829303
-    observations: 4
-    first_seen: 1790576884.6141834
-    last_seen: 1790576885.6859708
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 75761.154089283664
-  - id: 232
-    label: basket
-    votes: {basket: 16.6489258}
-    name: plastic crate
-    caption: orange plastic crate with grid-like ventilation holes and reinforced handles
-    centre: [9.9799978234137967, -5.5802095860976015]
-    size: [0.44458575371209091, 0.60248294022947579, 0.28000000000000003]
-    yaw: 1.5603243512829303
-    observations: 14
-    first_seen: 1790576924.6778355
-    last_seen: 1790577055.7779424
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 18283.297678697272
-  - id: 233
-    label: desk
-    votes: {bench: 1.57592773, cabinet: 0.676757812, coat rack: 0.5546875, desk: 4.98950195, ladder: 0.325927734, shelf: 0.313964844}
-    name: shelf
-    caption: A wooden shelf with black metal frame holding a box.
-    centre: [12.040018320008162, -5.6485114783707555]
-    size: [0.71933991295336153, 2.5014309882638344, 1.6400000000000001]
-    yaw: 1.5603243512829303
-    observations: 15
-    first_seen: 1790576910.6856959
-    last_seen: 1790577051.6819651
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 58607.944414645317
-  - id: 234
-    label: bag
-    votes: {bag: 0.776855469, suitcase: 0.310791016}
-    name: cardboard box
-    caption: A brown cardboard box secured with a white strap.
-    centre: [11.520198439109825, -5.5210492940852296]
-    size: [0.48165093878786619, 0.48248868071823109, 0.40000000000000002]
-    yaw: 1.5603243512829303
-    observations: 3
-    first_seen: 1790576924.6776333
-    last_seen: 1790577051.6819651
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 6881.8702208753675
-  - id: 235
-    label: rug
-    votes: {rug: 0.653808594}
-    name: ""
-    caption: ""
-    centre: [12.320000171661375, -5.260000228881835]
-    size: [0.040418870965183339, 0.079997768629740812, 0.16000000000000003]
-    yaw: 1.5603243512829303
-    observations: 2
-    first_seen: 1790576954.6817389
-    last_seen: 1790576955.777626
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 39619.535055208435
-  - id: 242
-    label: laptop
-    votes: {laptop: 2.77368164}
-    name: ""
-    caption: ""
-    centre: [-2.0935654844303921, 1.5505299127003624]
-    size: [0.099997259958350959, 0.13546629754673262, 0.07999999999999996]
-    yaw: 1.5603243512829303
-    observations: 4
-    first_seen: 1790577225.375916
-    last_seen: 1790577233.6777554
-    misses: 0
-    top_seen: true
-    state: active
-    best_view_score: 692.6067914115265
+- id: 1
+  label: scissors
+  votes: {chair: 0.509765625, ironing board: 1.59912109, scissors: 3.38818359}
+  name: ''
+  caption: ''
+  centre: [0.2799956074127413, -0.0004188482322719741]
+  size: [0.40123688941979757, 0.32291673327905906, 0.1200000000000001]
+  yaw: 1.5603243512829303
+  observations: 6
+  first_seen: 1790574879.7835202
+  last_seen: 1790574881.1778324
+  misses: 4
+  top_seen: true
+  state: stale
+  best_view_score: 11253.5185546875
+- id: 3
+  label: chair
+  votes: {bench: 0.373779297, chair: 57.1687012, stool: 1.44482422}
+  name: chair
+  caption: A dark brown upholstered dining chair with a high tufted back and slender dark wooden legs.
+  centre: [-3.262348896081913, 1.8254661847425928]
+  size: [0.6536294950131651, 0.5025877981593512, 1]
+  yaw: 1.5603243512829303
+  observations: 65
+  first_seen: 1790574891.6839433
+  last_seen: 1790577233.6777554
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 92418.62343446555
+- id: 4
+  label: chair
+  votes: {chair: 55.8212891}
+  name: chair
+  caption: The chair is upholstered in dark brown fabric with a rolled back and dark wooden legs.
+  centre: [-2.2378751827697143, 1.7752098866583026]
+  size: [0.55363497658658, 0.4515433605188291, 1]
+  yaw: 1.5603243512829303
+  observations: 60
+  first_seen: 1790574891.6839433
+  last_seen: 1790577233.6777554
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 57561.81966253789
+- id: 9
+  label: bowl
+  votes: {bed: 1.82421875, bench: 1.66967773, blanket: 1.51245117, book: 5.35473633, bottle: 1.19482422,
+    bowl: 27.0917969, chair: 4.60888672, chessboard: 1.05273438, coffee table: 2.9597168, desk: 10.4230957,
+    dining table: 25.2568359, knife: 0.336425781, mug: 5.16723633, plate: 2.26538086, sofa: 0.498046875,
+    towel: 2.96826172}
+  name: dining table
+  caption: A wooden dining table partially covered with a blue and white checkered tablecloth.
+  centre: [-2.7347475488244712, 2.8238667332448304]
+  size: [1.6530538308521143, 1.961932921189902, 0.8400000000000001]
+  yaw: 1.5603243512829303
+  observations: 145
+  first_seen: 1790574891.6839433
+  last_seen: 1790577233.6777554
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 90980.1750128693
+- id: 11
+  label: microwave
+  votes: {microwave: 1.81835938}
+  name: ''
+  caption: ''
+  centre: [-3.1802071783838635, 3.8002115694785554]
+  size: [0.08209212595232215, 0.27998685018394326, 0.040000000000000036]
+  yaw: 1.5603243512829303
+  observations: 2
+  first_seen: 1790574898.8799365
+  last_seen: 1790574899.3838646
+  misses: 10
+  top_seen: true
+  state: removed
+  best_view_score: 1203.259477323736
+- id: 13
+  label: oven
+  votes: {door: 0.445556641, microwave: 1.25073242, oven: 21.2314453, refrigerator: 1.11865234, stove: 2.35595703}
+  name: oven
+  caption: A white and black freestanding gas range with a large glass door and multiple knobs.
+  centre: [-1.4605095390867577, 5.626233776969282]
+  size: [0.545783879914129, 0.804144861866658, 0.92]
+  yaw: 1.5603243512829303
+  observations: 33
+  first_seen: 1790574898.8799365
+  last_seen: 1790577208.8777158
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 73711.2726248597
+- id: 14
+  label: chair
+  votes: {chair: 48.3024902, refrigerator: 2.89355469, rug: 0.399902344, stool: 1.21435547, umbrella: 0.51953125}
+  name: chair
+  caption: The object is a dark brown upholstered dining chair with black wooden legs and a rolled top
+    backrest.
+  centre: [-3.2092198979732807, 3.574121657091256]
+  size: [0.65415308422678, 0.5983963436637281, 1]
+  yaw: 1.5603243512829303
+  observations: 76
+  first_seen: 1790574898.8799365
+  last_seen: 1790577233.6777554
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 81442.21229169454
+- id: 16
+  label: chair
+  votes: {chair: 47.9733887, chessboard: 0.577636719, refrigerator: 1.56494141, rug: 0.870361328, stool: 0.546875}
+  name: chair
+  caption: A partial view of a dark chair with curved wooden legs.
+  centre: [-2.3349942590454953, 3.550438811051684]
+  size: [0.7041503434400729, 0.6536294950131654, 1]
+  yaw: 1.5603243512829303
+  observations: 70
+  first_seen: 1790574898.8799365
+  last_seen: 1790577233.6777554
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 45266.723971667234
+- id: 21
+  label: bed
+  votes: {bed: 31.2919922, bench: 2.95825195, cabinet: 0.5390625, chair: 0.303955078, crib: 0.449462891,
+    door: 1.28613281, dresser: 2.01855469, mirror: 1.42089844, pillow: 0.53515625, stool: 0.325927734}
+  name: bed
+  caption: A wooden four-poster bed with carved gothic details and white bedding.
+  centre: [4.8142150377300625, 4.899663056394124]
+  size: [1.910899448186325, 1.3666863366580975, 1.52]
+  yaw: 1.5603243512829303
+  observations: 54
+  first_seen: 1790574934.7756655
+  last_seen: 1790577107.8779168
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 91433.55651143615
+- id: 24
+  label: coffee table
+  votes: {coffee table: 34.4863281, desk: 1.98681641, nightstand: 0.638671875, stool: 1.32519531}
+  name: coffee table
+  caption: A modern coffee table with a grey top and wooden legs featuring a light blue bowl on top.
+  centre: [-1.4871131479782118, -3.8521558284712083]
+  size: [0.6031059057995516, 1.152554908718865, 0.52]
+  yaw: 1.5603243512829303
+  observations: 36
+  first_seen: 1790575026.675656
+  last_seen: 1790577171.277627
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 64751.21950581903
+- id: 25
+  label: bowl
+  votes: {bowl: 32.9145508}
+  name: bowl
+  caption: A light blue ceramic bowl with a visible crack across the interior.
+  centre: [-1.1385340462518965, -4.020015213560351]
+  size: [0.4399779247029016, 0.43872149061148175, 0.12000000000000005]
+  yaw: 1.5603243512829303
+  observations: 31
+  first_seen: 1790575026.675656
+  last_seen: 1790575935.7777345
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 3128.9850472602993
+- id: 26
+  label: sofa
+  votes: {bench: 4.52441406, chair: 13.9995117, pillow: 0.348632812, radiator: 6.82910156, shelf: 1.18896484,
+    sofa: 23.5593262, stool: 2.11938477, tv stand: 0.52734375, umbrella: 0.803222656}
+  name: sofa
+  caption: A dark green tufted sofa with a curved wooden frame and legs.
+  centre: [-1.4631397072808257, -2.6500505883933876]
+  size: [0.8172318514203107, 1.8035637161321931, 0.7200000000000001]
+  yaw: 1.5603243512829303
+  observations: 73
+  first_seen: 1790575026.675656
+  last_seen: 1790577171.277627
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 71442.78427324619
+- id: 27
+  label: mug
+  votes: {mug: 15.9980469}
+  name: mug
+  caption: A ceramic mug with a grey exterior, white interior, and a light-colored handle.
+  centre: [-1.83999339427794, -3.7993717989041085]
+  size: [0.31412042030778536, 0.5620657071174553, 0.16000000000000003]
+  yaw: 1.5603243512829303
+  observations: 24
+  first_seen: 1790575026.675656
+  last_seen: 1790577171.277627
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 693.064755628584
+- id: 28
+  label: chair
+  votes: {bench: 0.781494141, chair: 39.0397949, pillow: 2.07470703, sofa: 1.12060547}
+  name: armchair
+  caption: A black armchair with a wooden frame and armrests.
+  centre: [-3.986279868573105, -4.0224519965542935]
+  size: [1.0530812387191864, 0.9567518447879015, 1.04]
+  yaw: 1.5603243512829303
+  observations: 49
+  first_seen: 1790575026.6759558
+  last_seen: 1790575954.6779437
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 76261.57183636271
+- id: 29
+  label: bench
+  votes: {bed: 0.435791016, bench: 7.20898438, cabinet: 0.51953125, chair: 0.958007812, desk: 5.8828125,
+    dresser: 0.486328125, radiator: 3.35888672, tv stand: 0.486328125}
+  name: counter
+  caption: A long wooden counter featuring slatted panels and rounded corners.
+  centre: [-1.4858481243721458, -5.531359415070979]
+  size: [0.4614942963642104, 2.4493421129827917, 0.76]
+  yaw: 1.5603243512829303
+  observations: 30
+  first_seen: 1790575030.7816894
+  last_seen: 1790575917.7797382
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 43962.19226650466
+- id: 30
+  label: television
+  votes: {microwave: 0.584960938, television: 5.83178711}
+  name: television
+  caption: A vintage box television with a dark screen, a wooden side panel, and control dials on the
+    front right.
+  centre: [-1.4799737035859528, -5.597487052539139]
+  size: [0.4795570607729633, 0.7228948786783707, 0.5200000000000001]
+  yaw: 1.5603243512829303
+  observations: 13
+  first_seen: 1790575030.782089
+  last_seen: 1790575917.7797382
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 9129.696734687313
+- id: 31
+  label: potted plant
+  votes: {potted plant: 5.74902344}
+  name: potted plant
+  caption: A green leafy plant in a round brown ceramic pot.
+  centre: [-4.910783750320641, -5.374814863469442]
+  size: [0.7520532457989082, 0.6057293341860948, 0.76]
+  yaw: 1.5603243512829303
+  observations: 7
+  first_seen: 1790575033.794907
+  last_seen: 1790575954.6779437
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 4631.236193317454
+- id: 32
+  label: cabinet
+  votes: {bench: 1.59277344, book: 0.38671875, cabinet: 8.92578125, ladder: 0.871826172, mirror: 1.44262695,
+    shelf: 1.38305664, television: 0.963623047, tv stand: 1.47436523, wardrobe: 0.355712891}
+  name: cabinet
+  caption: A wooden cabinet with several empty shelves and a small book sitting on one shelf.
+  centre: [-5.137883931382922, -1.5379277106212383]
+  size: [1.4016009285021587, 0.6849912314623765, 1.8800000000000001]
+  yaw: 1.5603243512829303
+  observations: 33
+  first_seen: 1790575033.794907
+  last_seen: 1790577225.375916
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 51532.97243162803
+- id: 33
+  label: chair
+  votes: {cat: 0.704589844, chair: 31.8947754, dog: 1.12255859, stool: 0.592773438}
+  name: armchair
+  caption: An armchair with a dark wooden frame and grey upholstered cushions and backrest.
+  centre: [13.838950650131489, 3.174403991897685]
+  size: [0.8567573263613162, 0.9062337371477003, 1.08]
+  yaw: 1.5603243512829303
+  observations: 39
+  first_seen: 1790575080.277765
+  last_seen: 1790576875.8781857
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 115219.83575907815
+- id: 35
+  label: suitcase
+  votes: {bench: 2.69848633, desk: 1.3347168, nightstand: 0.844970703, suitcase: 8.60229492, toolbox: 1.58251953}
+  name: wooden chest
+  caption: A brown wooden chest with rope handles and metal-reinforced corners.
+  centre: [14.13450107879036, -3.600549511505402]
+  size: [1.1015077302916363, 0.41987857059666583, 0.52]
+  yaw: 1.5603243512829303
+  observations: 23
+  first_seen: 1790575087.809943
+  last_seen: 1790576986.7788413
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 41422.11769612506
+- id: 40
+  label: chair
+  votes: {chair: 32.3413086, stool: 1.80664062}
+  name: chair
+  caption: A blue plastic school chair with metal legs.
+  centre: [6.013169291017105, -4.475065693189247]
+  size: [0.5541585658001942, 0.5536322357998729, 1.04]
+  yaw: 1.5603243512829303
+  observations: 29
+  first_seen: 1790575162.777959
+  last_seen: 1790576398.7779605
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 78776.14604921336
+- id: 46
+  label: bowl
+  votes: {bowl: 6.50390625, mug: 4.30615234}
+  name: mug
+  caption: A teal ceramic mug with a visible handle.
+  centre: [6.6637065397781425, -5.523765032240417]
+  size: [0.6504989251134816, 0.35364868052011467, 0.16000000000000003]
+  yaw: 1.5603243512829303
+  observations: 17
+  first_seen: 1790575185.8159606
+  last_seen: 1790576398.7779605
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 1475.6729279877618
+- id: 47
+  label: desk
+  votes: {cabinet: 0.381103516, chair: 1.21313477, desk: 24.1030273, dresser: 0.38671875, filing cabinet: 0.430175781,
+    shelf: 1.63842773, suitcase: 0.988525391, tv stand: 0.33984375}
+  name: desk
+  caption: A large grey metal desk with multiple drawers on both sides.
+  centre: [6.04019498263968, -5.206633512647224]
+  size: [1.3062145523858095, 2.007217877480665, 0.88]
+  yaw: 1.5603243512829303
+  observations: 37
+  first_seen: 1790575162.777959
+  last_seen: 1790576398.7779605
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 139004.53486041375
+- id: 48
+  label: laptop
+  votes: {laptop: 1.77563477}
+  name: ''
+  caption: ''
+  centre: [6.040203044755094, -4.320630639318401]
+  size: [0.08334873635120219, 0.4799759317381466, 0.20000000000000007]
+  yaw: 1.5603243512829303
+  observations: 4
+  first_seen: 1790575185.8159606
+  last_seen: 1790576041.383928
+  misses: 6
+  top_seen: true
+  state: stale
+  best_view_score: 398.64962272983394
+- id: 52
+  label: kettle
+  votes: {kettle: 15.7521973, lamp: 0.455078125, paper towel: 0.307373047}
+  name: kettle
+  caption: The kettle is brown with a grey base, spout, and handle.
+  centre: [-2.880416650066691, 5.600213714958]
+  size: [0.24082658757573047, 0.3204034897788652, 0.28000000000000014]
+  yaw: 1.5603243512829303
+  observations: 24
+  first_seen: 1790575284.6779604
+  last_seen: 1790575970.5846915
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 7678.243318630848
+- id: 53
+  label: microwave
+  votes: {microwave: 15.907959, toaster: 1.24267578}
+  name: microwave
+  caption: A silver microwave with a black door window and a digital control panel on the right side.
+  centre: [-4.0395571082301185, 5.722299310018929]
+  size: [0.5599714689976256, 0.6437370883425935, 0.36]
+  yaw: 1.5603243512829303
+  observations: 21
+  first_seen: 1790575284.6779604
+  last_seen: 1790577214.777912
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 10291.007881731168
+- id: 54
+  label: refrigerator
+  votes: {dishwasher: 1.48925781, filing cabinet: 0.441650391, laptop: 0.30078125, refrigerator: 15.4621582}
+  name: refrigerator
+  caption: A silver double-door refrigerator with a digital display panel on the right door.
+  centre: [-5.012092639170176, 5.499938567224655]
+  size: [0.7004934427950094, 0.6025932812228811, 1.8800000000000001]
+  yaw: 1.5603243512829303
+  observations: 25
+  first_seen: 1790575284.6779604
+  last_seen: 1790575851.4836323
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 20491.899318361284
+- id: 56
+  label: trash can
+  votes: {bucket: 0.789306641, mug: 2.13720703, trash can: 3.82885742}
+  name: trash can
+  caption: A black cylindrical trash can seen from a high angle.
+  centre: [-0.800209438416571, 5.800002145505589]
+  size: [0.24124593410359282, 0.31998461881368273, 0.32]
+  yaw: 1.5603243512829303
+  observations: 11
+  first_seen: 1790575284.6779604
+  last_seen: 1790577208.8777158
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 4753.299799037632
+- id: 57
+  label: countertop
+  votes: {countertop: 2.94995117}
+  name: countertop
+  caption: A light brown countertop piece showing its long, narrow side and textured edge.
+  centre: [-3.1348941794343332, 5.6351274663066695]
+  size: [0.45259327973276503, 2.553009979754916, 0.12]
+  yaw: 1.5603243512829303
+  observations: 7
+  first_seen: 1790575284.6779604
+  last_seen: 1790575491.5844357
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 7227.727402875025
+- id: 58
+  label: cabinet
+  votes: {cabinet: 4.80029297, door: 0.346923828, microwave: 1.14916992, oven: 0.51171875, shelf: 0.718017578,
+    window: 0.478515625}
+  name: cabinet
+  caption: The cabinet is white and features four panel doors.
+  centre: [-3.3592918342489773, 5.327635115582994]
+  size: [0.3700355389999918, 2.877331202793145, 1.24]
+  yaw: 1.5603243512829303
+  observations: 16
+  first_seen: 1790575284.7756145
+  last_seen: 1790577214.777912
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 42501.32303327322
+- id: 64
+  label: book
+  votes: {book: 11.1794434}
+  name: book
+  caption: A paper book titled Eat to Live with white, green and orange cover text.
+  centre: [-5.040213772802591, -1.7804166858229415]
+  size: [0.3578881518202603, 0.3229164796611252, 0.24]
+  yaw: 1.5603243512829303
+  observations: 17
+  first_seen: 1790575347.877812
+  last_seen: 1790575983.8759081
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 6512.598182350164
+- id: 72
+  label: stool
+  votes: {coffee table: 0.69921875, stool: 0.737304688}
+  name: stool
+  caption: The stool has a light brown wooden frame and a padded beige top.
+  centre: [-1.9881140868054483, -3.7976033727576914]
+  size: [0.40592272759076625, 0.14947092995802924, 0.4]
+  yaw: 1.5603243512829303
+  observations: 3
+  first_seen: 1790575368.8799489
+  last_seen: 1790575436.2757437
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 1011.6314827732276
+- id: 76
+  label: shelf
+  votes: {cabinet: 0.332763672, shelf: 1.75073242}
+  name: cornice molding
+  caption: A light gray architectural cornice molding piece with rectangular panel details.
+  centre: [-3.728000006778909, 2.3440000106280494]
+  size: [0.3083281146503009, 0.09366566573325394, 0.12]
+  yaw: 1.1071499012871617
+  observations: 5
+  first_seen: 1790575392.7761788
+  last_seen: 1790575646.8780563
+  misses: 6
+  top_seen: true
+  state: stale
+  best_view_score: 1434.6758605092764
+- id: 112
+  label: desk
+  votes: {desk: 1.0078125}
+  name: ''
+  caption: ''
+  centre: [-5.4600000381469735, -2.800000071525574]
+  size: [0.7999583191815689, 0.0479585558284796, 0.8400000000000001]
+  yaw: 1.5603243512829303
+  observations: 2
+  first_seen: 1790575825.3858347
+  last_seen: 1790575954.6779437
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 94178.79023437502
+- id: 113
+  label: microwave
+  votes: {microwave: 2.56689453}
+  name: ''
+  caption: ''
+  centre: [-3.4400000572204585, 3.7999999523162846]
+  size: [0.0812543815252886, 0.16041217685440176, 0.040000000000000036]
+  yaw: 1.5603243512829303
+  observations: 3
+  first_seen: 1790575837.8761194
+  last_seen: 1790575867.8777277
+  misses: 7
+  top_seen: true
+  state: stale
+  best_view_score: 1079.5683916658163
+- id: 124
+  label: piano
+  votes: {piano: 0.781738281}
+  name: ''
+  caption: ''
+  centre: [-1.4854461110743626, 5.382159651113785]
+  size: [0.13970737017700863, 0.649967111304572, 0.12]
+  yaw: 1.5603243512829303
+  observations: 2
+  first_seen: 1790575863.578519
+  last_seen: 1790575864.577722
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 353.5614467233536
+- id: 129
+  label: refrigerator
+  votes: {refrigerator: 4.50439453}
+  name: refrigerator
+  caption: A silver refrigerator featuring a prominent handle and a digital control panel on the door.
+  centre: [-3.420209381083767, 1.5000021931631602]
+  size: [0.12167102361687895, 0.20041018388964724, 0.07999999999999996]
+  yaw: 1.5603243512829303
+  observations: 5
+  first_seen: 1790575892.777943
+  last_seen: 1790575974.579964
+  misses: 5
+  top_seen: true
+  state: stale
+  best_view_score: 15226.994839288294
+- id: 139
+  label: cabinet
+  votes: {cabinet: 8.15478516, chair: 0.486328125, desk: 1.50390625, door: 2.25244141, dresser: 3.15332031,
+    mirror: 0.971679688, picture frame: 0.399902344, shelf: 5.18359375, window: 0.733886719}
+  name: wooden cabinet
+  caption: A dark brown wooden cabinet with ornate silver metal corner brackets and vertical paneling.
+  centre: [7.963163822806796, 4.349409507117891]
+  size: [1.7040982692376934, 1.0656583444828778, 1.8]
+  yaw: 1.5603243512829303
+  observations: 45
+  first_seen: 1790576011.8783784
+  last_seen: 1790577275.0779135
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 53046.69178914763
+- id: 141
+  label: desk
+  votes: {desk: 0.672607422}
+  name: ''
+  caption: ''
+  centre: [4.280207202225721, 3.9197884591316745]
+  size: [0.08251099941417281, 0.31998485721918873, 0.1200000000000001]
+  yaw: 1.5603243512829303
+  observations: 2
+  first_seen: 1790576021.8760703
+  last_seen: 1790576022.8776708
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 1192.2830521540018
+- id: 143
+  label: potted plant
+  votes: {potted plant: 1.06323242}
+  name: ''
+  caption: ''
+  centre: [4.860000133514404, 0.9399999976158142]
+  size: [0.11999565646223206, 0.04083774317869967, 0.4800000000000001]
+  yaw: 1.5603243512829303
+  observations: 2
+  first_seen: 1790576065.7961373
+  last_seen: 1790576068.879679
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 2177.1289789419825
+- id: 145
+  label: filing cabinet
+  votes: {filing cabinet: 0.782714844, mirror: 0.32421875}
+  name: ''
+  caption: ''
+  centre: [13.160119828766309, 0.9314114104997071]
+  size: [0.20417990337354072, 2.160302516209593, 0.92]
+  yaw: 1.5603243512829303
+  observations: 3
+  first_seen: 1790576083.6784198
+  last_seen: 1790576888.6797519
+  misses: 0
+  top_seen: false
+  state: active
+  best_view_score: 13789.777580022812
+- id: 146
+  label: pillow
+  votes: {bag: 0.357666016, bed: 22.8210449, bench: 9.90478516, blanket: 1.30053711, bottle: 0.5, bowl: 2.8918457,
+    cat: 1.87817383, chair: 6.7668457, desk: 1.02539062, dog: 0.372070312, laptop: 0.441650391, mirror: 0.325927734,
+    pillow: 44.2287598, plate: 0.372070312, sink: 3.09619141, sofa: 1.18798828, spoon: 0.345214844, stool: 1.87890625,
+    suitcase: 1.04101562, tray: 1.57202148}
+  name: sofa
+  caption: A wooden sofa with a white cushion and a patterned backrest.
+  centre: [12.119398408304537, 5.44251971970621]
+  size: [0.8112680836336867, 2.074023903861531, 1.1600000000000001]
+  yaw: 1.5603243512829303
+  observations: 147
+  first_seen: 1790576083.8799255
+  last_seen: 1790577367.577658
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 94466.1332657749
+- id: 152
+  label: shelf
+  votes: {shelf: 0.743164062}
+  name: ''
+  caption: ''
+  centre: [11.280006789297829, -5.439371785223125]
+  size: [0.40081765959802057, 0.32124099330372585, 0.08000000000000007]
+  yaw: 1.5603243512829303
+  observations: 2
+  first_seen: 1790576093.7819872
+  last_seen: 1790576114.578096
+  misses: 0
+  top_seen: false
+  state: active
+  best_view_score: 5185.022471590899
+- id: 157
+  label: shelf
+  votes: {shelf: 0.621582031}
+  name: ''
+  caption: ''
+  centre: [13.099801446501548, -5.2789506532379935]
+  size: [0.1604126536654142, 0.2791498184767613, 1.12]
+  yaw: 1.5603243512829303
+  observations: 2
+  first_seen: 1790576125.7822573
+  last_seen: 1790576154.7780318
+  misses: 5
+  top_seen: false
+  state: stale
+  best_view_score: 4459.638278173981
+- id: 162
+  label: bench
+  votes: {bag: 1.43945312, bench: 5.48925781, box: 2.46850586, bucket: 2.13842773, chair: 5.20117188,
+    cooking pot: 0.647949219, desk: 1.16137695, ladder: 0.544921875, pillow: 1.81762695, shelf: 5.47949219,
+    suitcase: 3.93286133, tv stand: 1.14306641}
+  name: shelf
+  caption: A wooden shelf with a black metal frame.
+  centre: [2.8370395837342186, -3.4626918495698296]
+  size: [1.7190704477627428, 0.6500201578136742, 1.8800000000000001]
+  yaw: 1.5603243512829303
+  observations: 56
+  first_seen: 1790576186.8803077
+  last_seen: 1790577317.6777325
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 63283.71900903713
+- id: 167
+  label: trash can
+  votes: {trash can: 2.08666992, vase: 0.385009766}
+  name: trash can
+  caption: A black plastic waste basket with a tapered shape.
+  centre: [9.33999795942473, -5.8002093763153955]
+  size: [0.24124593285525983, 0.3612387669268004, 0.36000000000000004]
+  yaw: 1.5603243512829303
+  observations: 5
+  first_seen: 1790576224.7820146
+  last_seen: 1790576333.7860842
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 1592.9276567874476
+- id: 168
+  label: laptop
+  votes: {laptop: 12.7949219}
+  name: laptop
+  caption: A black laptop with an open screen displaying a blue desktop.
+  centre: [5.839585452523554, -5.359576658274752]
+  size: [0.48039480270332996, 0.4029124962282848, 0.24]
+  yaw: 1.5603243512829303
+  observations: 15
+  first_seen: 1790576228.6817753
+  last_seen: 1790576398.7779605
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 10496.263204183488
+- id: 188
+  label: vase
+  votes: {potted plant: 1.83886719, vase: 2.47949219}
+  name: potted plant
+  caption: A green leafy plant growing in a terracotta pot.
+  centre: [2.9626593784400086, 1.4765092179146342]
+  size: [0.5520669504775018, 0.6525850581177017, 1.36]
+  yaw: 1.5603243512829303
+  observations: 5
+  first_seen: 1790576465.878417
+  last_seen: 1790576540.8778517
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 37875.75687955861
+- id: 189
+  label: nightstand
+  votes: {chair: 3.6340332, desk: 0.445556641, nightstand: 8.95361328}
+  name: bookstand
+  caption: A dark wooden bookstand with carved legs and an angled ledge.
+  centre: [3.789374573298496, 5.689767628802387]
+  size: [0.3218725890444394, 0.5015461020505947, 0.76]
+  yaw: 1.5603243512829303
+  observations: 14
+  first_seen: 1790576472.7775502
+  last_seen: 1790577104.577907
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 21035.18938672403
+- id: 190
+  label: clock
+  votes: {clock: 7.07177734}
+  name: pocket watch
+  caption: A small round antique pocket watch with a winding stem and loop at the top.
+  centre: [3.759790566464146, 5.66000204057527]
+  size: [0.12125215015502719, 0.16041217685440132, 0.16000000000000003]
+  yaw: 1.5603243512829303
+  observations: 8
+  first_seen: 1790576472.77765
+  last_seen: 1790577095.6779258
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 815.7218800066039
+- id: 191
+  label: pillow
+  votes: {pillow: 8.61645508}
+  name: pillow
+  caption: A light grey pillow shown in two separate pieces against a grey background.
+  centre: [4.887917146399792, 5.550466197483674]
+  size: [0.6078319148907907, 1.2004687764597035, 0.36000000000000004]
+  yaw: 1.5603243512829303
+  observations: 14
+  first_seen: 1790576472.77765
+  last_seen: 1790577107.8779168
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 10288.457360350876
+- id: 195
+  label: desk
+  votes: {desk: 0.647705078}
+  name: ''
+  caption: ''
+  centre: [2.579999923706055, 3.440000057220459]
+  size: [0.5599714689976261, 0.045445327540714474, 0.4]
+  yaw: 1.5603243512829303
+  observations: 2
+  first_seen: 1790576498.7756124
+  last_seen: 1790576499.777526
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 45557.55065694451
+- id: 197
+  label: mirror
+  votes: {filing cabinet: 0.305664062, mirror: 0.348632812}
+  name: ''
+  caption: ''
+  centre: [3.9401053291567165, 0.9900523512146205]
+  size: [0.11999559686085556, 1.9607325440260785, 0.68]
+  yaw: 1.5603243512829303
+  observations: 2
+  first_seen: 1790576524.683941
+  last_seen: 1790576536.7835574
+  misses: 0
+  top_seen: false
+  state: active
+  best_view_score: 4058.876879978925
+- id: 202
+  label: trash can
+  votes: {trash can: 5.86987305}
+  name: trash can
+  caption: A small black cylindrical wastebasket.
+  centre: [8.820414633905122, 1.239576770212603]
+  size: [0.3233355865351463, 0.43872202577553926, 0.36000000000000004]
+  yaw: 1.5603243512829303
+  observations: 10
+  first_seen: 1790576661.3816352
+  last_seen: 1790576889.779814
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 2404.754259022884
+- id: 213
+  label: desk
+  votes: {desk: 1.17749023}
+  name: floor
+  caption: A wooden floor with a visible shadow of a person.
+  centre: [12.21343120671204, 5.474935824947853]
+  size: [0.7688108421663331, 1.9530319045584574, 0.08]
+  yaw: 1.5603243512829303
+  observations: 3
+  first_seen: 1790576757.5816326
+  last_seen: 1790576829.591634
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 56025.50009441769
+- id: 214
+  label: book
+  votes: {book: 1.49194336}
+  name: ''
+  caption: ''
+  centre: [8.82041854282244, 4.099995518306249]
+  size: [0.28333757949989996, 0.36081989096828065, 0.24]
+  yaw: 1.5603243512829303
+  observations: 4
+  first_seen: 1790576761.27779
+  last_seen: 1790576794.08594
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 371.13501492887735
+- id: 216
+  label: book
+  votes: {book: 0.659667969}
+  name: ''
+  caption: ''
+  centre: [8.820418544070705, 3.3599956279657226]
+  size: [0.24334004927566785, 0.3595632780727333, 0.24]
+  yaw: 1.5603243512829303
+  observations: 2
+  first_seen: 1790576784.6798391
+  last_seen: 1790576794.08594
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 109.70878601074219
+- id: 228
+  label: desk
+  votes: {desk: 1.95263672}
+  name: floor
+  caption: The object is a wooden floor with visible planks and varying shades of brown.
+  centre: [9.53911401564293, 2.175401451831289]
+  size: [2.1998815324527348, 1.8116321239643822, 0.08]
+  yaw: 1.5603243512829303
+  observations: 4
+  first_seen: 1790576884.6141834
+  last_seen: 1790576885.6859708
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 75761.15408928366
+- id: 232
+  label: basket
+  votes: {basket: 16.6489258}
+  name: plastic crate
+  caption: orange plastic crate with grid-like ventilation holes and reinforced handles
+  centre: [9.979997823413797, -5.5802095860976015]
+  size: [0.4445857537120909, 0.6024829402294758, 0.28]
+  yaw: 1.5603243512829303
+  observations: 14
+  first_seen: 1790576924.6778355
+  last_seen: 1790577055.7779424
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 18283.297678697272
+- id: 233
+  label: desk
+  votes: {bench: 1.57592773, cabinet: 0.676757812, coat rack: 0.5546875, desk: 4.98950195, ladder: 0.325927734,
+    shelf: 0.313964844}
+  name: shelf
+  caption: A wooden shelf with black metal frame holding a box.
+  centre: [12.040018320008162, -5.6485114783707555]
+  size: [0.7193399129533615, 2.5014309882638344, 1.6400000000000001]
+  yaw: 1.5603243512829303
+  observations: 15
+  first_seen: 1790576910.685696
+  last_seen: 1790577051.681965
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 58607.94441464532
+- id: 234
+  label: bag
+  votes: {bag: 0.776855469, suitcase: 0.310791016}
+  name: cardboard box
+  caption: A brown cardboard box secured with a white strap.
+  centre: [11.520198439109825, -5.52104929408523]
+  size: [0.4816509387878662, 0.4824886807182311, 0.4]
+  yaw: 1.5603243512829303
+  observations: 3
+  first_seen: 1790576924.6776333
+  last_seen: 1790577051.681965
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 6881.8702208753675
+- id: 235
+  label: rug
+  votes: {rug: 0.653808594}
+  name: ''
+  caption: ''
+  centre: [12.320000171661375, -5.260000228881835]
+  size: [0.04041887096518334, 0.07999776862974081, 0.16000000000000003]
+  yaw: 1.5603243512829303
+  observations: 2
+  first_seen: 1790576954.6817389
+  last_seen: 1790576955.777626
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 39619.535055208435
+- id: 242
+  label: laptop
+  votes: {laptop: 2.77368164}
+  name: ''
+  caption: ''
+  centre: [-2.093565484430392, 1.5505299127003624]
+  size: [0.09999725995835096, 0.13546629754673262, 0.07999999999999996]
+  yaw: 1.5603243512829303
+  observations: 4
+  first_seen: 1790577225.375916
+  last_seen: 1790577233.6777554
+  misses: 0
+  top_seen: true
+  state: active
+  best_view_score: 692.6067914115265
