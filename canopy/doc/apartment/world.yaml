@@ -1,6 +1,6 @@
 version: 1
 grid: {resolution: 0.05000000074505806, origin_x: -5.5110455299999996, origin_y: -6.0000725700000004, width: 401, height: 241}
-next_room: 39
+next_room: 45
 next_object: 248
 voxel: 0.040000000000000001
 rooms:
@@ -257,8 +257,8 @@ objects:
     name: "mug"
     caption: "A ceramic mug with a grey exterior, white interior, and a light-colored handle."
     centre: [-1.8604368921480912, -3.7901112535824861]
-    size: [0.1368, 0.1022, 0.16000000000000003]
-    yaw: 0.69219762998117162
+    size: [0.17049606288468722, 0.16618915448563321, 0.16000000000000003]
+    yaw: -0.0050678679800122738
     observations: 24
     first_seen: 1790575026.6756561
     last_seen: 1790577171.277627
@@ -477,8 +477,8 @@ objects:
     name: "kettle"
     caption: "The kettle is brown with a grey base, spout, and handle."
     centre: [-2.8546384669648677, 5.615953982669696]
-    size: [0.24160000000000001, 0.15570000000000001, 0.28000000000000014]
-    yaw: 0.34313177958230573
+    size: [0.28022701022696456, 0.22879159550984779, 0.28000000000000014]
+    yaw: -0.0050678679800122738
     observations: 24
     first_seen: 1790575284.6779604
     last_seen: 1790575970.5846915
@@ -1017,8 +1017,8 @@ objects:
     name: ""
     caption: ""
     centre: [-3.223621219842705, 2.4180872362153214]
-    size: [0.1263, 0.0906, 0.12000000000000011]
-    yaw: 0.51766470478173865
+    size: [0.15466568725865398, 0.14155634304466475, 0.12000000000000011]
+    yaw: -0.0050678679800122738
     observations: 2
     first_seen: 1790606722.5014484
     last_seen: 1790606722.5014484

@@ -16,9 +16,10 @@ The models found 36 of the 44 objects the cameras can see. The rest were missed,
 wardrobe as a cabinet), or doubled by phantoms (the floor as a desk). canopy's `~/clean_up` then
 took out the floor twice and a stool that was part of the coffee table. The rest was corrected in
 the map editor against the simulator's truth: 16 labels, 11 merges of pieces into their object, 5
-wall slivers and a phantom removed, 5 missed objects added, 3 room types, and 16 boxes that were
-well off. It now holds all 44 objects and nothing else. The object crops are left out. The
-pictures, made with grove-g1's `g1_bringup` tools:
+wall slivers and a phantom removed, 5 missed objects added, 3 room types, and 17 boxes. Most were
+well off; a kettle and two mugs were turned square to what they stand on, as the robot should face
+them. It now holds all 44 objects and nothing else. The object crops are left out. The pictures,
+made with grove-g1's `g1_bringup` tools:
 - `apartment_truth.png` draws the scene's walls (blue) and furniture (orange) over the saved floor
   plan (`compare_truth.py --overlay`).
 - `apartment_wardrobe.png` is the corner behind the bedroom's wardrobe, from the same command with
