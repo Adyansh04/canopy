@@ -7,8 +7,10 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstring>
+#include <format>
 #include <limits>
 #include <numeric>
 #include <opencv2/imgproc.hpp>
@@ -890,6 +892,77 @@ int ObjectMap::pruneUnconfirmed(double now)
         return drop;
     });
     return static_cast<int>(before - objects_.size());
+}
+
+std::vector<std::string> ObjectMap::cleanUp(const CleanupParams& params)
+{
+    const auto weight = [](const MappedObject& object) {
+        double sum = 0.0;
+        for (const auto& [label, votes] : object.votes)
+        {
+            sum += votes;
+        }
+        return sum;
+    };
+    const auto live = [](const MappedObject& object) {
+        return object.state != ObjectState::kRemoved;
+    };
+    std::map<int, std::string> why;
+    for (const MappedObject& object : objects_)
+    {
+        if (!live(object) || object.touchedByOperator())
+        {
+            continue;
+        }
+        std::string name = object.name;
+        std::ranges::transform(name, name.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        const bool flat =
+            std::ranges::find(params.flat_labels, object.label()) != params.flat_labels.end();
+        if (object.z_max < params.floor_top && (!flat || name.ends_with("floor")))
+        {
+            why[object.id] = "the floor";
+        }
+    }
+    // Two things standing on the floor cannot fill one space: the far weaker one is a piece of the
+    // other. Anything higher may rest on or in it, as a mug on a table or a book in a shelf.
+    for (const MappedObject& inner : objects_)
+    {
+        if (!live(inner) || inner.touchedByOperator() || why.contains(inner.id) ||
+            inner.z_min > params.floor_standing)
+        {
+            continue;
+        }
+        for (const MappedObject& outer : objects_)
+        {
+            const double reach = 0.5 * (inner.box_size.norm() + outer.box_size.norm());
+            if (&outer == &inner || !live(outer) || why.contains(outer.id) ||
+                outer.z_min > params.floor_standing ||
+                weight(inner) * params.fragment_ratio > weight(outer) ||
+                (inner.box_centre - outer.box_centre).norm() > reach)
+            {
+                continue;
+            }
+            if (overlap(inner.voxels, outer.voxels) >= params.fragment_share)
+            {
+                why[inner.id] = std::format("inside O{}", outer.id);
+                break;
+            }
+        }
+    }
+    std::vector<std::string> removed;
+    for (MappedObject& object : objects_)
+    {
+        if (const auto found = why.find(object.id); found != why.end())
+        {
+            object.state      = ObjectState::kRemoved;
+            object.removed_by = "clean-up: " + found->second;
+            removed.push_back(std::format("{} {} ({})", object.id, object.label(), found->second));
+        }
+    }
+    relateSupports();
+    return removed;
 }
 
 std::vector<const MappedObject*> ObjectMap::glimpses() const

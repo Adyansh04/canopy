@@ -1080,6 +1080,75 @@ TEST(ObjectMap, KeepsWhatAnOperatorSaidThroughAMerge)
     EXPECT_TRUE(kept.checked);
 }
 
+/// Voxels filling the box from @p low to @p high, all voted @p label.
+MappedObject solid(
+    const ObjectMap& map, int id, const std::string& label, float votes, const Eigen::Vector3d& low,
+    const Eigen::Vector3d& high)
+{
+    MappedObject object;
+    object.id                   = id;
+    object.votes                = { { label, votes } };
+    object.observations         = 10;
+    const Eigen::Array3i counts = ((high - low) / 0.04).array().round().cast<int>();
+    for (int i = 0; i < counts.x(); ++i)
+    {
+        for (int j = 0; j < counts.y(); ++j)
+        {
+            for (int k = 0; k < counts.z(); ++k)
+            {
+                const Eigen::Vector3d step(i + 0.5, j + 0.5, k + 0.5);
+                object.voxels.push_back(map.keyOf(low + (0.04 * step)));
+            }
+        }
+    }
+    return object;
+}
+
+TEST(ObjectMap, CleansUpTheFloorButNotARugOrWhatAnOperatorChecked)
+{
+    ObjectMap    map;
+    MappedObject slab   = solid(map, 1, "table", 9.0F, { 0.0, 0.0, 0.0 }, { 1.0, 1.0, 0.08 });
+    MappedObject rug    = solid(map, 2, "rug", 9.0F, { 2.0, 0.0, 0.0 }, { 3.0, 1.0, 0.04 });
+    MappedObject boards = solid(map, 3, "rug", 9.0F, { 4.0, 0.0, 0.0 }, { 5.0, 1.0, 0.04 });
+    MappedObject kept   = solid(map, 4, "table", 9.0F, { 6.0, 0.0, 0.0 }, { 7.0, 1.0, 0.08 });
+    boards.name         = "Wooden Floor";  // The describer saw floorboards, whatever the votes.
+    kept.checked        = true;
+    const MappedObject low_table =
+        solid(map, 5, "coffee table", 9.0F, { 8.0, 0.0, 0.0 }, { 9.0, 1.0, 0.4 });
+    map.restore({ slab, rug, boards, kept, low_table });
+
+    const std::vector<std::string> removed = map.cleanUp({});
+    EXPECT_THAT(removed, testing::ElementsAre("1 table (the floor)", "3 rug (the floor)"));
+    EXPECT_EQ(map.find(1)->state, ObjectState::kRemoved);
+    EXPECT_EQ(map.find(1)->removed_by, "clean-up: the floor");
+    EXPECT_EQ(map.find(2)->state, ObjectState::kActive);
+    EXPECT_EQ(map.find(4)->state, ObjectState::kActive);
+    EXPECT_TRUE(map.find(4)->removed_by.empty());
+    EXPECT_EQ(map.find(5)->state, ObjectState::kActive);
+}
+
+TEST(ObjectMap, CleansUpAPieceOfASofaButNotWhatStandsOnOrBesideIt)
+{
+    ObjectMap          map;
+    const MappedObject sofa  = solid(map, 1, "sofa", 20.0F, { 0.0, 0.0, 0.0 }, { 1.6, 0.8, 0.8 });
+    const MappedObject piece = solid(map, 2, "chair", 2.0F, { 0.4, 0.2, 0.0 }, { 0.8, 0.6, 0.4 });
+    // As weak and as far inside, but an operator relabelled it: theirs to judge.
+    MappedObject cushion      = solid(map, 3, "pillow", 2.0F, { 0.8, 0.2, 0.0 }, { 1.2, 0.6, 0.4 });
+    cushion.operator_label    = "cushion";
+    const MappedObject beside = solid(map, 4, "chair", 2.0F, { 1.6, 0.0, 0.0 }, { 2.0, 0.4, 0.8 });
+    const MappedObject book   = solid(map, 5, "book", 1.0F, { 0.2, 0.2, 0.8 }, { 0.4, 0.4, 0.84 });
+    map.restore({ sofa, piece, cushion, beside, book });
+
+    const std::vector<std::string> removed = map.cleanUp({});
+    EXPECT_THAT(removed, testing::ElementsAre("2 chair (inside O1)"));
+    EXPECT_EQ(map.find(2)->removed_by, "clean-up: inside O1");
+    EXPECT_EQ(map.find(1)->state, ObjectState::kActive);
+    EXPECT_EQ(map.find(3)->state, ObjectState::kActive);
+    EXPECT_EQ(map.find(4)->state, ObjectState::kActive);
+    EXPECT_EQ(map.find(5)->state, ObjectState::kActive);  // Resting on it, not standing in it.
+    EXPECT_TRUE(map.cleanUp({}).empty());                 // Nothing left to take on a second call.
+}
+
 TEST(ObjectMap, KeysRoundTrip)
 {
     const ObjectMap       map;

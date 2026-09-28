@@ -139,6 +139,8 @@ struct MappedObject
     bool checked    = false;  ///< An operator reviewed it; carried for tools.
     /// An operator named it: the describer leaves its name and caption alone.
     bool operator_named = false;
+    /// Why the clean-up removed it, for a person to judge; empty for anything else.
+    std::string removed_by;
 
     /// Whether an operator has said anything about it; such an object keeps its id in a merge.
     [[nodiscard]] bool touchedByOperator() const
@@ -162,6 +164,18 @@ struct MaskOutcome
 {
     int  object    = 0;      ///< Id of the object it joined or started; 0 if dropped.
     bool best_view = false;  ///< It became the object's best view: take a new crop.
+};
+
+/// What cleanUp() removes once exploring is over: only what four real-detector runs of the test
+/// flat showed is never a real object there.
+struct CleanupParams
+{
+    double floor_top = 0.14;  ///< An object whose top is this low is the floor, m...
+    /// ...unless it is one of these and the describer did not call it floor.
+    std::vector<std::string> flat_labels{ "rug", "mat", "carpet", "doormat" };
+    double floor_standing = 0.15;  ///< Objects whose bottom is this low stand on the floor, m.
+    double fragment_share = 0.5;   ///< A floor-standing object this much inside another...
+    double fragment_ratio = 4.0;   ///< ...with this many times its votes is a piece of it.
 };
 
 class ObjectMap
@@ -203,6 +217,10 @@ public:
 
     /// Recomputes which object rests on which.
     void relateSupports();
+
+    /// Removes what exploring left that is not an object, never anything an operator worked on:
+    /// marked removed with the reason, so a person can bring it back. Returns "id label (why)".
+    std::vector<std::string> cleanUp(const CleanupParams& params);
 
     [[nodiscard]] const std::vector<MappedObject>& objects() const { return objects_; }
 
