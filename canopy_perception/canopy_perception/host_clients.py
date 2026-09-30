@@ -4,6 +4,8 @@ REQ/REP with msgpack_numpy bodies. ReqClient is the transport; VisionClient name
 "endpoint", as servers/semantic_server.py and any server speaking its protocol expect.
 """
 
+import array
+
 import msgpack
 import msgpack_numpy as mnp
 import numpy as np
@@ -73,3 +75,43 @@ def image_to_array(msg):
     rows = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.step)
     frame = rows[:, : 3 * msg.width].reshape(msg.height, msg.width, 3)
     return frame[:, :, ::-1] if msg.encoding == "bgr8" else frame
+
+
+def masks_from_reply(image, reply, names=None, warn=print):
+    """A server's segment reply as an InstanceMaskArray on the image's own header.
+
+    `names` maps a phrase to the name to publish it under; an instance whose mask does not fit
+    its region is dropped with a warning.
+    """
+    from canopy_msgs.msg import InstanceMask, InstanceMaskArray
+
+    names = names or {}
+    masks = InstanceMaskArray()
+    # The image's own header: the geometry node pairs on it to find the matching depth frame.
+    masks.header = image.header
+    masks.image_width = image.width
+    masks.image_height = image.height
+    masks.model = str(reply.get("model", ""))
+    for instance in reply.get("instances", []):
+        mask = np.asarray(instance["mask"], dtype=np.uint8)
+        x, y, width, height = (int(value) for value in instance["roi"])
+        if mask.shape != (height, width):
+            warn(
+                f"instance '{instance.get('label')}' has a {mask.shape} mask for a "
+                f"{height}x{width} region; dropping it"
+            )
+            continue
+        out = InstanceMask()
+        label = str(instance["label"])
+        out.label = names.get(label, label)
+        out.score = float(instance["score"])
+        out.roi.x_offset = x
+        out.roi.y_offset = y
+        out.roi.width = width
+        out.roi.height = height
+        out.data = array.array("B", mask.tobytes())
+        embedding = instance.get("embedding")
+        if embedding is not None:
+            out.embedding = array.array("f", np.asarray(embedding, dtype=np.float32).tobytes())
+        masks.instances.append(out)
+    return masks

@@ -26,6 +26,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/GetApproachPose.srv"
   "srv/NextViewpoint.srv"
   "srv/ReportViewpoint.srv"
+  "srv/Segment.srv"
   DEPENDENCIES builtin_interfaces geometry_msgs sensor_msgs std_msgs
 )
 

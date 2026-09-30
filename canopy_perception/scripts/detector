@@ -6,17 +6,14 @@ list is idle, and `ros2 param set /detector phrases "['red block', 'blue sphere'
 behavior tree and the instruction grounder write.
 """
 
-import array
-
-import numpy as np
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import Image
 
-from canopy_msgs.msg import InstanceMask, InstanceMaskArray
-from canopy_perception.host_clients import VisionClient, image_to_array
+from canopy_msgs.msg import InstanceMaskArray
+from canopy_perception.host_clients import VisionClient, image_to_array, masks_from_reply
 
 # Reliable: masks are small and slow, and a dropped one is seconds blind.
 MASK_QOS = 2
@@ -136,35 +133,8 @@ class Detector(Node):
         self._client.close()
 
     def _publish(self, image, reply, names):
-        masks = InstanceMaskArray()
-        # The image's own header: the geometry node pairs on it to find the matching depth frame.
-        masks.header = image.header
-        masks.image_width = image.width
-        masks.image_height = image.height
-        masks.model = str(reply.get("model", ""))
-        for instance in reply.get("instances", []):
-            mask = np.asarray(instance["mask"], dtype=np.uint8)
-            x, y, width, height = (int(value) for value in instance["roi"])
-            if mask.shape != (height, width):
-                self.get_logger().warning(
-                    f"instance '{instance.get('label')}' has a {mask.shape} mask for a "
-                    f"{height}x{width} region; dropping it"
-                )
-                continue
-            out = InstanceMask()
-            label = str(instance["label"])
-            out.label = names.get(label, label)
-            out.score = float(instance["score"])
-            out.roi.x_offset = x
-            out.roi.y_offset = y
-            out.roi.width = width
-            out.roi.height = height
-            out.data = array.array("B", mask.tobytes())
-            embedding = instance.get("embedding")
-            if embedding is not None:
-                out.embedding = array.array("f", np.asarray(embedding, dtype=np.float32).tobytes())
-            masks.instances.append(out)
-        self._publisher.publish(masks)
+        warn = self.get_logger().warning
+        self._publisher.publish(masks_from_reply(image, reply, names, warn))
 
 
 def main():
