@@ -51,6 +51,7 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   scripts/detector
   scripts/object_describer
+  scripts/segmenter
   DESTINATION lib/${PROJECT_NAME})
 
 # --- tests -----------------------------------------------------------------
@@ -70,6 +71,7 @@ if(BUILD_TESTING)
 
   # Against a stub model server: needs neither a simulator nor a GPU.
   add_launch_test(test/test_detector.launch.py TARGET test_detector TIMEOUT 240)
+  add_launch_test(test/test_segmenter.launch.py TARGET test_segmenter TIMEOUT 120)
 
   # launch_testing's pytest plugins would import the launch test beside it, and fail to.
   find_package(ament_cmake_pytest REQUIRED)

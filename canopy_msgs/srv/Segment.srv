@@ -1,0 +1,13 @@
+# Segments the newest frame of a camera by a text prompt, on request ("the floor", "red mugs"),
+# for agents and tools. The world model's own detectors are not involved and see nothing of it.
+
+# The camera, by the name the segmenter was given for it, such as "chest".
+string camera
+# What to find, in plain words.
+string prompt
+---
+bool success
+# Why not, when it failed; empty otherwise.
+string message
+# One mask per instance found, stamped with the frame they came from.
+InstanceMaskArray masks

@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""Segments the newest frame of a named camera by a text prompt, on request.
+
+For agents and tools ("the floor", "every red mug"), apart from the world model: its detectors and
+their masks are not touched, so a floor never becomes an object. Python because it is a ZMQ and
+msgpack client of the same model servers the detector uses.
+"""
+
+import rclpy
+from rclpy.executors import ExternalShutdownException
+from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+from sensor_msgs.msg import Image
+
+from canopy_msgs.srv import Segment
+from canopy_perception.host_clients import VisionClient, image_to_array, masks_from_reply
+
+# Best effort, depth 1: only the newest frame of each camera is ever segmented.
+IMAGE_QOS = QoSProfile(
+    history=HistoryPolicy.KEEP_LAST,
+    depth=1,
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+)
+
+
+class Segmenter(Node):
+    def __init__(self):
+        super().__init__("segmenter", automatically_declare_parameters_from_overrides=True)
+        self._address = self._param("server_address", "tcp://127.0.0.1:5561")
+        self._max_image_age_s = float(self._param("max_image_age_s", 2.0))
+        self._box_threshold = float(self._param("box_threshold", 0.30))
+        self._text_threshold = float(self._param("text_threshold", 0.25))
+        self._images = {}
+        # "name=topic" per camera, such as "chest=/chest_camera/color/image_raw".
+        for entry in self._param("cameras", ["main=color/image_raw"]) or []:
+            name, _, topic = str(entry).partition("=")
+            name, topic = name.strip(), topic.strip()
+            if not name or not topic:
+                self.get_logger().warning(f"camera entry '{entry}' is not name=topic; skipped")
+                continue
+            self.create_subscription(
+                Image, topic, lambda msg, name=name: self._images.__setitem__(name, msg), IMAGE_QOS
+            )
+        self._client = VisionClient(self._address, int(self._param("zmq_timeout_ms", 20000)))
+        self.create_service(Segment, "~/segment", self._segment)
+
+    def _param(self, name, default):
+        return self.get_parameter_or(name, rclpy.parameter.Parameter(name, value=default)).value
+
+    def _segment(self, request, response):
+        prompt = request.prompt.strip()
+        image = self._images.get(request.camera)
+        if not prompt:
+            response.message = "the prompt is empty"
+            return response
+        if image is None:
+            known = ", ".join(sorted(self._images)) or "none yet"
+            response.message = (
+                f"no frame from camera '{request.camera}'; cameras with frames: {known}"
+            )
+            return response
+        age = (
+            self.get_clock().now() - rclpy.time.Time.from_msg(image.header.stamp)
+        ).nanoseconds / 1e9
+        if age > self._max_image_age_s:
+            response.message = f"the newest '{request.camera}' frame is {age:.1f} s old"
+            return response
+        try:
+            reply = self._client.call(
+                "segment",
+                {
+                    "image": image_to_array(image),
+                    "phrases": [prompt],
+                    "box_threshold": self._box_threshold,
+                    "text_threshold": self._text_threshold,
+                },
+            )
+        except (RuntimeError, ValueError) as error:
+            response.message = (
+                f"the vision server at {self._address} did not segment ({error}); is it running?"
+            )
+            return response
+        response.masks = masks_from_reply(image, reply, warn=self.get_logger().warning)
+        response.success = True
+        return response
+
+    def close(self):
+        self._client.close()
+
+
+def main():
+    rclpy.init()
+    node = Segmenter()
+    try:
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
+    finally:
+        node.close()
+        node.destroy_node()
+        rclpy.try_shutdown()
+
+
+if __name__ == "__main__":
+    main()
