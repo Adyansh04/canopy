@@ -48,6 +48,7 @@ struct WorldSnapshot
     double                     voxel       = 0.0;  ///< Objects' voxel edge, m; 0 from old saves.
     std::vector<RoomRecord>    rooms;
     std::vector<MappedObject>  objects;
+    std::vector<ObjectEvent>   events;  ///< What happened to the objects; empty from old saves.
     std::vector<std::uint8_t>  quality;
     std::vector<std::uint8_t>  surface_quality;
     std::vector<std::uint8_t>  flags;

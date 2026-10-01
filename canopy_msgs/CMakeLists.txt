@@ -18,6 +18,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Doorway.msg"
   "msg/InstanceMask.msg"
   "msg/InstanceMaskArray.msg"
+  "msg/ObjectEvent.msg"
   "msg/Room.msg"
   "msg/RoomArray.msg"
   "msg/WorldObject.msg"
@@ -25,6 +26,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/FindObjects.srv"
   "srv/GetApproachPose.srv"
   "srv/NextViewpoint.srv"
+  "srv/ObjectHistory.srv"
   "srv/ReportViewpoint.srv"
   "srv/Segment.srv"
   DEPENDENCIES builtin_interfaces geometry_msgs sensor_msgs std_msgs

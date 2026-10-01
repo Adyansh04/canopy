@@ -1,0 +1,15 @@
+# What happened to the objects a query names, oldest first: where each stood, when it went
+# missing, and what it may have become after a move.
+
+# An id ("O12") or words of a label or name; empty for every object.
+string query
+
+# Only events at or after this time; zero for all that are kept.
+builtin_interfaces/Time since
+
+# At most this many, the newest; zero for 50.
+uint32 max_events
+---
+ObjectEvent[] events
+
+string message

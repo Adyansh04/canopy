@@ -183,6 +183,27 @@ std::string saveWorld(const std::string& directory, const WorldSnapshot& snapsho
         yaml << YAML::EndMap;
     }
     yaml << YAML::EndSeq;
+    yaml << YAML::Key << "events" << YAML::Value << YAML::BeginSeq;
+    for (const ObjectEvent& event : snapshot.events)
+    {
+        yaml << YAML::Flow << YAML::BeginMap;
+        yaml << YAML::Key << "t" << YAML::Value << event.stamp;
+        yaml << YAML::Key << "id" << YAML::Value << event.id;
+        yaml << YAML::Key << "kind" << YAML::Value << std::string(kindName(event.kind));
+        yaml << YAML::Key << "label" << YAML::Value << YAML::DoubleQuoted << event.label;
+        yaml << YAML::Key << "at" << YAML::Value << YAML::BeginSeq << event.at.x() << event.at.y()
+             << YAML::EndSeq;
+        if (event.other != 0)
+        {
+            yaml << YAML::Key << "other" << YAML::Value << event.other;
+        }
+        if (!event.detail.empty())
+        {
+            yaml << YAML::Key << "detail" << YAML::Value << YAML::DoubleQuoted << event.detail;
+        }
+        yaml << YAML::EndMap;
+    }
+    yaml << YAML::EndSeq;
     yaml << YAML::EndMap;
 
     std::ostringstream objects(std::ios::binary);
@@ -429,6 +450,22 @@ std::optional<WorldSnapshot> loadWorld(const std::string& directory, std::string
             }
             slot_of[object.id] = snapshot.objects.size();
             snapshot.objects.push_back(std::move(object));
+        }
+        for (const YAML::Node& node : yaml["events"])
+        {
+            const auto kind = kindNamed(node["kind"].as<std::string>(""));
+            if (!kind)
+            {
+                continue;  // A kind this build does not know, from a newer one.
+            }
+            snapshot.events.push_back(
+                { .stamp  = node["t"].as<double>(0.0),
+                  .id     = node["id"].as<int>(0),
+                  .kind   = *kind,
+                  .label  = node["label"].as<std::string>(""),
+                  .at     = { node["at"][0].as<double>(0.0), node["at"][1].as<double>(0.0) },
+                  .other  = node["other"].as<int>(0),
+                  .detail = node["detail"].as<std::string>("") });
         }
     }
     catch (const YAML::Exception& exception)

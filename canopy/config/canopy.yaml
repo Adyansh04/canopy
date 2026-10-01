@@ -150,6 +150,11 @@
       position_tolerance: 0.35
       stale_after: 4
       remove_after: 10
+      # The history: a box moving this far is a move, past AMCL's drift, m; an object that
+      # appears may be one of its label missing up to relink_s, s; max_events are kept.
+      move_distance: 0.5
+      relink_s: 3600.0
+      max_events: 2000
       # A table seen from two sides fuses into two parts that share no voxels but touch; tables and
       # shelves are also seen as legs and ends, apart, but never joined into anything longer.
       merge_gap: 0.10

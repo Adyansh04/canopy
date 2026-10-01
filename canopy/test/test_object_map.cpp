@@ -9,6 +9,7 @@
 #include <functional>
 #include <limits>
 #include <numbers>
+#include <set>
 #include <tuple>
 
 #include "canopy/object_map.hpp"
@@ -393,6 +394,114 @@ TEST(ObjectMap, ForgetsAnObjectThatIsGone)
     ASSERT_NE(mug, map.objects().end());
     EXPECT_EQ(mug->state, ObjectState::kRemoved);
     EXPECT_NE(byLabel(map, "table"), nullptr);
+}
+
+std::vector<ObjectEvent::Kind> kindsOf(const ObjectMap& map, int id)
+{
+    std::vector<ObjectEvent::Kind> kinds;
+    for (const ObjectEvent& event : map.events())
+    {
+        if (event.id == id)
+        {
+            kinds.push_back(event.kind);
+        }
+    }
+    return kinds;
+}
+
+TEST(ObjectHistory, TellsWhenAMugAppearedWentMissingAndWasGone)
+{
+    const Camera camera;
+    ObjectMap    map;
+    const auto   pose = camera.pose(2.6, 0.6, std::numbers::pi / 2.0);
+    for (const double stamp : { 1.0, 2.0 })
+    {
+        Frame seen = render(camera, pose, { kTable, kMug, kWall }, { kTable, kMug }, stamp);
+        map.integrate(seen.inputs, seen.input);
+    }
+    const MappedObject* mug = byLabel(map, "mug");
+    ASSERT_NE(mug, nullptr);
+    const int id = mug->id;
+    EXPECT_THAT(kindsOf(map, id), ::testing::ElementsAre(ObjectEvent::Kind::kAppeared));
+
+    for (int step = 0; step < 12; ++step)
+    {
+        Frame gone = render(camera, pose, { kTable, kWall }, { kTable }, 3.0 + step);
+        map.integrate(gone.inputs, gone.input);
+    }
+    using K = ObjectEvent::Kind;
+    EXPECT_THAT(kindsOf(map, id), ::testing::ElementsAre(K::kAppeared, K::kMissing, K::kRemoved));
+    const std::vector<ObjectEvent> story = map.history("O" + std::to_string(id), 0.0, 10);
+    ASSERT_EQ(story.size(), 3U);
+    EXPECT_NEAR(story.front().at.x(), 2.54, 0.05);
+    EXPECT_GT(story.back().stamp, story[1].stamp);
+    EXPECT_EQ(map.history("mug", 0.0, 1).size(), 1U) << "the newest, at most";
+    EXPECT_TRUE(map.history("sofa", 0.0, 10).empty());
+}
+
+TEST(ObjectHistory, LinksAMugFoundElsewhereToTheOneThatWentMissing)
+{
+    const Camera camera;
+    ObjectMap    map;
+    const auto   pose = camera.pose(2.6, 0.6, std::numbers::pi / 2.0);
+    // The same table and mug 2.5 m along: too far to be the same object where it stood.
+    const Box other_table{ "table", { 4.5, 1.0, 0.0 }, { 5.7, 1.8, 0.75 } };
+    const Box far_mug{ "mug", { 5.0, 1.3, 0.75 }, { 5.08, 1.38, 0.85 } };
+    for (const double stamp : { 1.0, 2.0 })
+    {
+        Frame seen = render(camera, pose, { kTable, kMug, kWall }, { kTable, kMug }, stamp);
+        map.integrate(seen.inputs, seen.input);
+    }
+    const int first = byLabel(map, "mug")->id;
+    for (int step = 0; step < 12; ++step)
+    {
+        Frame gone = render(camera, pose, { kTable, kWall }, { kTable }, 3.0 + step);
+        map.integrate(gone.inputs, gone.input);
+    }
+    const auto there = camera.pose(5.1, 0.6, std::numbers::pi / 2.0);
+    for (const double stamp : { 20.0, 21.0 })
+    {
+        Frame seen =
+            render(camera, there, { other_table, far_mug, kWall }, { other_table, far_mug }, stamp);
+        map.integrate(seen.inputs, seen.input);
+    }
+    const MappedObject* again = byLabel(map, "mug");
+    ASSERT_NE(again, nullptr);
+    ASSERT_NE(again->id, first);
+    const auto appeared = std::ranges::find_if(map.events(), [&](const ObjectEvent& e) {
+        return e.id == again->id && e.kind == ObjectEvent::Kind::kAppeared;
+    });
+    ASSERT_NE(appeared, map.events().end());
+    EXPECT_EQ(appeared->other, first);
+    // Asked about either, the story is both: where it was, and where it may be now.
+    for (const int asked : { first, again->id })
+    {
+        std::set<int> ids;
+        for (const ObjectEvent& event : map.history("O" + std::to_string(asked), 0.0, 20))
+        {
+            ids.insert(event.id);
+        }
+        EXPECT_THAT(ids, ::testing::ElementsAre(first, again->id));
+    }
+}
+
+TEST(ObjectHistory, GoesOnFromARestoredWorldWithoutRepeatingIt)
+{
+    const Camera camera;
+    ObjectMap    map;
+    const auto   pose = camera.pose(2.6, 0.6, std::numbers::pi / 2.0);
+    for (const double stamp : { 1.0, 2.0 })
+    {
+        Frame seen = render(camera, pose, { kTable, kMug, kWall }, { kTable, kMug }, stamp);
+        map.integrate(seen.inputs, seen.input);
+    }
+    const std::vector<ObjectEvent> saved(map.events().begin(), map.events().end());
+    ObjectMap                      later;
+    later.restore(map.objects(), map.nextId());
+    later.restoreEvents(saved);
+    Frame seen = render(camera, pose, { kTable, kMug, kWall }, { kTable, kMug }, 50.0);
+    later.integrate(seen.inputs, seen.input);
+    EXPECT_EQ(later.events().size(), saved.size()) << "nothing new happened";
 }
 
 TEST(ObjectMap, KeepsAnUndetectedObjectThatIsStillThere)
