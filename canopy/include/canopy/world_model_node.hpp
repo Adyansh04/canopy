@@ -26,6 +26,7 @@
 #include <canopy_msgs/srv/find_objects.hpp>
 #include <canopy_msgs/srv/get_approach_pose.hpp>
 #include <canopy_msgs/srv/next_viewpoint.hpp>
+#include <canopy_msgs/srv/object_history.hpp>
 #include <canopy_msgs/srv/report_viewpoint.hpp>
 #include <deque>
 #include <map>
@@ -126,6 +127,10 @@ private:
     void onGetApproachPose(
         const canopy_msgs::srv::GetApproachPose::Request::SharedPtr&  request,
         const canopy_msgs::srv::GetApproachPose::Response::SharedPtr& response);
+    /// What happened to the objects a query names (ObjectMap::history), rooms as they are now.
+    void onObjectHistory(
+        const canopy_msgs::srv::ObjectHistory::Request::SharedPtr&  request,
+        const canopy_msgs::srv::ObjectHistory::Response::SharedPtr& response) const;
     void onSave(
         const std_srvs::srv::Trigger::Request::SharedPtr&  request,
         const std_srvs::srv::Trigger::Response::SharedPtr& response);
@@ -315,6 +320,7 @@ private:
     rclcpp::Service<canopy_msgs::srv::ReportViewpoint>::SharedPtr report_viewpoint_srv_;
     rclcpp::Service<canopy_msgs::srv::FindObjects>::SharedPtr     find_objects_srv_;
     rclcpp::Service<canopy_msgs::srv::GetApproachPose>::SharedPtr approach_srv_;
+    rclcpp::Service<canopy_msgs::srv::ObjectHistory>::SharedPtr   history_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr            save_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr            reload_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr            clean_up_srv_;

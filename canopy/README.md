@@ -92,6 +92,7 @@ Along the way:
 | Pub | `~/describe_requests` | `canopy_msgs/DescribeRequest`, with `describe:=true` |
 | Srv | `~/next_viewpoint`, `~/report_viewpoint` | the exploration loop |
 | Srv | `~/find_objects`, `~/get_approach_pose` | finding things |
+| Srv | `~/object_history` | `canopy_msgs/ObjectHistory`: what happened to the objects a query names, oldest first: when each appeared, moved, went missing (looked at and not found), was seen again, removed or merged, and the object it may have become after a move |
 | Srv | `~/save` | `std_srvs/Trigger`: writes the world to `world_dir` (it also saves every minute), unless someone else changed it on disk since |
 | Srv | `~/reload` | `std_srvs/Trigger`: takes the world in `world_dir` as it is on disk now, e.g. after the map editor |
 | Srv | `~/clean_up` | `std_srvs/Trigger`: once exploring is over, marks removed what is surely not an object (the floor, a piece inside something far more seen), with the reason; the map editor can bring any back |
@@ -111,7 +112,7 @@ Along the way:
 |---|---|
 | `map.pgm`, `map.yaml` | The floor plan, as `map_saver` writes it: SLAM's map with every room closed and furniture solid. |
 | `semantic_map.png` | That plan with rooms tinted and named, and every object's box and label. |
-| `world.yaml` | Rooms and objects in plain text: ids, names, types, boxes, what rests on what. |
+| `world.yaml` | Rooms and objects in plain text: ids, names, types, boxes, what rests on what, and the newest `max_events` of what happened to them. |
 | `objects.bin`, `coverage.bin`, `crops/` | Object voxels, what the camera has seen with the map SLAM made, and each object's best view. |
 | `wall_hits.png` | The LiDAR's returns at wall height, to rebuild the floor plan offline. |
 

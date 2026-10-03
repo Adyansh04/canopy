@@ -390,6 +390,22 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     snapshot.flags           = { 0, 1, 0 };
     snapshot.structure_hits  = { 0, 900, 3 };
     snapshot.band_clear      = { 7, 0, 65535 };
+    snapshot.events          = {
+        { .stamp  = 10.5,
+                   .id     = 12,
+                   .kind   = ObjectEvent::Kind::kAppeared,
+                   .label  = "dustbin",
+                   .at     = { 1.0, 2.0 },
+                   .other  = 9,
+                   .detail = {} },
+        { .stamp  = 99.0,
+                   .id     = 12,
+                   .kind   = ObjectEvent::Kind::kRemoved,
+                   .label  = "trash can",
+                   .at     = { 1.1, 2.0 },
+                   .other  = 0,
+                   .detail = "clean-up: the floor" },
+    };
 
     const std::string directory =
         (std::filesystem::temp_directory_path() / "canopy_world_store_test").string();
@@ -435,6 +451,12 @@ TEST(WorldStore, RoundTripsRoomsObjectsAndCoverage)
     EXPECT_DOUBLE_EQ(back.best_view_score, 900.0);
     EXPECT_EQ(loaded->structure_hits, snapshot.structure_hits);
     EXPECT_EQ(loaded->band_clear, snapshot.band_clear);
+    ASSERT_EQ(loaded->events.size(), 2U);
+    EXPECT_EQ(loaded->events[0].kind, ObjectEvent::Kind::kAppeared);
+    EXPECT_EQ(loaded->events[0].other, 9);
+    EXPECT_DOUBLE_EQ(loaded->events[0].at.y(), 2.0);
+    EXPECT_EQ(loaded->events[1].detail, "clean-up: the floor");
+    EXPECT_DOUBLE_EQ(loaded->events[1].stamp, 99.0);
 
     // Set aside rather than saved over: the directory is empty of it, the copy loads.
     std::string aside;

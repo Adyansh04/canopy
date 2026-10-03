@@ -317,6 +317,11 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         declare_parameter<double>("objects.max_merged_extent", objects.max_merged_extent);
     objects.min_observations = static_cast<int>(
         declare_parameter<int>("objects.min_observations", objects.min_observations));
+    objects.move_distance =
+        declare_parameter<double>("objects.move_distance", objects.move_distance);
+    objects.relink_s = declare_parameter<double>("objects.relink_s", objects.relink_s);
+    objects.max_events =
+        static_cast<int>(declare_parameter<int>("objects.max_events", objects.max_events));
     map_fit_params_.reach = declare_parameter<double>("objects.fit_reach", map_fit_params_.reach);
     map_fit_params_.max_growth =
         declare_parameter<double>("objects.fit_max_growth", map_fit_params_.max_growth);
@@ -528,6 +533,13 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
             const FindObjectsSrv::Request::SharedPtr&  request,
             const FindObjectsSrv::Response::SharedPtr& response) {
             onFindObjects(request, response);
+        });
+    history_srv_ = create_service<canopy_msgs::srv::ObjectHistory>(
+        "~/object_history",
+        [this](
+            const canopy_msgs::srv::ObjectHistory::Request::SharedPtr&  request,
+            const canopy_msgs::srv::ObjectHistory::Response::SharedPtr& response) {
+            onObjectHistory(request, response);
         });
     approach_srv_ = create_service<ApproachSrv>(
         "~/get_approach_pose",
@@ -1423,6 +1435,7 @@ bool WorldModelNode::applyRestore()
     requested_at_.clear();
     looked_again_.clear();
     objects_.restore(std::move(snapshot.objects), snapshot.next_object);
+    objects_.restoreEvents(std::move(snapshot.events));
     coverage_.restoreLayers(snapshot.quality, snapshot.surface_quality, snapshot.flags);
     coverage_.setSurfaces(objects_.surfaces());
     if (snapshot.structure_hits.size() == geometry_.cellCount())
@@ -1916,6 +1929,38 @@ void WorldModelNode::onFindObjects(
     }
 }
 
+void WorldModelNode::onObjectHistory(
+    const canopy_msgs::srv::ObjectHistory::Request::SharedPtr&  request,
+    const canopy_msgs::srv::ObjectHistory::Response::SharedPtr& response) const
+{
+    const double since = rclcpp::Time(request->since).seconds();
+    const auto   most  = request->max_events == 0 ? std::size_t{ 50 } :
+                                                    static_cast<std::size_t>(request->max_events);
+    for (const ObjectEvent& event : objects_.history(request->query, since, most))
+    {
+        canopy_msgs::msg::ObjectEvent out;
+        out.stamp      = rclcpp::Time(static_cast<std::int64_t>(event.stamp * 1e9));
+        out.id         = objectId(event.id);
+        out.label      = event.label;
+        out.kind       = std::string(kindName(event.kind));
+        out.position.x = event.at.x();
+        out.position.y = event.at.y();
+        if (const RoomState* room = roomByLabel(roomLabelAt(event.at.x(), event.at.y())))
+        {
+            out.room_id = room->id;
+        }
+        out.other_id = event.other != 0 ? objectId(event.other) : std::string{};
+        out.detail   = event.detail;
+        response->events.push_back(std::move(out));
+    }
+    if (response->events.empty())
+    {
+        response->message = request->query.empty() ?
+                                "nothing has happened to any object yet" :
+                                "nothing is kept about '" + request->query + "'";
+    }
+}
+
 void WorldModelNode::onGetApproachPose(
     const canopy_msgs::srv::GetApproachPose::Request::SharedPtr&  request,
     const canopy_msgs::srv::GetApproachPose::Response::SharedPtr& response)
@@ -2064,6 +2109,7 @@ void WorldModelNode::onReload(const std_srvs::srv::Trigger::Response::SharedPtr&
 void WorldModelNode::onCleanUp(const std_srvs::srv::Trigger::Response::SharedPtr& response)
 {
     const std::vector<std::string> removed = objects_.cleanUp(cleanup_params_);
+    objects_.noteChanges(now().seconds());
     for (const std::string& line : removed)
     {
         RCLCPP_INFO(get_logger(), "clean-up removed %s", line.c_str());
@@ -2149,6 +2195,7 @@ std::string WorldModelNode::saveNow()
     }
     // The boxes as shown: the map's outline where it gave one.
     snapshot.objects = objects_.objects();
+    snapshot.events.assign(objects_.events().begin(), objects_.events().end());
     for (MappedObject& object : snapshot.objects)
     {
         const Footprint box = footprintOf(object);

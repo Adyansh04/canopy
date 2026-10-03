@@ -16,9 +16,11 @@
 
 #include <Eigen/Geometry>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -62,6 +64,9 @@ struct ObjectMapParams
     double turned_area_ratio  = 0.7;    ///< A box leaves the walls only this much tighter.
     double miss_margin        = 0.30;   ///< Depth this far behind an object sees through it, m;
                                         ///< less for small objects, down to one voxel.
+    double move_distance = 0.5;         ///< A confirmed object's box moving this far moved, m.
+    double relink_s      = 3600.0;      ///< A new object may be one of its label missing as long.
+    int    max_events    = 2000;        ///< History kept; the oldest go first.
 
     /// Labels whose tops hold other objects, in the words detectors use: canopy_perception's
     /// vocabulary says countertop and tv stand, ground-truth labels counter and table.
@@ -100,6 +105,37 @@ enum class ObjectState : std::uint8_t
     kStale   = 1,
     kRemoved = 2,
 };
+
+/// Something that happened to a confirmed object, for questions such as where the mug was this
+/// morning. Missing means looked at and not found, depth seeing through where it stood; a missed
+/// detection alone is never an absence.
+struct ObjectEvent
+{
+    enum class Kind : std::uint8_t
+    {
+        kAppeared,   ///< Confirmed here. `other`: one of its label that went missing first, which
+                     ///< it may be.
+        kMoved,      ///< Its box moved move_distance or more since the last event.
+        kMissing,    ///< Looked at and not found: stale.
+        kSeenAgain,  ///< Found again after it went missing.
+        kRemoved,    ///< Not found again and again, or cleaned up, as `detail` says.
+        kMerged,     ///< Found to be part of `other`, which keeps its history from here.
+    };
+
+    double          stamp = 0.0;  ///< s.
+    int             id    = 0;
+    Kind            kind  = Kind::kAppeared;
+    std::string     label;
+    Eigen::Vector2d at    = Eigen::Vector2d::Zero();  ///< Its footprint's centre then, map frame.
+    int             other = 0;
+    std::string     detail;
+};
+
+/// "appeared", "moved", "missing", "seen_again", "removed", "merged".
+[[nodiscard]] std::string_view kindName(ObjectEvent::Kind kind);
+
+/// The kind a name names, for loading.
+[[nodiscard]] std::optional<ObjectEvent::Kind> kindNamed(std::string_view name);
 
 struct MappedObject
 {
@@ -234,6 +270,25 @@ public:
     /// The id the next new object gets.
     [[nodiscard]] int nextId() const { return next_id_; }
 
+    /// What happened to confirmed objects, oldest first: at most max_events.
+    [[nodiscard]] const std::deque<ObjectEvent>& events() const { return events_; }
+
+    /// Notes in the history what changed since the last note, at @p stamp: after a clean-up or
+    /// an operator's edit. integrate() notes its own changes at the frame's stamp.
+    void noteChanges(double stamp);
+
+    /// Replaces the history, as from a saved world; restore() the objects first.
+    void restoreEvents(std::vector<ObjectEvent> events);
+
+    /**
+     * @brief What happened to the objects @p query names, oldest first, newer than @p since.
+     *
+     * @p query is an id ("O12") or words of a label or name; empty names every object. The story
+     * of an object includes the one it may have become, or come from, after a move.
+     */
+    [[nodiscard]] std::vector<ObjectEvent>
+    history(std::string_view query, double since, std::size_t max) const;
+
     /// Support-type objects as coverage surfaces, top faces only.
     [[nodiscard]] std::vector<Surface> surfaces() const;
 
@@ -266,9 +321,24 @@ private:
     void refreshShape(MappedObject& object) const;
     void mergeInto(MappedObject& keep, MappedObject& drop) const;
 
+    /// What the history last said of an object.
+    struct Noted
+    {
+        ObjectState     state = ObjectState::kActive;
+        Eigen::Vector2d at    = Eigen::Vector2d::Zero();
+    };
+
+    void record(ObjectEvent event);
+    void note(const MappedObject& object, double stamp);
+    /// The id of a confirmed object of @p object's label that went missing in the relink_s before
+    /// it appeared, the most recent; 0 if none.
+    [[nodiscard]] int missingKin(const MappedObject& object) const;
+
     ObjectMapParams           params_;
     std::vector<MappedObject> objects_;
     std::vector<std::string>  dropped_;
+    std::map<int, Noted>      noted_;
+    std::deque<ObjectEvent>   events_;
     int                       next_id_   = 1;
     int                       frames_    = 0;
     double                    frame_yaw_ = 0.0;

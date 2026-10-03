@@ -14,6 +14,7 @@
 #include <limits>
 #include <numeric>
 #include <opencv2/imgproc.hpp>
+#include <set>
 #include <utility>
 
 namespace canopy
@@ -134,7 +135,48 @@ double jointExtent(const MappedObject& a, const MappedObject& b)
     return (high - low).maxCoeff();
 }
 
+std::string lowered(std::string_view text)
+{
+    std::string out(text);
+    std::ranges::transform(out, out.begin(), [](unsigned char c) { return std::tolower(c); });
+    return out;
+}
+
+/// The id an "O12" names, or 0.
+int idNamed(std::string_view text)
+{
+    if (text.size() < 2 || (text[0] != 'O' && text[0] != 'o') ||
+        !std::all_of(text.begin() + 1, text.end(), [](unsigned char c) { return std::isdigit(c); }))
+    {
+        return 0;
+    }
+    return std::stoi(std::string(text.substr(1)));
+}
+
+constexpr std::array<std::pair<ObjectEvent::Kind, std::string_view>, 6> kKindNames{ {
+    { ObjectEvent::Kind::kAppeared, "appeared" },
+    { ObjectEvent::Kind::kMoved, "moved" },
+    { ObjectEvent::Kind::kMissing, "missing" },
+    { ObjectEvent::Kind::kSeenAgain, "seen_again" },
+    { ObjectEvent::Kind::kRemoved, "removed" },
+    { ObjectEvent::Kind::kMerged, "merged" },
+} };
+
 }  // namespace
+
+std::string_view kindName(ObjectEvent::Kind kind)
+{
+    const auto* found =
+        std::ranges::find(kKindNames, kind, &decltype(kKindNames)::value_type::first);
+    return found == kKindNames.end() ? std::string_view{} : found->second;
+}
+
+std::optional<ObjectEvent::Kind> kindNamed(std::string_view name)
+{
+    const auto* found =
+        std::ranges::find(kKindNames, name, &decltype(kKindNames)::value_type::second);
+    return found == kKindNames.end() ? std::nullopt : std::optional(found->first);
+}
 
 std::string MappedObject::label() const
 {
@@ -679,6 +721,7 @@ ObjectMap::integrate(const std::vector<MaskInput>& masks, const FrameInput& fram
         pruneUnconfirmed(frame.stamp);
     }
     relateSupports();
+    noteChanges(frame.stamp);
     return outcomes;
 }
 
@@ -867,9 +910,20 @@ int ObjectMap::mergeDuplicates()
                 continue;
             }
             // The one an operator worked on keeps its id, else the better established.
-            const bool keep_a = a.touchedByOperator() != b.touchedByOperator() ?
-                                    a.touchedByOperator() :
-                                    a.observations >= b.observations;
+            const bool          keep_a = a.touchedByOperator() != b.touchedByOperator() ?
+                                             a.touchedByOperator() :
+                                             a.observations >= b.observations;
+            const MappedObject& gone   = keep_a ? b : a;
+            if (noted_.erase(gone.id) > 0)
+            {
+                record({ .stamp  = std::max(a.last_seen, b.last_seen),
+                         .id     = gone.id,
+                         .kind   = ObjectEvent::Kind::kMerged,
+                         .label  = gone.label(),
+                         .at     = gone.box_centre,
+                         .other  = (keep_a ? a : b).id,
+                         .detail = {} });
+            }
             mergeInto(keep_a ? a : b, keep_a ? b : a);
             objects_.erase(objects_.begin() + static_cast<std::ptrdiff_t>(keep_a ? j : i));
             ++merged;
@@ -1079,6 +1133,165 @@ void ObjectMap::restore(std::vector<MappedObject> objects, int next_id)
     }
     // What rests on what is not saved: re-derived here, as integrate() would on the next frame.
     relateSupports();
+    // The history goes on from the objects as restored: nothing has happened to them yet.
+    noted_.clear();
+    for (const MappedObject& object : objects_)
+    {
+        if (confirmed(object))
+        {
+            noted_.emplace(object.id, Noted{ object.state, object.box_centre });
+        }
+    }
+}
+
+void ObjectMap::restoreEvents(std::vector<ObjectEvent> events)
+{
+    events_.assign(std::make_move_iterator(events.begin()), std::make_move_iterator(events.end()));
+    while (events_.size() > static_cast<std::size_t>(std::max(params_.max_events, 0)))
+    {
+        events_.pop_front();
+    }
+}
+
+void ObjectMap::noteChanges(double stamp)
+{
+    for (const MappedObject& object : objects_)
+    {
+        note(object, stamp);
+    }
+}
+
+void ObjectMap::record(ObjectEvent event)
+{
+    events_.push_back(std::move(event));
+    while (events_.size() > static_cast<std::size_t>(std::max(params_.max_events, 0)))
+    {
+        events_.pop_front();
+    }
+}
+
+void ObjectMap::note(const MappedObject& object, double stamp)
+{
+    // A glimpse waiting to be confirmed may be nothing; it joins the history once it is not.
+    if (!confirmed(object))
+    {
+        return;
+    }
+    ObjectEvent event{ .stamp  = stamp,
+                       .id     = object.id,
+                       .kind   = ObjectEvent::Kind::kAppeared,
+                       .label  = object.label(),
+                       .at     = object.box_centre,
+                       .other  = 0,
+                       .detail = {} };
+    const auto  found = noted_.find(object.id);
+    if (found == noted_.end())
+    {
+        event.other = missingKin(object);
+        noted_.emplace(object.id, Noted{ object.state, object.box_centre });
+        record(std::move(event));
+        return;
+    }
+    Noted& last = found->second;
+    if (object.state != last.state)
+    {
+        switch (object.state)
+        {
+            case ObjectState::kActive:
+                event.kind = ObjectEvent::Kind::kSeenAgain;
+                break;
+            case ObjectState::kStale:
+                event.kind = ObjectEvent::Kind::kMissing;
+                break;
+            case ObjectState::kRemoved:
+                event.kind   = ObjectEvent::Kind::kRemoved;
+                event.detail = object.removed_by;
+                break;
+        }
+        last = { object.state, object.box_centre };
+        record(std::move(event));
+        return;
+    }
+    if (object.state == ObjectState::kActive &&
+        (object.box_centre - last.at).norm() >= params_.move_distance)
+    {
+        event.kind = ObjectEvent::Kind::kMoved;
+        last.at    = object.box_centre;
+        record(std::move(event));
+    }
+}
+
+int ObjectMap::missingKin(const MappedObject& object) const
+{
+    const MappedObject* kin = nullptr;
+    for (const MappedObject& other : objects_)
+    {
+        const double gap = object.first_seen - other.last_seen;
+        if (other.id == object.id || other.state == ObjectState::kActive || !confirmed(other) ||
+            other.label() != object.label() || gap < 0.0 || gap > params_.relink_s)
+        {
+            continue;
+        }
+        if (kin == nullptr || other.last_seen > kin->last_seen)
+        {
+            kin = &other;
+        }
+    }
+    return kin == nullptr ? 0 : kin->id;
+}
+
+std::vector<ObjectEvent>
+ObjectMap::history(std::string_view query, double since, std::size_t max) const
+{
+    const std::string wanted = lowered(query);
+    const int         id     = idNamed(wanted);
+    std::set<int>     ids;
+    for (const ObjectEvent& event : events_)
+    {
+        if (id != 0 ? event.id == id : lowered(event.label).find(wanted) != std::string::npos)
+        {
+            ids.insert(event.id);
+        }
+    }
+    for (const MappedObject& object : objects_)
+    {
+        if (id == 0 && !object.name.empty() &&
+            lowered(object.name).find(wanted) != std::string::npos)
+        {
+            ids.insert(object.id);
+        }
+    }
+    // One step along a move either way: what it may have become, and what it may have been.
+    std::set<int> linked;
+    for (const ObjectEvent& event : events_)
+    {
+        if (event.kind != ObjectEvent::Kind::kAppeared || event.other == 0)
+        {
+            continue;
+        }
+        if (ids.contains(event.other))
+        {
+            linked.insert(event.id);
+        }
+        if (ids.contains(event.id))
+        {
+            linked.insert(event.other);
+        }
+    }
+    ids.merge(linked);
+    std::vector<ObjectEvent> story;
+    for (const ObjectEvent& event : events_)
+    {
+        if (event.stamp >= since && ids.contains(event.id))
+        {
+            story.push_back(event);
+        }
+    }
+    if (story.size() > max)
+    {
+        story.erase(story.begin(), story.end() - static_cast<std::ptrdiff_t>(max));
+    }
+    return story;
 }
 
 std::map<int, Footprint> fitToMap(
