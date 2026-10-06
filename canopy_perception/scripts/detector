@@ -46,7 +46,11 @@ class Detector(Node):
         self._image = None
         self._asked = None
         self._publisher = self.create_publisher(InstanceMaskArray, "~/instance_masks", MASK_QOS)
-        self.create_subscription(Image, "color/image_raw", self._on_image, IMAGE_QOS)
+        # The world model's frames from a still base, which are all its masks are used from: for a
+        # model too slow to spend on the rest.
+        still = bool(self._param("still_frames", False))
+        source = "still_image" if still else "color/image_raw"
+        self.create_subscription(Image, source, self._on_image, IMAGE_QOS)
 
         self._client = VisionClient(self._address, int(self._param("zmq_timeout_ms", 20000)))
         self._handshake()

@@ -41,6 +41,12 @@ def nodes(context):
     cameras = cameras_of(context)
     remappings = []
     detectors = []
+    detector_parameters = [
+        os.path.join(get_package_share_directory("canopy_perception"), "config", "detector.yaml")
+    ]
+    extra = LaunchConfiguration("detector_params").perform(context)
+    if extra:
+        detector_parameters.append(extra)
     for name, namespace in cameras:
         masks = f"/detector_{name}/instance_masks"
         remappings += [
@@ -56,12 +62,11 @@ def nodes(context):
                 name=f"detector_{name}",
                 output="log",
                 condition=IfCondition(LaunchConfiguration("detector")),
-                parameters=[
-                    os.path.join(
-                        get_package_share_directory("canopy_perception"), "config", "detector.yaml"
-                    )
+                parameters=detector_parameters,
+                remappings=[
+                    ("color/image_raw", f"{namespace}/color/image_raw"),
+                    ("still_image", f"/canopy/{name}/still_image"),
                 ],
-                remappings=[("color/image_raw", f"{namespace}/color/image_raw")],
             )
         )
     parameters = [
@@ -113,6 +118,12 @@ def generate_launch_description():
                 default_value="false",
                 description="Start canopy_perception's detector per camera, against the host "
                 "semantic server.",
+            ),
+            DeclareLaunchArgument(
+                "detector_params",
+                default_value="",
+                description="A YAML over canopy_perception's config/detector.yaml, such as "
+                "config/detector_yoloe.yaml for a server run with --detector yoloe.",
             ),
             DeclareLaunchArgument(
                 "describe",

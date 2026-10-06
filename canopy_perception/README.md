@@ -26,7 +26,7 @@ colcon build --symlink-install --packages-select canopy_perception
 
 | Node | Does |
 |---|---|
-| `detector` | Sends the newest camera frame and the phrase list to the model server and publishes the masks it answers with, one call per `detect_rate_hz`. With `embed` it also asks for an image embedding per instance. |
+| `detector` | Sends the newest camera frame and the phrase list to the model server and publishes the masks it answers with, one call per `detect_rate_hz`. With `embed` it also asks for an image embedding per instance. With `still_frames` it reads the world model's frames from a still base instead, the only ones the world model uses masks from: for a model slower than a frame, such as SAM 3.1. |
 | `object_describer` | Sends each `DescribeRequest` to the server's `describe` endpoint (its own port, `tcp://127.0.0.1:5562` by default), one at a time, and publishes the answer. A refusal is logged and dropped: the world model asks again. |
 | `segmenter` | A service: segments the newest frame of a named camera by a text prompt ("the floor", "every mug") and answers with the masks, stamped with that frame. Apart from the world model, so an agent's floor never becomes an object. |
 | `mock_detector` | Cuts masks out of ground-truth boxes against the rendered depth: every pixel whose depth lands inside a box. No GPU, no server. Simulation only. A phrase matches every numbered body of its class: "chair" finds `chair_1` to `chair_5`. |
@@ -35,7 +35,7 @@ colcon build --symlink-install --packages-select canopy_perception
 
 | Direction | Name | Type |
 |---|---|---|
-| Sub | `color/image_raw` (detector) | `sensor_msgs/Image`, best effort, depth 1 |
+| Sub | `color/image_raw`, or `still_image` with `still_frames` (detector) | `sensor_msgs/Image`, best effort, depth 1 |
 | Sub | `object_poses`, `depth/image_raw`, `camera_info` (mock) | `vision_msgs/Detection3DArray` in the camera frame, `sensor_msgs/Image`, `sensor_msgs/CameraInfo` |
 | Pub | `~/instance_masks` (both detectors) | `canopy_msgs/InstanceMaskArray`, reliable, stamped with the image's own stamp |
 | Sub | `describe_requests` (describer) | `canopy_msgs/DescribeRequest` |

@@ -19,9 +19,15 @@
     still_linear: 0.05
     still_angular: 0.05
     settle_s: 1.0
+    # At most one frame this often per camera from a still base, on ~/<camera>/still_image, while
+    # a detector reads them: one too slow to spend on frames its masks could not be used from.
+    still_frame_period_s: 1.0
     # Depth is integrated this long after its stamp, once AMCL's map -> odom has caught up.
     tf_wait_s: 0.2
-    frame_history_s: 6.0
+    # How old a mask's frame may be when it arrives: the frames' own age plus the detector's time,
+    # with a still frame's wait for its turn at a slow one such as SAM 3.1. 64 frames are held per
+    # camera, 0.1 s apart, or wider apart for a longer history.
+    frame_history_s: 12.0
 
     # The cameras read. Camera N reads <prefix>depth/image_raw, <prefix>depth/camera_info,
     # <prefix>color/image_raw and <prefix>instance_masks, prefix camera.N.prefix ("N/" unset);

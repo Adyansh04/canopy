@@ -90,6 +90,7 @@ Along the way:
 | Pub | `~/trail` | `nav_msgs/Path` (latched): where the robot has walked |
 | Pub | `~/markers` | `visualization_msgs/MarkerArray` for RViz: rooms, doorways, objects, viewpoints, the cameras' view on the floor |
 | Pub | `~/describe_requests` | `canopy_msgs/DescribeRequest`, with `describe:=true` |
+| Pub | `~/<camera>/still_image` | `sensor_msgs/Image`: that camera's frames from a still base, at most one a `still_frame_period_s`, while a detector with `still_frames` reads them |
 | Srv | `~/next_viewpoint`, `~/report_viewpoint` | the exploration loop |
 | Srv | `~/find_objects`, `~/get_approach_pose` | finding things |
 | Srv | `~/object_history` | `canopy_msgs/ObjectHistory`: what happened to the objects a query names, oldest first: when each appeared, moved, went missing (looked at and not found), was seen again, removed or merged, and the object it may have become after a move |
