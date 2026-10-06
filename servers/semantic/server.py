@@ -8,7 +8,7 @@ import numpy as np
 
 from .config import VENV_HINT
 from .describers import DescriberChain, NoDescriber, OpenAIDescriber
-from .detection import build_yoloe
+from .detection import build_sam3, build_yoloe
 from .embedding import Siglip2Embedder, masked_crop
 from .gemini import GeminiDescriber, GeminiLimiter
 
@@ -19,6 +19,7 @@ MAX_DESCRIBE_IMAGES = 8
 # Registries: one entry per backend, built from its section of the config.
 
 DETECTORS = {
+    "sam3.1": lambda config, device: build_sam3(config["sam3.1"], device),
     "yoloe": lambda config, device: build_yoloe(config["yoloe"], device, prompt_free=False),
     "yoloe-pf": lambda config, device: build_yoloe(config["yoloe-pf"], device, prompt_free=True),
 }

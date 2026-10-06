@@ -28,7 +28,7 @@ from semantic.describers import (  # noqa: E402
     OpenAIDescriber,
     Unavailable,
 )
-from semantic.detection import YoloeDetector  # noqa: E402
+from semantic.detection import Sam3Detector, YoloeDetector  # noqa: E402
 from semantic.embedding import GREY, masked_crop  # noqa: E402
 from semantic.gemini import (  # noqa: E402
     FREE_TIER,
@@ -661,6 +661,45 @@ class YoloeTest(Scratch):
         self.assertEqual(
             [(i["label"], i["score"]) for i in instances], [("desk", 0.8), ("desk", 0.5)]
         )
+
+
+class Sam3Test(unittest.TestCase):
+    @staticmethod
+    def detector(found):
+        """A Sam3Detector whose model answers each phrase with fixed masks and scores."""
+        asked = []
+
+        def find(image, phrases, threshold):
+            asked.append((image.shape, list(phrases), threshold))
+            return [(phrase, *found[phrase]) for phrase in phrases if phrase in found]
+
+        return Sam3Detector(find), asked
+
+    def test_the_frame_and_threshold_reach_the_model_once(self):
+        detector, asked = self.detector({})
+        detector.segment(np.zeros((4, 6, 3), np.uint8), ["chair", "mug", "floor"], 0.4, 0.25)
+        self.assertEqual(asked, [((4, 6, 3), ["chair", "mug", "floor"], 0.4)])
+
+    def test_instances_keep_the_better_name_of_one_object(self):
+        region = np.zeros((1, 4, 6), bool)
+        region[0, 1:3, 2:5] = True
+        cup = np.zeros((2, 4, 6), bool)
+        cup[0, 0, 0] = True
+        detector, _ = self.detector(
+            {
+                "chair": (region, [0.6]),
+                "armchair": (region, [0.9]),
+                "mug": (cup, [0.7, 0.8]),  # the second mask is empty
+            }
+        )
+        instances = detector.segment(
+            np.zeros((4, 6, 3), np.uint8), ["chair", "armchair", "mug"], 0.3, 0.25
+        )
+        self.assertEqual(
+            [(i["label"], i["score"], i["roi"]) for i in instances],
+            [("armchair", 0.9, [2, 1, 3, 2]), ("mug", 0.7, [0, 0, 1, 1])],
+        )
+        self.assertEqual(instances[0]["mask"].tolist(), [[255] * 3] * 2)
 
 
 class FakeDetector:

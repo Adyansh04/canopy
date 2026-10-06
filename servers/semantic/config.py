@@ -15,11 +15,15 @@ DEFAULTS = {
     "host": "127.0.0.1",
     "port": 5561,
     "device": "auto",
-    "detector": "yoloe",
+    "detector": "sam3.1",
     "embedder": "siglip2",
     "describer": "gemini,openai",
     # When a request carries none; the detector always sends its own.
     "box_threshold": 0.25,
+    # SAM 3.1's checkpoint carries its image detector too, which is what segment asks. `batch`
+    # phrases go through its encoder together, and `mask_batch` of those that matched through its
+    # mask head: fewer of each for a smaller GPU, at some speed.
+    "sam3.1": {"checkpoint": f"{WEIGHTS}/sam3.1_multiplex.pt", "batch": 32, "mask_batch": 8},
     "yoloe": {"weights": f"{WEIGHTS}/yoloe-26l-seg.pt", "imgsz": 640, "half": True, "max_det": 100},
     "yoloe-pf": {
         "weights": f"{WEIGHTS}/yoloe-26l-seg-pf.pt",
