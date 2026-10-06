@@ -25,7 +25,8 @@ tested on its own. The node only wires it to topics and services.
 - Corridors too narrow for a 2.4 m disc are split off as their own rooms.
 - A room keeps its id (`R3`) when SLAM redraws the map.
 - A room's type comes from the objects in it (a bed makes a bedroom), or from the describer when
-  they leave it in doubt. A long, narrow room is a hallway whatever stands in it.
+  they leave it in doubt, until more of them settle on another type. A long, narrow room is a
+  hallway whatever stands in it.
 
 ### Camera coverage (`coverage_map`)
 

@@ -1586,14 +1586,14 @@ void WorldModelNode::typeRooms()
     }
     for (std::size_t slot = 0; slot < rooms_.size(); ++slot)
     {
-        RoomState& room = rooms_[slot];
-        if (room.type_source == "operator" || room.type_source == "describer")
-        {
-            continue;
-        }
+        RoomState&       room = rooms_[slot];
         const RoomTyping typing =
             classifyRoom(room_types_, labels[slot], room.region.length, room.region.width);
-        if (typing.type != room.type)
+        if (objectsRetype(
+                typing,
+                { room.type, room.type_confidence },
+                room.type_source,
+                describe_rooms_below_))
         {
             room.type            = typing.type;
             room.type_confidence = typing.probability;

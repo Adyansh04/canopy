@@ -133,4 +133,20 @@ RoomTyping classifyRoom(
     return { table.types[best], score[best] / total };
 }
 
+bool objectsRetype(
+    const RoomTyping& objects, const RoomTyping& current, std::string_view source, double settled)
+{
+    if (source == "operator")
+    {
+        return false;
+    }
+    if (source == "describer")
+    {
+        return !objects.type.empty() && objects.type != current.type &&
+               objects.probability >= std::max(settled, current.probability);
+    }
+    // The confidence too: a stale low one would send a settled room to the describer.
+    return objects.type != current.type || objects.probability != current.probability;
+}
+
 }  // namespace canopy

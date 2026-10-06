@@ -147,6 +147,24 @@ TEST(RoomTyping, AStripSixTimesLongerThanWideIsAHallwayWhateverStandsInIt)
     EXPECT_NE(classifyRoom(types, { "chair", "trash can", "book" }, 7.0, 2.0).type, "hallway");
 }
 
+TEST(RoomTyping, ObjectsRetypeADescribersRoomOnceTheyAreSureOfAnother)
+{
+    const RoomTyping office{ "office", 0.97 };
+    EXPECT_TRUE(objectsRetype(office, { "storage room", 0.9 }, "describer", 0.8));
+    EXPECT_FALSE(objectsRetype({ "office", 0.7 }, { "storage room", 0.9 }, "describer", 0.8));
+    EXPECT_FALSE(objectsRetype(office, { "storage room", 0.99 }, "describer", 0.8));
+    EXPECT_FALSE(objectsRetype(office, { "office", 0.6 }, "describer", 0.8));
+    EXPECT_FALSE(objectsRetype(office, { "storage room", 0.5 }, "operator", 0.8));
+}
+
+TEST(RoomTyping, ObjectsKeepTheirOwnConfidenceCurrent)
+{
+    const RoomTyping office{ "office", 0.97 };
+    EXPECT_TRUE(objectsRetype(office, { "office", 0.6 }, "objects", 0.8));
+    EXPECT_TRUE(objectsRetype(office, {}, "", 0.8));
+    EXPECT_FALSE(objectsRetype(office, office, "objects", 0.8));
+}
+
 TEST(ApproachPose, StandsClearOfATableAndFacesIt)
 {
     // A 6 x 6 m room with a 1.2 x 0.8 m table in the middle.
