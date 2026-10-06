@@ -11,6 +11,7 @@ import json
 import pickle
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from datetime import datetime, timezone
@@ -37,7 +38,7 @@ from semantic.gemini import (  # noqa: E402
     GeminiLimiter,
 )
 from semantic.prompts import parse_answer  # noqa: E402
-from semantic.server import DESCRIBERS, SemanticServer, _decode  # noqa: E402
+from semantic.server import DESCRIBERS, SemanticServer, _answer, _decode  # noqa: E402
 
 
 def utc(*fields):
@@ -812,6 +813,49 @@ class ServerTest(unittest.TestCase):
         request = {"endpoint": "embed_text", "data": {"texts": ["a mug"]}}
         self.assertIn("other port", self.server.handle(request, {"ping", "describe"})["error"])
         self.assertNotIn("error", self.server.handle(request, {"ping", "embed_text"}))
+
+
+class SocketTest(unittest.TestCase):
+    """The loop on a real socket, with a stand-in for the models."""
+
+    def test_the_fewest_phrases_are_answered_first(self):
+        import msgpack
+        import zmq
+
+        handled, release = [], threading.Event()
+
+        class Server:
+            def handle(self, request, endpoints):
+                handled.append(request["tag"])
+                if request["tag"] == "first":
+                    release.wait(5)  # the others queue up behind it meanwhile
+                return {"tag": request["tag"]}
+
+        context = zmq.Context()
+        router = context.socket(zmq.ROUTER)
+        port = router.bind_to_random_port("tcp://127.0.0.1")
+        threading.Thread(target=_answer, args=(router, Server(), set()), daemon=True).start()
+        clients = {}
+        for tag, phrases in (("first", 1), ("map", 30), ("pick", 1), ("bad", None), ("few", 5)):
+            client = context.socket(zmq.REQ)
+            client.connect(f"tcp://127.0.0.1:{port}")
+            if phrases is None:
+                client.send(b"\xc1")  # never valid msgpack
+            else:
+                client.send(msgpack.packb({"tag": tag, "data": {"phrases": ["x"] * phrases}}))
+            clients[tag] = client
+            time.sleep(0.2)
+        release.set()
+        try:
+            for tag, client in clients.items():
+                self.assertTrue(client.poll(5000), f"{tag} got no answer")
+                reply = msgpack.unpackb(client.recv())
+                self.assertEqual(reply.get("tag"), None if tag == "bad" else tag)
+            self.assertEqual(handled, ["first", "pick", "few", "map"])
+        finally:
+            for client in clients.values():
+                client.close(linger=0)
+            context.term()
 
 
 class ConfigTest(Scratch):

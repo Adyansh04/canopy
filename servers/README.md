@@ -6,7 +6,7 @@ or CUDA. Not a ROS package (`COLCON_IGNORE`): canopy_perception's `detector` and
 
 | File | Does |
 |---|---|
-| `semantic_server.py` | Detection (SAM 3.1, whose time grows with the phrases, or YOLOE-26, one pass for a whole word list), image and text embeddings (SigLIP 2), and object and room descriptions (Gemini, falling back to a local VLM). REQ/REP on `tcp://127.0.0.1:5561`, and on 5562 for `describe`; msgpack bodies. This file is the command line; the parts are in `semantic/`. |
+| `semantic_server.py` | Detection (SAM 3.1, whose time grows with the phrases, or YOLOE-26, one pass for a whole word list), image and text embeddings (SigLIP 2), and object and room descriptions (Gemini, falling back to a local VLM). REQ clients on `tcp://127.0.0.1:5561`, and on 5562 for `describe`; msgpack bodies. Of the requests waiting, the one with the fewest phrases is answered first, so a pick's one phrase does not wait behind a mapping detector's thirty. This file is the command line; the parts are in `semantic/`. |
 | `semantic/config.py` | `DEFAULTS`, and the `--config` file, flags and `--set` overrides over them. |
 | `semantic/detection.py` | SAM 3.1 and YOLOE-26 instance masks, one per region. |
 | `semantic/embedding.py` | SigLIP 2 embeddings, and the grey-backed crop of an instance they are taken of. |
