@@ -856,8 +856,46 @@ TEST(ViewpointPlanner, GivesUpOnARoomNavigationCannotEnter)
         planner.report(coverage, plan.viewpoint.id, reached);
     }
 
+    // Given up, then tried once more when nothing else was left, and given up for good.
     EXPECT_EQ(plan.status, PlanStatus::kDone);
-    EXPECT_EQ(refused, planner.params().max_room_failures);
+    EXPECT_EQ(refused, 2 * planner.params().max_room_failures);
+}
+
+TEST(ViewpointPlanner, TriesAGivenUpRoomOnceMoreWhenNothingElseIsLeft)
+{
+    const World  world = twoRoomsAndACorridor();
+    const Camera camera;
+    CoverageMap  coverage;
+    coverage.setMap(world.cells, world.geometry);
+    const Segmentation rooms = segmentRooms(world.cells, world.geometry, {});
+    ViewpointPlanner   planner({}, camera.model);
+
+    // Nav2 refuses the right-hand room's first walks only, as a controller starved at its door.
+    const auto in_right = [](const Viewpoint& viewpoint) {
+        return viewpoint.x > 5.1 && viewpoint.y > 1.8;
+    };
+    int    refusals_left = planner.params().max_room_failures;
+    bool   entered_right = false;
+    Pose2D robot{ 1.0, 0.9, 0.0 };
+    Plan   plan;
+    for (int step = 0; step < 80; ++step)
+    {
+        plan = planner.nextCoverage(coverage, rooms.labels, robot);
+        if (plan.status != PlanStatus::kViewpoint)
+        {
+            break;
+        }
+        const bool reached = !in_right(plan.viewpoint) || refusals_left-- <= 0;
+        if (reached)
+        {
+            robot         = look(world, camera, coverage, plan.viewpoint);
+            entered_right = entered_right || in_right(plan.viewpoint);
+        }
+        planner.report(coverage, plan.viewpoint.id, reached);
+    }
+
+    EXPECT_EQ(plan.status, PlanStatus::kDone);
+    EXPECT_TRUE(entered_right);
 }
 
 TEST(ViewpointPlanner, KeepsARoomItHasBeenInsideDespiteFailures)

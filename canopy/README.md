@@ -57,7 +57,8 @@ Along the way:
 
 - What no standing spot can see (a shelf above the camera) is written off and reported per room,
   rather than chased.
-- A room whose viewpoints Nav2 keeps refusing is given up.
+- A room whose viewpoints Nav2 keeps refusing is given up, and tried once more when nothing else
+  is left.
 
 ### Objects (`object_map`)
 

@@ -131,8 +131,8 @@
       # Around a viewpoint Nav2 could not reach, nothing is offered again, m.
       blacklist_radius: 0.5
       # Unreached viewpoints in a room the robot has never got into before it stops trying that
-      # room, and in a row anywhere before it decides the robot itself is stuck and plans nothing
-      # until it has moved.
+      # room, until nothing else is left and it gets one more round; and in a row anywhere before
+      # it decides the robot itself is stuck and plans nothing until it has moved.
       max_room_failures: 3
       max_failures_in_a_row: 5
       # Stuck answers before planning resumes where the robot stands: one that cannot move still

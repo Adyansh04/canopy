@@ -183,8 +183,8 @@ public:
      *
      * Reached: every target it was meant to cover and still has not gets an attempt, and is
      * written off after max_attempts. Not reached: the spot is avoided, after max_room_failures
-     * in a room never entered the whole room, and after max_failures_in_a_row anywhere nothing is
-     * planned until the robot has moved.
+     * in a room never entered the whole room until nothing else is left, and then for good, and
+     * after max_failures_in_a_row anywhere nothing is planned until the robot has moved.
      */
     void report(CoverageMap& coverage, std::uint32_t id, bool reached);
 
@@ -252,6 +252,9 @@ private:
         std::vector<cv::Point2d> edge;  ///< The pocket edge it was planned for, map frame.
     };
 
+    /// nextCoverage's plan, or nothing when it forgave the given-up rooms and has to plan again.
+    std::optional<Plan>
+    planCoverage(CoverageMap& coverage, const cv::Mat& room_labels, const Pose2D& robot);
     /// True, with @p plan set to stuck, while the robot stands where it got stuck.
     bool stuck(const Pose2D& robot, Plan& plan);
     void computeTraversable(const cv::Mat& cells, const GridGeometry& geometry);
@@ -287,8 +290,9 @@ private:
     cv::Mat            traversable_;  // CV_8U
     std::vector<float> travel_;       // Path length from the robot, m; infinity if unreachable.
 
-    std::uint32_t               next_id_  = 1;
-    bool                        focusing_ = false;  // Past the rate cut, on the short rooms.
+    std::uint32_t               next_id_    = 1;
+    bool                        focusing_   = false;  // Past the rate cut, on the short rooms.
+    bool                        last_round_ = false;  // Given-up rooms had their one more round.
     std::vector<Viewpoint>      issued_;
     std::vector<IssuedFrontier> issued_frontiers_;
     std::vector<Blacklisted>    blacklist_;
