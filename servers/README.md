@@ -58,8 +58,12 @@ Rate limits), so the server spreads its calls over several:
 
 | Task | Models, in order | Free tier, each: a minute, a day |
 |---|---|---|
-| object | Gemini 3.5 Flash-Lite, Gemma 4 26B, Gemini 3.1 Flash-Lite | 15, 500; 30, 14,400; 15, 500 |
-| room | Gemini 3.8 Flash, 3.6 Flash, then the first two above | 5, 20 for the Flash models |
+| object | Gemma 4 26B, Gemini 3.5 Flash-Lite, Gemini 3.1 Flash-Lite | 30, 14,400; 15, 500; 15, 500 |
+| room | Gemini 3.8 Flash, 3.6 Flash, 3.5 Flash-Lite | 5, 20 for the Flash models |
+
+Objects go to Gemma first: it allows the most a day, and leaves the Flash-Lites to anything else
+on the same key, such as NervROS's chat. Rooms go to Gemini models only, since a room's type steers
+every search in it: a room none of them answers keeps the type its objects give.
 
 - Each model has its own caps, a little under Google's, counted in a file beside the key across
   processes and restarts. `DEFAULTS["gemini"]` in `semantic/config.py` holds them; change them

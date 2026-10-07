@@ -53,15 +53,12 @@ DEFAULTS = {
             "gemini-3.8-flash": {"per_minute": 4, "per_day": 18, "thinking": "low"},
             "gemini-3.6-flash": {"per_minute": 4, "per_day": 18, "thinking": "low"},
         },
-        # Asked in order. Objects are many, so they go where the requests are; rooms are few and
-        # steer every search in them, so they go to the larger models first.
-        "object": ["gemini-3.5-flash-lite", "gemma-4-26b-a4b-it", "gemini-3.1-flash-lite"],
-        "room": [
-            "gemini-3.8-flash",
-            "gemini-3.6-flash",
-            "gemini-3.5-flash-lite",
-            "gemma-4-26b-a4b-it",
-        ],
+        # Asked in order. Objects are many, so they go to Gemma's 14,400 a day, which their small
+        # prompts fit, and leave the Flash-Lites' 500 to whatever else shares the key (NervROS's
+        # chat). Rooms are few and steer every search in them, so they go to the larger models
+        # only: a room no Gemini model answers keeps its objects' type, where Gemma's guess stuck.
+        "object": ["gemma-4-26b-a4b-it", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
+        "room": ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"],
     },
     # After Gemini's 10 s, still inside the describer's 30 s wait.
     "openai": {"base_url": "http://127.0.0.1:8080/v1", "model": "qwen3.5-4b", "timeout_s": 15.0},
