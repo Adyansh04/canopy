@@ -162,7 +162,9 @@ constexpr double kMaxStandoff = 10.0;
 
 WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
   : rclcpp::Node("canopy", options)
-  , tf_buffer_(get_clock())
+  , frame_history_s_(declare_parameter<double>("frame_history_s", 12.0))
+  // A mask of the oldest frame kept still needs that frame's pose: tf2 keeps 10 s by default.
+  , tf_buffer_(get_clock(), tf2::durationFromSec(std::max(10.0, frame_history_s_ + 1.0)))
   , tf_listener_(tf_buffer_)
 {
     map_frame_          = declare_parameter<std::string>("map_frame", "map");
@@ -443,7 +445,7 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         "map",
         latchedQos(),
         [this](const nav_msgs::msg::OccupancyGrid::ConstSharedPtr& map) { onMap(map); });
-    const double history_s = declare_parameter<double>("frame_history_s", 6.0);
+    const double history_s = frame_history_s_;
     still_frame_period_s_  = declare_parameter<double>("still_frame_period_s", 1.0);
     for (const std::string& name : declare_parameter<std::vector<std::string>>(
              "cameras",

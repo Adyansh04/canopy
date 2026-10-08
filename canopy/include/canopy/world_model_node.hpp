@@ -303,7 +303,8 @@ private:
     FrameTally   mask_tally_;
     GridGeometry predicted_on_;  // The grid heading_to_'s predicted targets index.
 
-    // ROS plumbing.
+    // ROS plumbing. The frame history is read first: the transforms kept must reach as far back.
+    double                     frame_history_s_;
     tf2_ros::Buffer            tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
 
