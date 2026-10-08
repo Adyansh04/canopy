@@ -119,12 +119,21 @@ if [ -s "${WEIGHTS}/${SAM31_FILE}" ]; then
 elif [ ! -s "${HF_TOKEN_FILE}" ]; then
     echo "    not fetched: no Hugging Face login (the weights are gated; see https://huggingface.co/${SAM31_REPO})"
 else
-    echo "    fetching ${SAM31_FILE} (3.5 GB)"
     # The token goes on stdin, never on a command line.
-    printf 'Authorization: Bearer %s\n' "$(cat "${HF_TOKEN_FILE}")" |
-        curl -fL -H @- -C - --retry 20 --retry-all-errors -o "${WEIGHTS}/${SAM31_FILE}.part" \
-            "https://huggingface.co/${SAM31_REPO}/resolve/main/${SAM31_FILE}"
-    mv "${WEIGHTS}/${SAM31_FILE}.part" "${WEIGHTS}/${SAM31_FILE}"
+    sam31() {
+        printf 'Authorization: Bearer %s\n' "$(cat "${HF_TOKEN_FILE}")" |
+            curl -L -H @- "$@" "https://huggingface.co/${SAM31_REPO}/resolve/main/${SAM31_FILE}"
+    }
+    # One byte first: a token without access is refused at once, and only a granted download is
+    # worth retrying.
+    status=$(sam31 -s -r 0-0 -o /dev/null -w '%{http_code}' || true)
+    if [ "${status}" != 200 ] && [ "${status}" != 206 ]; then
+        echo "    not fetched: HTTP ${status}; access to https://huggingface.co/${SAM31_REPO} may not be granted yet"
+    else
+        echo "    fetching ${SAM31_FILE} (3.5 GB)"
+        sam31 -f -C - --retry 20 --retry-all-errors -o "${WEIGHTS}/${SAM31_FILE}.part"
+        mv "${WEIGHTS}/${SAM31_FILE}.part" "${WEIGHTS}/${SAM31_FILE}"
+    fi
 fi
 
 echo "==> SigLIP 2 and Qwen3.5-4B GGUF in the Hugging Face cache"
