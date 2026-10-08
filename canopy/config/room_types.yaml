@@ -1,7 +1,8 @@
 # How often each object label appears in each room type, P(present | type), for the naive Bayes
-# room typer. Labels a type does not list get `unlisted`. Keys are the detector vocabulary's words
-# (canopy_perception's config/detector.yaml); `synonyms` maps other detectors' and people's words
-# onto them, for typing and for finding objects by name.
+# room typer. Labels a type does not list get `unlisted`. Keys are the detector vocabularies' words
+# (canopy_perception's config/detector.yaml, and detector_yoloe.yaml's longer list): a key the
+# running detector does not ask for is never seen, and its types lean on the rest. `synonyms` maps
+# other detectors' and people's words onto them, for typing and for finding objects by name.
 unlisted: 0.08
 
 # A long narrow region is a hallway whatever the table says: narrower than max_width, m, and
@@ -43,7 +44,7 @@ synonyms:
   "trash can": [dustbin, "waste bin", wastebasket, "garbage can", bin]
   sofa: [couch]
   television: [tv]
-  shelf: [bookshelf, bookcase]
+  shelf: [bookshelf, bookcase, "shelving unit"]
   box: ["cardboard box", crate, "storage box"]
   pillow: [cushion]
   "desktop computer": [computer, pc]

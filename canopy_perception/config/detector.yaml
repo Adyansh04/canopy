@@ -67,3 +67,9 @@
       - trash can
       - lamp
       - bottle
+      # A bathroom's own: without them the room table cannot type one. On the flat, which has
+      # none, they added one stray in 202 frames, and 0.16 s a frame.
+      - toilet
+      - sink
+      - bathtub
+      - shower
