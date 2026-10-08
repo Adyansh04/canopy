@@ -15,11 +15,15 @@ DEFAULTS = {
     "host": "127.0.0.1",
     "port": 5561,
     "device": "auto",
-    "detector": "yoloe",
+    "detector": "sam3.1",
     "embedder": "siglip2",
     "describer": "gemini,openai",
     # When a request carries none; the detector always sends its own.
     "box_threshold": 0.25,
+    # SAM 3.1's checkpoint carries its image detector too, which is what segment asks. `batch`
+    # phrases go through its encoder together, and `mask_batch` of those that matched through its
+    # mask head: fewer of each for a smaller GPU, at some speed.
+    "sam3.1": {"checkpoint": f"{WEIGHTS}/sam3.1_multiplex.pt", "batch": 32, "mask_batch": 8},
     "yoloe": {"weights": f"{WEIGHTS}/yoloe-26l-seg.pt", "imgsz": 640, "half": True, "max_det": 100},
     "yoloe-pf": {
         "weights": f"{WEIGHTS}/yoloe-26l-seg-pf.pt",
@@ -49,15 +53,12 @@ DEFAULTS = {
             "gemini-3.8-flash": {"per_minute": 4, "per_day": 18, "thinking": "low"},
             "gemini-3.6-flash": {"per_minute": 4, "per_day": 18, "thinking": "low"},
         },
-        # Asked in order. Objects are many, so they go where the requests are; rooms are few and
-        # steer every search in them, so they go to the larger models first.
-        "object": ["gemini-3.5-flash-lite", "gemma-4-26b-a4b-it", "gemini-3.1-flash-lite"],
-        "room": [
-            "gemini-3.8-flash",
-            "gemini-3.6-flash",
-            "gemini-3.5-flash-lite",
-            "gemma-4-26b-a4b-it",
-        ],
+        # Asked in order. Objects are many, so they go to Gemma's 14,400 a day, which their small
+        # prompts fit, and leave the Flash-Lites' 500 to whatever else shares the key (NervROS's
+        # chat). Rooms are few and steer every search in them, so they go to the larger models
+        # only: a room no Gemini model answers keeps its objects' type, where Gemma's guess stuck.
+        "object": ["gemma-4-26b-a4b-it", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
+        "room": ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"],
     },
     # After Gemini's 10 s, still inside the describer's 30 s wait.
     "openai": {"base_url": "http://127.0.0.1:8080/v1", "model": "qwen3.5-4b", "timeout_s": 15.0},
@@ -85,9 +86,19 @@ def load_config(args):
             config[key] = getattr(args, key)
     for assignment in args.set:
         key, _, value = assignment.partition("=")
-        *sections, leaf = key.split(".")
+        parts = key.split(".")
         target = config
-        for section in sections:
-            target = target.setdefault(section, {})
-        target[leaf] = yaml.safe_load(value)
+        while len(parts) > 1:
+            # A section's own name may hold a dot, as sam3.1's does: the longest one that exists.
+            n = next(
+                (
+                    n
+                    for n in range(len(parts) - 1, 0, -1)
+                    if isinstance(target.get(".".join(parts[:n])), dict)
+                ),
+                1,
+            )
+            target = target.setdefault(".".join(parts[:n]), {})
+            parts = parts[n:]
+        target[parts[0]] = yaml.safe_load(value)
     return config

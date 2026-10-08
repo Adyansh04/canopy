@@ -91,6 +91,9 @@ private:
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr             color_sub;
         rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr        info_sub;
         rclcpp::Subscription<canopy_msgs::msg::InstanceMaskArray>::SharedPtr masks_sub;
+        // Its frames from a still base, for a detector too slow to spend on the others.
+        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr still_pub;
+        double                                                last_still = 0.0;
     };
 
     struct RoomState
@@ -106,6 +109,7 @@ private:
 
     void onMap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr& map);
     void onDepth(CameraFeed& camera, sensor_msgs::msg::Image::ConstSharedPtr depth);
+    void onColor(CameraFeed& camera, sensor_msgs::msg::Image::ConstSharedPtr color);
     static void
     onCameraInfo(CameraFeed& camera, const sensor_msgs::msg::CameraInfo::ConstSharedPtr& info);
     void
@@ -210,6 +214,7 @@ private:
     double      still_linear_           = 0.05;
     double      still_angular_          = 0.05;
     double      settle_s_               = 1.0;
+    double      still_frame_period_s_   = 1.0;
     double      tf_wait_s_              = 0.2;
     double      resegment_period_s_     = 5.0;
     double      autosave_period_s_      = 60.0;
@@ -298,7 +303,8 @@ private:
     FrameTally   mask_tally_;
     GridGeometry predicted_on_;  // The grid heading_to_'s predicted targets index.
 
-    // ROS plumbing.
+    // ROS plumbing. The frame history is read first: the transforms kept must reach as far back.
+    double                     frame_history_s_;
     tf2_ros::Buffer            tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
 

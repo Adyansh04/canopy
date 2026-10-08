@@ -78,13 +78,17 @@ class TestSegmenter(unittest.TestCase):
 
     def _ask(self, camera, prompt):
         self.assertTrue(self.client.wait_for_service(timeout_sec=30.0))
-        for _ in range(10):
-            self._frame()
-            rclpy.spin_once(self.node, timeout_sec=0.1)
-        request = Segment.Request(camera=camera, prompt=prompt)
-        future = self.client.call_async(request)
-        rclpy.spin_until_future_complete(self.node, future, timeout_sec=20.0)
-        self.assertIsNotNone(future.result(), "the segmenter did not answer")
+        # A large best-effort frame can land after the request sent behind it: ask again until
+        # the segmenter holds one.
+        for _ in range(20):
+            for _ in range(5):
+                self._frame()
+                rclpy.spin_once(self.node, timeout_sec=0.1)
+            future = self.client.call_async(Segment.Request(camera=camera, prompt=prompt))
+            rclpy.spin_until_future_complete(self.node, future, timeout_sec=20.0)
+            self.assertIsNotNone(future.result(), "the segmenter did not answer")
+            if "none yet" not in future.result().message:
+                break
         return future.result()
 
     def test_masks_come_from_the_named_cameras_newest_frame(self):

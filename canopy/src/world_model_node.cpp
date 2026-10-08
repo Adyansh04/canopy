@@ -48,6 +48,9 @@ double seconds(const builtin_interfaces::msg::Time& stamp)
     return static_cast<double>(stamp.sec) + (1e-9 * stamp.nanosec);
 }
 
+/// Seconds between held camera frames: 0.1, or wider so that 64 frames span @p history_s.
+double spacing(double history_s) { return std::max(0.1, history_s / 64.0); }
+
 std::string lowered(std::string text)
 {
     std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
@@ -159,7 +162,9 @@ constexpr double kMaxStandoff = 10.0;
 
 WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
   : rclcpp::Node("canopy", options)
-  , tf_buffer_(get_clock())
+  , frame_history_s_(declare_parameter<double>("frame_history_s", 12.0))
+  // A mask of the oldest frame kept still needs that frame's pose: tf2 keeps 10 s by default.
+  , tf_buffer_(get_clock(), tf2::durationFromSec(std::max(10.0, frame_history_s_ + 1.0)))
   , tf_listener_(tf_buffer_)
 {
     map_frame_          = declare_parameter<std::string>("map_frame", "map");
@@ -440,7 +445,8 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         "map",
         latchedQos(),
         [this](const nav_msgs::msg::OccupancyGrid::ConstSharedPtr& map) { onMap(map); });
-    const double history_s = declare_parameter<double>("frame_history_s", 6.0);
+    const double history_s = frame_history_s_;
+    still_frame_period_s_  = declare_parameter<double>("still_frame_period_s", 1.0);
     for (const std::string& name : declare_parameter<std::vector<std::string>>(
              "cameras",
              std::vector<std::string>{ "camera" }))
@@ -460,9 +466,11 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         camera.color_sub = create_subscription<sensor_msgs::msg::Image>(
             prefix + "color/image_raw",
             sensorQos(),
-            [&camera](sensor_msgs::msg::Image::ConstSharedPtr color) {
-                camera.color_history.push(std::move(color));
+            [this, &camera](sensor_msgs::msg::Image::ConstSharedPtr color) {
+                onColor(camera, std::move(color));
             });
+        camera.still_pub =
+            create_publisher<sensor_msgs::msg::Image>("~/" + name + "/still_image", sensorQos());
         camera.info_sub = create_subscription<sensor_msgs::msg::CameraInfo>(
             prefix + "depth/camera_info",
             sensorQos(),
@@ -649,12 +657,25 @@ void WorldModelNode::onMap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr& m
 WorldModelNode::CameraFeed::CameraFeed(std::string feed_name, bool credits_coverage, double history_s)
   : name(std::move(feed_name))
   , coverage(credits_coverage)
-  // At most a frame per 0.1 s, so the 64 held span history_s on a 30 Hz camera as on the 10 Hz
-  // simulator. Masks are used only from a still robot, so the frame kept beside a dropped one
-  // is the same view: a match within 0.1 s, not just the frame's own stamp.
-  , depth_history(history_s, 0.1, 64, 0.1)
-  , color_history(history_s, 0.1, 64, 0.1)
+  // The 64 held span history_s: a frame per 0.1 s, or sparser for a longer history, which a slow
+  // detector's late masks need. Masks are used only from a still robot, so the frame kept beside
+  // a dropped one is the same view: a match within the spacing, not just the frame's own stamp.
+  , depth_history(history_s, spacing(history_s), 64, spacing(history_s))
+  , color_history(history_s, spacing(history_s), 64, spacing(history_s))
 {}
+
+void WorldModelNode::onColor(CameraFeed& camera, sensor_msgs::msg::Image::ConstSharedPtr color)
+{
+    // Only frames whose masks would be used, and only for a detector that asks for them.
+    const double stamp = seconds(color->header.stamp);
+    if (camera.still_pub->get_subscription_count() > 0 &&
+        stamp - camera.last_still >= still_frame_period_s_ && wasStill(stamp))
+    {
+        camera.last_still = stamp;
+        camera.still_pub->publish(*color);
+    }
+    camera.color_history.push(std::move(color));
+}
 
 void WorldModelNode::onDepth(CameraFeed& camera, sensor_msgs::msg::Image::ConstSharedPtr depth)
 {
@@ -1567,14 +1588,14 @@ void WorldModelNode::typeRooms()
     }
     for (std::size_t slot = 0; slot < rooms_.size(); ++slot)
     {
-        RoomState& room = rooms_[slot];
-        if (room.type_source == "operator" || room.type_source == "describer")
-        {
-            continue;
-        }
+        RoomState&       room = rooms_[slot];
         const RoomTyping typing =
             classifyRoom(room_types_, labels[slot], room.region.length, room.region.width);
-        if (typing.type != room.type)
+        if (objectsRetype(
+                typing,
+                { room.type, room.type_confidence },
+                room.type_source,
+                describe_rooms_below_))
         {
             room.type            = typing.type;
             room.type_confidence = typing.probability;

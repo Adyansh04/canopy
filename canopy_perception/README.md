@@ -26,7 +26,7 @@ colcon build --symlink-install --packages-select canopy_perception
 
 | Node | Does |
 |---|---|
-| `detector` | Sends the newest camera frame and the phrase list to the model server and publishes the masks it answers with, one call per `detect_rate_hz`. With `embed` it also asks for an image embedding per instance. |
+| `detector` | Sends the newest camera frame and the phrase list to the model server and publishes the masks it answers with, one call per `detect_rate_hz`. With `embed` it also asks for an image embedding per instance. With `still_frames` it reads the world model's frames from a still base instead, the only ones the world model uses masks from: for a model slower than a frame, such as SAM 3.1. |
 | `object_describer` | Sends each `DescribeRequest` to the server's `describe` endpoint (its own port, `tcp://127.0.0.1:5562` by default), one at a time, and publishes the answer. A refusal is logged and dropped: the world model asks again. |
 | `segmenter` | A service: segments the newest frame of a named camera by a text prompt ("the floor", "every mug") and answers with the masks, stamped with that frame. Apart from the world model, so an agent's floor never becomes an object. |
 | `mock_detector` | Cuts masks out of ground-truth boxes against the rendered depth: every pixel whose depth lands inside a box. No GPU, no server. Simulation only. A phrase matches every numbered body of its class: "chair" finds `chair_1` to `chair_5`. |
@@ -35,7 +35,7 @@ colcon build --symlink-install --packages-select canopy_perception
 
 | Direction | Name | Type |
 |---|---|---|
-| Sub | `color/image_raw` (detector) | `sensor_msgs/Image`, best effort, depth 1 |
+| Sub | `color/image_raw`, or `still_image` with `still_frames` (detector) | `sensor_msgs/Image`, best effort, depth 1 |
 | Sub | `object_poses`, `depth/image_raw`, `camera_info` (mock) | `vision_msgs/Detection3DArray` in the camera frame, `sensor_msgs/Image`, `sensor_msgs/CameraInfo` |
 | Pub | `~/instance_masks` (both detectors) | `canopy_msgs/InstanceMaskArray`, reliable, stamped with the image's own stamp |
 | Sub | `describe_requests` (describer) | `canopy_msgs/DescribeRequest` |
@@ -55,10 +55,14 @@ colcon build --symlink-install --packages-select canopy_perception
 |---|---|---|
 | `server_address` | `tcp://127.0.0.1:5561` | The model server. |
 | `detect_rate_hz` | 1.0 | How soon after an answer the next question is asked. |
-| `max_image_age_s` | 2.5 | Frames older than this are not asked about. Sized for a simulator sharing the GPU with the models. |
-| `box_threshold` | 0.30 | Detections under this score are dropped. |
+| `still_frames` | true | Read `still_image`, the world model's frames from a still base, rather than `color/image_raw`: SAM 3.1's 1.6 s a frame are spent only on frames the world model keeps masks from. |
+| `max_image_age_s` | 8.0 | Frames older than this are not asked about. A still frame may wait for the other camera's turn; the world model's `frame_history_s` covers it. |
+| `box_threshold` | 0.6 | Detections under this score are dropped. SAM 3.1's score is its match times the word's presence in the frame. |
 | `embed` | true | Ask for an image embedding per instance. |
-| `phrases` | 128 indoor words | One name per kind of object, which the world model's room table is keyed on. |
+| `phrases` | 34 whole-object words | One name per kind of object, which the world model's room table is keyed on; its synonyms map other words onto them. |
+
+`config/detector_yoloe.yaml` goes over these for YOLOE-26: every frame of `color/image_raw`, 2.5 s,
+0.30 and a 128-word list, which YOLOE answers in one pass.
 
 The segmenter takes `server_address`, `max_image_age_s`, `box_threshold`, `text_threshold`,
 `zmq_timeout_ms` and `cameras`, a list of `name=topic` such as
@@ -83,13 +87,18 @@ their wire protocol. The socket handling lives in `canopy_perception/host_client
 
 ## Running
 
-Start the server first (`servers/README.md`), then one detector per camera:
+Start the server and the world model first (`servers/README.md`, `canopy/README.md`), then one
+detector per camera, on the world model's still frames of it:
 
 ```bash
 ros2 run canopy_perception detector --ros-args \
   --params-file $(ros2 pkg prefix canopy_perception)/share/canopy_perception/config/detector.yaml \
-  -r color/image_raw:=/camera/color/image_raw
+  -r still_image:=/canopy/camera/still_image
 ```
+
+With `still_frames: false`, as in `config/detector_yoloe.yaml`, remap `color/image_raw` to the
+camera's image instead. `canopy/launch/world_model.launch.py` starts the detectors with these
+remaps.
 
 ## Tests
 

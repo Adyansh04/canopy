@@ -28,7 +28,7 @@ flowchart LR
 | [`canopy`](canopy) | The world model: rooms, camera coverage, objects, the viewpoint planner, and the ROS node around them. |
 | [`canopy_msgs`](canopy_msgs) | Its interfaces: instance masks, rooms, objects, describer requests, and the search and exploration services. |
 | [`canopy_perception`](canopy_perception) | The front end: a detector and a describer that ask the model servers, and a mock detector for simulators. |
-| [`servers`](servers) | The models, on the host GPU: YOLOE-26 detection, SigLIP 2 embeddings, and Gemini or a local Qwen VLM for names and room types. Not a ROS package. |
+| [`servers`](servers) | The models, on the host GPU: SAM 3.1 or YOLOE-26 detection, SigLIP 2 embeddings, and Gemini or a local Qwen VLM for names and room types. Not a ROS package. |
 | [`editor`](editor) | A web page for checking a saved world by hand after a run: relabel, rename, delete, merge, split, move or add objects, and retype rooms. Not a ROS package. How to use it: [editor/doc/guide.md](editor/doc/guide.md). |
 
 Built for ROS 2 Jazzy (Ubuntu 24.04), C++20.
@@ -113,18 +113,22 @@ The robot needs:
 ## How well it does
 
 On the simulated G1 above, from no map, with a head and a chest camera
-([grove-g1](https://github.com/Adyansh04/grove-g1), where canopy began). The flat has 43 objects a
+([grove-g1](https://github.com/Adyansh04/grove-g1), where canopy began). The flat has 46 objects a
 standing robot can see.
 
 | Detector | Rooms | Walls seen | Objects found | Boxes (median IoU) | Time |
 |---|---|---|---|---|---|
 | Ground-truth masks | 6 of 6 | 96-99 % | 100 % | 0.76-0.80 | 30-34 min |
-| YOLOE-26 + SigLIP 2 + describer | 6 of 6 | 95-99 % | 72-79 % | 0.82-0.83 | 37-42 min |
+| SAM 3.1 + SigLIP 2 + describer | 6 of 6 | 96-99 % | 87-93 % | 0.68-0.72 | 31-33 min |
+| YOLOE-26 (`detector_yoloe.yaml`) + SigLIP 2 + describer | 6 of 6 | 95-99 % | 72-85 % | 0.67-0.83 | 34-42 min |
 
-With the real detector:
+With a real detector:
 
-- YOLOE confuses furniture of one material on the simulator's renders: desk, cabinet, TV stand.
-- It misses mugs and bowls on tables.
+- SAM 3.1 names only what is there: 3 to 5 objects that are not in the flat, against YOLOE's 22
+  on the same day. Most of its misses are names: the wardrobe comes back as a cabinet and a crate
+  as a cardboard box, and an object seen only once is dropped unconfirmed.
+- YOLOE confuses furniture of one material on the simulator's renders (desk, cabinet, TV stand)
+  and misses mugs and bowls on tables.
 - The describer names most of them correctly.
 
 ## Credits

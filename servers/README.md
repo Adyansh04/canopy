@@ -6,16 +6,16 @@ or CUDA. Not a ROS package (`COLCON_IGNORE`): canopy_perception's `detector` and
 
 | File | Does |
 |---|---|
-| `semantic_server.py` | Detection (YOLOE-26 over a word list, one forward pass for the whole list), image and text embeddings (SigLIP 2), and object and room descriptions (Gemini, falling back to a local VLM). REQ/REP on `tcp://127.0.0.1:5561`, and on 5562 for `describe`; msgpack bodies. This file is the command line; the parts are in `semantic/`. |
+| `semantic_server.py` | Detection (SAM 3.1, whose time grows with the phrases, or YOLOE-26, one pass for a whole word list), image and text embeddings (SigLIP 2), and object and room descriptions (Gemini, falling back to a local VLM). REQ clients on `tcp://127.0.0.1:5561`, and on 5562 for `describe`; msgpack bodies. Of the requests waiting, the one with the fewest phrases is answered first, so a pick's one phrase does not wait behind a mapping detector's thirty-odd. This file is the command line; the parts are in `semantic/`. |
 | `semantic/config.py` | `DEFAULTS`, and the `--config` file, flags and `--set` overrides over them. |
-| `semantic/detection.py` | YOLOE-26 instance masks, one per region. |
+| `semantic/detection.py` | SAM 3.1 and YOLOE-26 instance masks, one per region. |
 | `semantic/embedding.py` | SigLIP 2 embeddings, and the grey-backed crop of an instance they are taken of. |
 | `semantic/prompts.py` | What a describer is asked, and its answer read into the reply's fields. |
 | `semantic/describers.py` | The describer contract, the local VLM, the `none` fallback and the chain that falls through them. |
 | `semantic/gemini.py` | Gemini's REST API under per-model free-tier caps, shared by every process through a locked file. |
 | `semantic/server.py` | The request handlers, the backend registries and the ZMQ loop on the two ports. |
 | `start-vlm.sh` | The local VLM behind the `openai` describer: Qwen3.5-4B in llama.cpp's server, in a container, on `127.0.0.1:8080`. |
-| `setup.sh` | A uv virtualenv with pinned torch and model libraries, the YOLOE weights, the Hugging Face downloads and the llama.cpp image. |
+| `setup.sh` | A uv virtualenv with pinned torch and model libraries, the SAM 3.1 and YOLOE weights, the Hugging Face downloads and the llama.cpp image. |
 | `test_semantic_server.py` | Unit tests with fake models: no GPU, no network, no weights. |
 
 ## Setup and running
@@ -26,9 +26,14 @@ or CUDA. Not a ROS package (`COLCON_IGNORE`): canopy_perception's `detector` and
 ~/.local/share/canopy/.venv/bin/python servers/semantic_server.py
 ```
 
-YOLOE-26l and SigLIP 2 take about 1.7 GB of VRAM together. Each backend is a flag (`--detector`,
-`--embedder`, `--describer`) or a `--config` YAML shaped like `DEFAULTS` in `semantic/config.py`, and
-`--self-test frame.png` runs one frame through without a socket.
+SAM 3.1, the default detector, takes 0.45 s for a frame and 40 ms for each phrase on a laptop RTX
+4080, and about 5.6 GB of VRAM for a few phrases (3.4 GB of weights), 8.5 GB with SigLIP 2 while
+mapping. YOLOE-26l (`--detector yoloe`) and SigLIP 2 take about 1.7 GB together, and YOLOE answers a
+whole word list in one pass of about 25 ms. SAM 3.1's checkpoint is gated: `setup.sh` fetches it
+once `hf auth login` has an account with access to https://huggingface.co/facebook/sam3.1. Each
+backend is a flag (`--detector`, `--embedder`, `--describer`) or a `--config` YAML shaped like
+`DEFAULTS` in `semantic/config.py`, and `--self-test frame.png` runs one frame through without a
+socket.
 
 ## Endpoints
 
@@ -53,8 +58,12 @@ Rate limits), so the server spreads its calls over several:
 
 | Task | Models, in order | Free tier, each: a minute, a day |
 |---|---|---|
-| object | Gemini 3.5 Flash-Lite, Gemma 4 26B, Gemini 3.1 Flash-Lite | 15, 500; 30, 14,400; 15, 500 |
-| room | Gemini 3.8 Flash, 3.6 Flash, then the first two above | 5, 20 for the Flash models |
+| object | Gemma 4 26B, Gemini 3.5 Flash-Lite, Gemini 3.1 Flash-Lite | 30, 14,400; 15, 500; 15, 500 |
+| room | Gemini 3.8 Flash, 3.6 Flash, 3.5 Flash-Lite | 5, 20 for the Flash models |
+
+Objects go to Gemma first: it allows the most a day, and leaves the Flash-Lites to anything else
+on the same key, such as NervROS's chat. Rooms go to Gemini models only, since a room's type steers
+every search in it: a room none of them answers keeps the type its objects give.
 
 - Each model has its own caps, a little under Google's, counted in a file beside the key across
   processes and restarts. `DEFAULTS["gemini"]` in `semantic/config.py` holds them; change them
@@ -72,6 +81,7 @@ Each keeps its own license; follow the link.
 
 | What | Used for | Source |
 |---|---|---|
+| SAM 3.1 (Meta, SAM License) | detection | https://github.com/facebookresearch/sam3, https://huggingface.co/facebook/sam3.1 (arXiv 2511.16719) |
 | YOLOE-26l-seg, -seg-pf (Ultralytics, AGPL-3.0) | detection | https://docs.ultralytics.com/models/yoloe (arXiv 2503.07465) |
 | MobileCLIP2-B | YOLOE's text encoder | https://github.com/apple/ml-mobileclip |
 | CLIP tokenizer (Ultralytics' fork) | YOLOE's text prompts | https://github.com/ultralytics/CLIP |

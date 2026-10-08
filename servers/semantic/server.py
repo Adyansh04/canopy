@@ -8,7 +8,7 @@ import numpy as np
 
 from .config import VENV_HINT
 from .describers import DescriberChain, NoDescriber, OpenAIDescriber
-from .detection import build_yoloe
+from .detection import build_sam3, build_yoloe
 from .embedding import Siglip2Embedder, masked_crop
 from .gemini import GeminiDescriber, GeminiLimiter
 
@@ -19,6 +19,7 @@ MAX_DESCRIBE_IMAGES = 8
 # Registries: one entry per backend, built from its section of the config.
 
 DETECTORS = {
+    "sam3.1": lambda config, device: build_sam3(config["sam3.1"], device),
     "yoloe": lambda config, device: build_yoloe(config["yoloe"], device, prompt_free=False),
     "yoloe-pf": lambda config, device: build_yoloe(config["yoloe-pf"], device, prompt_free=True),
 }
@@ -187,22 +188,45 @@ def _decode(obj):
     return mnp.decode(obj)
 
 
+def _phrases(request):
+    """How many phrases a request asks about, which is what its turn on the GPU costs."""
+    data = request.get("data") if isinstance(request, dict) else None
+    phrases = data.get("phrases") if isinstance(data, dict) else None
+    return len(phrases) if isinstance(phrases, list) else 0
+
+
 def _answer(socket, server, endpoints):
-    """Answers `endpoints` on one REP socket until its context is terminated."""
+    """Answers `endpoints` on one ROUTER socket until its context is terminated.
+
+    Of the requests waiting, the one with the fewest phrases goes first, so a pick's phrase does
+    not wait behind two mapping detectors' thirty-odd each. Every request gets an answer: a REQ
+    client left without one is stuck.
+    """
     import msgpack
     import msgpack_numpy as mnp
     import zmq
 
+    def received(frames):
+        try:
+            request = msgpack.unpackb(frames[-1], object_hook=_decode, raw=False)
+        except Exception as error:  # noqa: BLE001 - see above
+            return frames[:-1], -1, {"error": f"undecodable request: {error}"}
+        return frames[:-1], _phrases(request), request
+
+    # ponytail: shortest first can hold a long request back under a stream of short ones; one
+    # arm's detector at 1 Hz leaves the mapping detectors half the GPU. Weigh in waiting if not.
+    waiting = []
     try:
         while True:
-            message = socket.recv()
-            try:
-                request = msgpack.unpackb(message, object_hook=_decode, raw=False)
-            except Exception as error:  # noqa: BLE001 - a REP socket must answer every request
-                reply = {"error": f"undecodable request: {error}"}
-            else:
-                reply = server.handle(request, endpoints)
-            socket.send(msgpack.packb(reply, default=mnp.encode))
+            if not waiting:
+                waiting.append(received(socket.recv_multipart()))
+            while socket.poll(0):
+                waiting.append(received(socket.recv_multipart()))
+            envelope, cost, request = waiting.pop(
+                min(range(len(waiting)), key=lambda i: waiting[i][1])
+            )
+            reply = request if cost < 0 else server.handle(request, endpoints)
+            socket.send_multipart([*envelope, msgpack.packb(reply, default=mnp.encode)])
     except zmq.ContextTerminated:
         pass
     finally:
@@ -216,7 +240,7 @@ def serve(server, config):
         sys.exit(f"{error}. {VENV_HINT}")
 
     context = zmq.Context()
-    models, describe = context.socket(zmq.REP), context.socket(zmq.REP)
+    models, describe = context.socket(zmq.ROUTER), context.socket(zmq.ROUTER)
     models.bind(f"tcp://{config['host']}:{config['port']}")
     describe.bind(f"tcp://{config['host']}:{config['port'] + 1}")
     # The describe thread touches no GPU model: Gemini is remote, the local VLM another process.

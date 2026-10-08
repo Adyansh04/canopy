@@ -2,13 +2,14 @@
 """Serves detection, embeddings and descriptions for the semantic map, on the host GPU.
 
 The robot's image carries no torch or CUDA, so its nodes reach the models over ZMQ.
-canopy_perception's detector and describer are the clients. Unlike a grounding segmenter that runs
-a pass per phrase, `phrases` here is the detector's vocabulary, scored against every region in one
-forward pass, so a list of a hundred names costs about what one does.
+canopy_perception's detector and describer are the clients. `phrases` is the detector's
+vocabulary: SAM 3.1 takes about 0.45 s a frame and 40 ms a phrase on a laptop RTX 4080, so its
+lists stay short, while YOLOE scores a whole list against every region in one pass.
 
 Each backend is chosen by a flag or by --config, and the replies name no model-specific fields:
 
-  --detector   yoloe     YOLOE-26 prompted with the request's phrases (default)
+  --detector   sam3.1    SAM 3.1's image detector with the request's phrases (default)
+               yoloe     YOLOE-26 prompted with the request's phrases
                yoloe-pf  YOLOE-26 prompt-free: its built-in vocabulary; phrases are ignored
   --embedder   siglip2   SigLIP 2 image and text embeddings (default), or none
   --describer  gemini    Gemini REST API, free tier: each task's models in turn, each under its
@@ -19,6 +20,8 @@ Each backend is chosen by a flag or by --config, and the replies name no model-s
                rate limited or unreachable.
 
 Models:
+  SAM 3.1                  https://github.com/facebookresearch/sam3, weights gated at
+                           https://huggingface.co/facebook/sam3.1 (arXiv 2511.16719)
   YOLOE-26l-seg, -seg-pf   https://docs.ultralytics.com/models/yoloe (arXiv 2503.07465)
   MobileCLIP2-B text       https://github.com/apple/ml-mobileclip (YOLOE's text encoder)
   SigLIP 2 B/16-256        https://huggingface.co/google/siglip2-base-patch16-256
@@ -30,7 +33,7 @@ Models:
 
     ./servers/semantic_server.py
     ./servers/semantic_server.py --describer openai          # offline, after start-vlm.sh start
-    ./servers/semantic_server.py --config semantic.yaml --set yoloe.imgsz=800
+    ./servers/semantic_server.py --config semantic.yaml --set sam3.1.batch=8
     ./servers/semantic_server.py --self-test frame.png --describe-test
 
 Run servers/setup.sh first. --config takes a YAML file shaped like DEFAULTS in

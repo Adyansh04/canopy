@@ -8,13 +8,14 @@
  * Naive Bayes over the distinct labels found in the room, from a table of how often each label
  * appears in each room type. Scoring by co-occurring objects types distinctive rooms (kitchen,
  * bedroom, bathroom) well and generic ones poorly (Chen et al. 2022), so a type comes with a
- * probability, and a describer or an operator can overrule it. Long narrow regions with little
- * in them are hallways whatever the table says.
+ * probability: a describer is asked where it is low, and an operator can overrule it. Long narrow
+ * regions with little in them are hallways whatever the table says.
  */
 
 #include <cstddef>
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace canopy
@@ -63,6 +64,21 @@ struct RoomTyping
  */
 RoomTyping classifyRoom(
     const RoomTypeTable& table, const std::vector<std::string>& labels, double length, double width);
+
+/**
+ * @brief Whether the objects' typing replaces a room's current one.
+ *
+ * An operator's type stands. A describer is asked only while the objects leave the type in doubt,
+ * so its answer stands until they settle on another: at @p settled or more, and at least as sure
+ * as the describer was.
+ *
+ * @param objects  The objects' typing, from classifyRoom.
+ * @param current  The room's type and confidence now.
+ * @param source   Who typed it: "operator", "describer", "objects", or empty.
+ * @param settled  The confidence from which the objects leave no doubt.
+ */
+bool objectsRetype(
+    const RoomTyping& objects, const RoomTyping& current, std::string_view source, double settled);
 
 }  // namespace canopy
 

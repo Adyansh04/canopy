@@ -13,7 +13,9 @@
 #include <limits>
 #include <numbers>
 #include <opencv2/imgproc.hpp>
+#include <optional>
 #include <queue>
+#include <ranges>
 #include <utility>
 
 namespace canopy
@@ -951,6 +953,17 @@ Plan ViewpointPlanner::nextPocketLook(
 Plan ViewpointPlanner::nextCoverage(
     CoverageMap& coverage, const cv::Mat& room_labels, const Pose2D& robot)
 {
+    std::optional<Plan> plan = planCoverage(coverage, room_labels, robot);
+    if (!plan)
+    {
+        plan = planCoverage(coverage, room_labels, robot);
+    }
+    return plan.value_or(Plan{});
+}
+
+std::optional<Plan> ViewpointPlanner::planCoverage(
+    CoverageMap& coverage, const cv::Mat& room_labels, const Pose2D& robot)
+{
     Plan                plan;
     const GridGeometry& geometry = coverage.geometry();
     const cv::Mat&      cells    = coverage.cells();
@@ -1377,6 +1390,19 @@ Plan ViewpointPlanner::nextCoverage(
     if (best_gain < params_.min_viewpoint_gain ||
         (best_utility < params_.min_viewpoint_rate && !any_short))
     {
+        // A room given up on gets one more round once nothing else is left: its walks can fail
+        // on a slow moment, as Nav2's starved controller refusing a doorway three times in 90 s.
+        const auto rooms = std::views::iota(1, std::max(1, static_cast<int>(attempts.size())));
+        if (!last_round_ && std::ranges::any_of(rooms, given_up))
+        {
+            last_round_ = true;
+            std::erase_if(outcomes_, [&](const Outcome& outcome) {
+                const CellIndex cell = geometry.toCell(outcome.x, outcome.y);
+                return !outcome.reached && geometry.contains(cell) &&
+                       given_up(room_at(cell.x, cell.y));
+            });
+            return std::nullopt;
+        }
         // Any heading can centre a ray, so only its vertical offset counts.
         for (const Candidate& candidate : rest)
         {
