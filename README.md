@@ -119,14 +119,14 @@ standing robot can see.
 | Detector | Rooms | Walls seen | Objects found | Boxes (median IoU) | Time |
 |---|---|---|---|---|---|
 | Ground-truth masks | 6 of 6 | 96-99 % | 100 % | 0.76-0.80 | 30-34 min |
-| SAM 3.1 + SigLIP 2 + describer | 6 of 6 | 96-99 % | 91-93 % | 0.72 | 31-33 min |
+| SAM 3.1 + SigLIP 2 + describer | 6 of 6 | 96-99 % | 87-93 % | 0.68-0.72 | 31-33 min |
 | YOLOE-26 (`detector_yoloe.yaml`) + SigLIP 2 + describer | 6 of 6 | 95-99 % | 72-85 % | 0.67-0.83 | 34-42 min |
 
 With a real detector:
 
 - SAM 3.1 names only what is there: 3 to 5 objects that are not in the flat, against YOLOE's 22
-  on the same day. Most of its misses are names: bookshelves come back as shelving units, the wardrobe
-  as a cabinet.
+  on the same day. Most of its misses are names: the wardrobe comes back as a cabinet and a crate
+  as a cardboard box, and an object seen only once is dropped unconfirmed.
 - YOLOE confuses furniture of one material on the simulator's renders (desk, cabinet, TV stand)
   and misses mugs and bowls on tables.
 - The describer names most of them correctly.
