@@ -199,7 +199,7 @@ def _answer(socket, server, endpoints):
     """Answers `endpoints` on one ROUTER socket until its context is terminated.
 
     Of the requests waiting, the one with the fewest phrases goes first, so a pick's phrase does
-    not wait behind two mapping detectors' thirty each. Every request gets an answer: a REQ
+    not wait behind two mapping detectors' thirty-odd each. Every request gets an answer: a REQ
     client left without one is stuck.
     """
     import msgpack
