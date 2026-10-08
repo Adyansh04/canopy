@@ -86,9 +86,19 @@ def load_config(args):
             config[key] = getattr(args, key)
     for assignment in args.set:
         key, _, value = assignment.partition("=")
-        *sections, leaf = key.split(".")
+        parts = key.split(".")
         target = config
-        for section in sections:
-            target = target.setdefault(section, {})
-        target[leaf] = yaml.safe_load(value)
+        while len(parts) > 1:
+            # A section's own name may hold a dot, as sam3.1's does: the longest one that exists.
+            n = next(
+                (
+                    n
+                    for n in range(len(parts) - 1, 0, -1)
+                    if isinstance(target.get(".".join(parts[:n])), dict)
+                ),
+                1,
+            )
+            target = target.setdefault(".".join(parts[:n]), {})
+            parts = parts[n:]
+        target[parts[0]] = yaml.safe_load(value)
     return config

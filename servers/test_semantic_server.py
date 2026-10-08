@@ -871,6 +871,7 @@ class ConfigTest(Scratch):
             set=[
                 "gemini.object=[gemma-4-26b-a4b-it]",
                 "yoloe.imgsz=800",
+                "sam3.1.batch=8",
                 f"gemini.key_file={self.dir}/none",
                 f"gemini.usage_file={self.usage}",
             ],
@@ -878,6 +879,8 @@ class ConfigTest(Scratch):
         config = load_config(args)
         self.assertEqual((config["detector"], config["describer"]), ("yoloe-pf", "openai"))
         self.assertEqual((config["yoloe"]["imgsz"], config["yoloe"]["half"]), (800, True))
+        self.assertEqual((config["sam3.1"]["batch"], config["sam3.1"]["mask_batch"]), (8, 8))
+        self.assertNotIn("sam3", config)
         self.assertEqual(DESCRIBERS["gemini"](config)._routes["object"], ["gemma-4-26b-a4b-it"])
 
 
