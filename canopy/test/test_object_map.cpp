@@ -437,6 +437,9 @@ TEST(ObjectHistory, TellsWhenAMugAppearedWentMissingAndWasGone)
     EXPECT_GT(story.back().stamp, story[1].stamp);
     EXPECT_EQ(map.history("mug", 0.0, 1).size(), 1U) << "the newest, at most";
     EXPECT_TRUE(map.history("sofa", 0.0, 10).empty());
+    // Picked out by id, as a search's matches are, the story is the same.
+    EXPECT_EQ(map.history(std::set<int>{ id }, 0.0, 10).size(), story.size());
+    EXPECT_TRUE(map.history(std::set<int>{}, 0.0, 10).empty());
 }
 
 TEST(ObjectHistory, LinksAMugFoundElsewhereToTheOneThatWentMissing)

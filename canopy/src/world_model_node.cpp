@@ -20,6 +20,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <set>
 #include <sstream>
 #include <std_msgs/msg/color_rgba.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
@@ -2007,10 +2008,27 @@ void WorldModelNode::onObjectHistory(
     const canopy_msgs::srv::ObjectHistory::Request::SharedPtr&  request,
     const canopy_msgs::srv::ObjectHistory::Response::SharedPtr& response) const
 {
-    const double since = rclcpp::Time(request->since).seconds();
-    const auto   most  = request->max_events == 0 ? std::size_t{ 50 } :
-                                                    static_cast<std::size_t>(request->max_events);
-    for (const ObjectEvent& event : objects_.history(request->query, since, most))
+    const double since  = rclcpp::Time(request->since).seconds();
+    const auto   most   = request->max_events == 0 ? std::size_t{ 50 } :
+                                                     static_cast<std::size_t>(request->max_events);
+    auto         events = objects_.history(request->query, since, most);
+    // A described object, "the red mug", is no label's whole: the search's best matches, each
+    // as good as the first, stand in.
+    if (events.empty() && !request->query.empty())
+    {
+        const auto    matches = matchObjects(request->query, "", {});
+        std::set<int> ids;
+        for (const auto& [object, score] : matches)
+        {
+            if (score < search_found_score_ || score < matches.front().second - 1e-6)
+            {
+                break;
+            }
+            ids.insert(object->id);
+        }
+        events = objects_.history(std::move(ids), since, most);
+    }
+    for (const ObjectEvent& event : events)
     {
         canopy_msgs::msg::ObjectEvent out;
         out.stamp      = rclcpp::Time(static_cast<std::int64_t>(event.stamp * 1e9));
