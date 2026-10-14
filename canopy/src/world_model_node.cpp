@@ -20,6 +20,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <sstream>
 #include <std_msgs/msg/color_rgba.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 
@@ -62,6 +63,24 @@ std::string lowered(std::string text)
 bool containsWord(const std::string& haystack, const std::string& needle)
 {
     return !needle.empty() && lowered(haystack).find(lowered(needle)) != std::string::npos;
+}
+
+/// Whether @p query names no thing in particular: it is empty, or holds only @p words, as "all
+/// the objects" does, whatever its case and punctuation.
+bool namesNothing(const std::string& query, const std::vector<std::string>& words)
+{
+    std::string spaced = lowered(query);
+    std::ranges::replace_if(spaced, [](unsigned char c) { return std::isalnum(c) == 0; }, ' ');
+    std::istringstream tokens(spaced);
+    std::string        token;
+    while (tokens >> token)
+    {
+        if (std::ranges::find(words, token) == words.end())
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 std::string objectId(int id) { return "O" + std::to_string(id); }
@@ -192,7 +211,10 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions& options)
         declare_parameter<double>("search.embedding_floor", search_embedding_floor_);
     search_embedding_span_ =
         declare_parameter<double>("search.embedding_span", search_embedding_span_);
-    search_found_score_  = declare_parameter<double>("search.found_score", search_found_score_);
+    search_found_score_      = declare_parameter<double>("search.found_score", search_found_score_);
+    search_everything_words_ = declare_parameter<std::vector<std::string>>(
+        "search.everything_words",
+        std::vector<std::string>{});
     structure_enabled_   = declare_parameter<bool>("structure.enabled", true);
     structure_min_z_     = declare_parameter<double>("structure.min_z", 1.4);
     structure_max_z_     = declare_parameter<double>("structure.max_z", 2.2);
@@ -1838,6 +1860,8 @@ std::vector<std::pair<const MappedObject*, double>> WorldModelNode::matchObjects
     }
     // "dustbin" finds what the detector calls a trash can.
     const std::string wanted = room_types_.canonical(query);
+    const bool        everything =
+        query_embedding.empty() && namesNothing(query, search_everything_words_);
     for (const MappedObject& object : objects_.objects())
     {
         if (!shown(object))
@@ -1850,7 +1874,8 @@ std::vector<std::pair<const MappedObject*, double>> WorldModelNode::matchObjects
             continue;
         }
         double score = 0.0;
-        if (lowered(query) == lowered(objectId(object.id)))
+        // Nothing named is everything there, as "what is in the bedroom" asks.
+        if (everything || lowered(query) == lowered(objectId(object.id)))
         {
             score = 1.0;
         }
@@ -1942,11 +1967,39 @@ void WorldModelNode::onFindObjects(
     {
         response->message = "no room called '" + request->room + "'";
     }
+    else if (request->query_embedding.empty() && namesNothing(request->query, search_everything_words_))
+    {
+        // Asked for everything, the count is the answer, whatever the list is cut to.
+        response->message = std::format(
+            "{} objects{}{}",
+            matches.size(),
+            request->room.empty() ? "" : " in " + request->room,
+            matches.size() > limit ? std::format("; the first {} listed", limit) : "");
+    }
     else if (!response->found)
     {
         response->message = "not in the " +
                             std::to_string(static_cast<int>(100.0 * response->searched_coverage)) +
                             "% of the searched area the camera has seen";
+    }
+
+    // The rooms of what is listed by what they are called: given ids alone, a model named the
+    // rooms itself, and wrongly.
+    std::string                   rooms;
+    std::vector<const RoomState*> named;
+    for (const auto& object : response->objects)
+    {
+        const RoomState* room = roomByText(object.room_id);
+        if (room != nullptr && std::ranges::find(named, room) == named.end())
+        {
+            named.push_back(room);
+            rooms +=
+                (rooms.empty() ? "" : ", ") + room->id + " " + roomWord(room->name, room->type);
+        }
+    }
+    if (!rooms.empty())
+    {
+        response->message += (response->message.empty() ? "in " : "; in ") + rooms;
     }
 }
 

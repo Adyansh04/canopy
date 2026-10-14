@@ -149,4 +149,16 @@ bool objectsRetype(
     return objects.type != current.type || objects.probability != current.probability;
 }
 
+std::string roomWord(const std::string& name, const std::string& type)
+{
+    const std::string_view rest = std::string_view(name).substr(name.starts_with("room ") ? 5 : 0);
+    const bool             given =
+        name.starts_with("room ") && !rest.empty() &&
+        (std::ranges::all_of(rest, [](unsigned char c) { return std::isupper(c) != 0; }) ||
+         std::ranges::all_of(rest, [](unsigned char c) { return std::isdigit(c) != 0; }));
+    std::string word = (name.empty() || given) && !type.empty() ? type : name;
+    std::ranges::replace(word, '_', ' ');
+    return word;
+}
+
 }  // namespace canopy
