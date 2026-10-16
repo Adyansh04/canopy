@@ -398,7 +398,7 @@ class World:
             self.edits.clear()
             self.history.clear()
             self.future.clear()
-            return f"saved {saved} edits to {self.directory}"
+            return f"saved {saved} edit{'' if saved == 1 else 's'} to {self.directory}"
 
     def rebase(self):
         """Reads the world canopy saved since, and makes this session's edits again on it."""
@@ -500,7 +500,12 @@ class World:
             self.rooms[room_id] = copy.deepcopy(record)
 
     def _object(self, value):
-        object_id = int(str(value).lstrip("O"))
+        digits = str(value).lstrip("O")
+        if not digits.isdigit():
+            # A room's id here came back as a bare int() error, which a model resent three times.
+            rooms = " (a room: its own ops are room_name, room_type and room_check)"
+            raise EditError(f"no object {value}{rooms if value in self.rooms else ''}")
+        object_id = int(digits)
         if object_id not in self.objects:
             raise EditError(f"no object O{object_id}")
         return object_id

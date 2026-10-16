@@ -146,6 +146,9 @@
       embedding_span: 0.25
       # FindObjects answers found once its best match scores this.
       found_score: 0.5
+      # A query of only these words ("all the objects") names no thing: it lists every object.
+      everything_words: [object, objects, thing, things, item, items, stuff, anything, everything,
+                         all, any, every, the, a]
 
     objects:
       voxel: 0.04

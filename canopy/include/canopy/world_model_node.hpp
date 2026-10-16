@@ -236,6 +236,9 @@ private:
     int         structure_min_cells_    = 200;
     int         structure_min_clear_    = 5;
 
+    /// A query of only these words names no thing in particular: every object there.
+    std::vector<std::string> search_everything_words_;
+
     // The model.
     CoverageMap            coverage_;
     ObjectMap              objects_;

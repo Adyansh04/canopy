@@ -165,6 +165,15 @@ TEST(RoomTyping, ObjectsKeepTheirOwnConfidenceCurrent)
     EXPECT_FALSE(objectsRetype(office, office, "objects", 0.8));
 }
 
+TEST(RoomTyping, CallsARoomByItsTypeUntilItIsNamed)
+{
+    EXPECT_EQ(canopy::roomWord("room C", "living_room"), "living room");
+    EXPECT_EQ(canopy::roomWord("room 27", "office"), "office");
+    EXPECT_EQ(canopy::roomWord("", "study"), "study");
+    EXPECT_EQ(canopy::roomWord("Anna's room", "bedroom"), "Anna's room");
+    EXPECT_EQ(canopy::roomWord("room C", ""), "room C");
+}
+
 TEST(ApproachPose, StandsClearOfATableAndFacesIt)
 {
     // A 6 x 6 m room with a 1.2 x 0.8 m table in the middle.

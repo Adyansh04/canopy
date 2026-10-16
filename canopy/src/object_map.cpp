@@ -1261,6 +1261,11 @@ ObjectMap::history(std::string_view query, double since, std::size_t max) const
             ids.insert(object.id);
         }
     }
+    return history(std::move(ids), since, max);
+}
+
+std::vector<ObjectEvent> ObjectMap::history(std::set<int> ids, double since, std::size_t max) const
+{
     // One step along a move either way: what it may have become, and what it may have been.
     std::set<int> linked;
     for (const ObjectEvent& event : events_)

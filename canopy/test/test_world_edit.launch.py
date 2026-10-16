@@ -26,6 +26,7 @@ from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_srvs.srv import Trigger
 
 from canopy_msgs.msg import RoomArray, WorldObjectArray
+from canopy_msgs.srv import FindObjects
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PACKAGE = os.path.dirname(HERE)
@@ -119,6 +120,25 @@ class WorldEditTest(unittest.TestCase):
         future = client.call_async(Trigger.Request())
         self.assertTrue(self.spin_until(future.done, 20.0), client.srv_name)
         return future.result()
+
+    def test_an_empty_query_lists_a_rooms_objects_and_counts_them(self):
+        self.assertTrue(
+            self.spin_until(lambda: self.objects is not None and self.objects.objects, 60.0),
+            "the world model never resumed the example world",
+        )
+        room = self.objects.objects[0].room_id
+        inside = [o for o in self.objects.objects if o.room_id == room]
+        find = self.node.create_client(FindObjects, "/canopy/find_objects")
+        self.assertTrue(find.wait_for_service(timeout_sec=20.0))
+        for query in ("", "All the objects?"):
+            future = find.call_async(FindObjects.Request(query=query, room=room, max_results=1))
+            self.assertTrue(self.spin_until(future.done, 20.0))
+            answer = future.result()
+            self.assertTrue(answer.found, query)
+            self.assertEqual([o.room_id for o in answer.objects], [room])
+            self.assertTrue(
+                answer.message.startswith(f"{len(inside)} objects in {room}"), answer.message
+            )
 
     def test_takes_an_edited_world_and_keeps_it(self):
         self.assertTrue(

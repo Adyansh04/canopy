@@ -80,6 +80,12 @@ RoomTyping classifyRoom(
 bool objectsRetype(
     const RoomTyping& objects, const RoomTyping& current, std::string_view source, double settled);
 
+/**
+ * @brief What to call a room: its name, or its type while the name is still the "room C" it was
+ * given; underscores read as spaces.
+ */
+std::string roomWord(const std::string& name, const std::string& type);
+
 }  // namespace canopy
 
 #endif  // CANOPY__ROOM_TYPING_HPP_

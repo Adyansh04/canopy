@@ -19,6 +19,7 @@
 #include <deque>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -288,6 +289,10 @@ public:
      */
     [[nodiscard]] std::vector<ObjectEvent>
     history(std::string_view query, double since, std::size_t max) const;
+
+    /// As history() for a query, for objects already picked out, such as by a search.
+    [[nodiscard]] std::vector<ObjectEvent>
+    history(std::set<int> ids, double since, std::size_t max) const;
 
     /// Support-type objects as coverage surfaces, top faces only.
     [[nodiscard]] std::vector<Surface> surfaces() const;
