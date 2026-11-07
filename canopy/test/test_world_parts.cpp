@@ -656,6 +656,8 @@ TEST(WorldStore, SavesTheMapAsMapServerReadsIt)
 
     std::ifstream pgm(directory + "/map.pgm", std::ios::binary);
     const std::string bytes((std::istreambuf_iterator<char>(pgm)), std::istreambuf_iterator<char>());
+    // Closed before the directory goes: on NFS an open file cannot be removed.
+    pgm.close();
     const std::string header = "P5\n3 2\n255\n";
     ASSERT_EQ(bytes.size(), header.size() + 6);
     EXPECT_EQ(bytes.substr(0, header.size()), header);
@@ -671,6 +673,7 @@ TEST(WorldStore, SavesTheMapAsMapServerReadsIt)
     const std::string yaml(
         (std::istreambuf_iterator<char>(yaml_file)),
         std::istreambuf_iterator<char>());
+    yaml_file.close();
     EXPECT_THAT(yaml, ::testing::HasSubstr("origin: [-1, 2, 0]"));
     EXPECT_THAT(yaml, ::testing::HasSubstr("free_thresh: 0.196"));
     std::filesystem::remove_all(directory);
