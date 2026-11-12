@@ -104,7 +104,12 @@ def main():
     finally:
         node.close()
         node.destroy_node()
-        rclpy.try_shutdown()
+        try:
+            rclpy.try_shutdown()
+        except RuntimeError:
+            # SIGINT's handler thread can finish the same shutdown first (ros2/rclpy#1352).
+            if rclpy.ok():
+                raise
 
 
 if __name__ == "__main__":
