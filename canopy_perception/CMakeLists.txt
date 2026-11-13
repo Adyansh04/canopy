@@ -71,7 +71,7 @@ if(BUILD_TESTING)
 
   # Against a stub model server: needs neither a simulator nor a GPU.
   add_launch_test(test/test_detector.launch.py TARGET test_detector TIMEOUT 240)
-  add_launch_test(test/test_detector_service.launch.py TARGET test_detector_service TIMEOUT 120)
+  add_launch_test(test/test_segment_service.launch.py TARGET test_segment_service TIMEOUT 120)
   add_launch_test(test/test_segmenter.launch.py TARGET test_segmenter TIMEOUT 120)
 
   # launch_testing's pytest plugins would import the launch test beside it, and fail to.

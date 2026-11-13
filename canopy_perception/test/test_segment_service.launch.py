@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Runs the detector against a stub segmentation service; no model server, simulator or GPU.
+"""Runs the detector and the segmenter against a stub segmentation service; no model server,
+simulator or GPU.
 
 Skipped where sam3_inference_msgs is not built, as in a workspace without sam3_inference.
 """
@@ -16,6 +17,7 @@ from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image
 
 from canopy_msgs.msg import InstanceMaskArray
+from canopy_msgs.srv import Segment as SegmentByPrompt
 
 try:
     from sam3_inference_msgs.msg import Segment
@@ -47,6 +49,22 @@ def generate_test_description():
                         "phrases": ["red block", "block"],
                         "max_image_age_s": 5.0,
                         "box_threshold": 0.4,
+                    }
+                ],
+            )
+        )
+        actions.append(
+            Node(
+                package="canopy_perception",
+                executable="segmenter",
+                name="segmenter",
+                output="screen",
+                parameters=[
+                    {
+                        "segment_service": SERVICE,
+                        "cameras": [f"main={CAMERA_TOPIC}"],
+                        "max_image_age_s": 5.0,
+                        "zmq_timeout_ms": 5000,
                     }
                 ],
             )
@@ -129,6 +147,20 @@ class TestDetectorService(unittest.TestCase):
         self.assertEqual(labels, [("block", 10), ("red block", 100)])
         kept = next(i for i in masks.instances if i.label == "red block")
         self.assertEqual(len(kept.data), 40 * 30)
+
+    def test_03_the_segmenter_answers_through_the_service(self):
+        self._await_mask()  # frames on the camera, which the segmenter holds the newest of
+        client = self.node.create_client(SegmentByPrompt, "/segmenter/segment")
+        self.assertTrue(client.wait_for_service(timeout_sec=20.0))
+
+        future = client.call_async(SegmentByPrompt.Request(camera="main", prompt="block"))
+        rclpy.spin_until_future_complete(self.node, future, timeout_sec=20.0)
+        result = future.result()
+
+        self.assertIsNotNone(result, "the segmenter never answered")
+        self.assertTrue(result.success, result.message)
+        self.assertEqual(list(self.requests[-1].prompts), ["block"])
+        self.assertEqual(len(result.masks.instances), 2)
 
 
 @launch_testing.post_shutdown_test()

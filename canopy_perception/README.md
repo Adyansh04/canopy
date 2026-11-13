@@ -65,9 +65,9 @@ colcon build --symlink-install --packages-select canopy_perception
 `config/detector_yoloe.yaml` goes over these for YOLOE-26: every frame of `color/image_raw`, 2.5 s,
 0.30 and a 128-word list, which YOLOE answers in one pass.
 
-The segmenter takes `server_address`, `max_image_age_s`, `box_threshold`, `text_threshold`,
-`zmq_timeout_ms` and `cameras`, a list of `name=topic` such as
-`["chest=/chest_camera/color/image_raw"]`.
+The segmenter takes `server_address`, `segment_service` (as the detector's), `max_image_age_s`,
+`box_threshold`, `text_threshold`, `zmq_timeout_ms` (also how long it waits on the service) and
+`cameras`, a list of `name=topic` such as `["chest=/chest_camera/color/image_raw"]`.
 
 `config/mock_detector.yaml` sets the mock's latency, rate, box margin and minimum mask size.
 
