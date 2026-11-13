@@ -29,7 +29,7 @@ from semantic.describers import (  # noqa: E402
     OpenAIDescriber,
     Unavailable,
 )
-from semantic.detection import Sam3Detector, YoloeDetector  # noqa: E402
+from semantic.detection import YoloeDetector  # noqa: E402
 from semantic.embedding import GREY, masked_crop  # noqa: E402
 from semantic.gemini import (  # noqa: E402
     FREE_TIER,
@@ -664,45 +664,6 @@ class YoloeTest(Scratch):
         )
 
 
-class Sam3Test(unittest.TestCase):
-    @staticmethod
-    def detector(found):
-        """A Sam3Detector whose model answers each phrase with fixed masks and scores."""
-        asked = []
-
-        def find(image, phrases, threshold):
-            asked.append((image.shape, list(phrases), threshold))
-            return [(phrase, *found[phrase]) for phrase in phrases if phrase in found]
-
-        return Sam3Detector(find), asked
-
-    def test_the_frame_and_threshold_reach_the_model_once(self):
-        detector, asked = self.detector({})
-        detector.segment(np.zeros((4, 6, 3), np.uint8), ["chair", "mug", "floor"], 0.4, 0.25)
-        self.assertEqual(asked, [((4, 6, 3), ["chair", "mug", "floor"], 0.4)])
-
-    def test_instances_keep_the_better_name_of_one_object(self):
-        region = np.zeros((1, 4, 6), bool)
-        region[0, 1:3, 2:5] = True
-        cup = np.zeros((2, 4, 6), bool)
-        cup[0, 0, 0] = True
-        detector, _ = self.detector(
-            {
-                "chair": (region, [0.6]),
-                "armchair": (region, [0.9]),
-                "mug": (cup, [0.7, 0.8]),  # the second mask is empty
-            }
-        )
-        instances = detector.segment(
-            np.zeros((4, 6, 3), np.uint8), ["chair", "armchair", "mug"], 0.3, 0.25
-        )
-        self.assertEqual(
-            [(i["label"], i["score"], i["roi"]) for i in instances],
-            [("armchair", 0.9, [2, 1, 3, 2]), ("mug", 0.7, [0, 0, 1, 1])],
-        )
-        self.assertEqual(instances[0]["mask"].tolist(), [[255] * 3] * 2)
-
-
 class FakeDetector:
     name = "fake"
 
@@ -871,7 +832,7 @@ class ConfigTest(Scratch):
             set=[
                 "gemini.object=[gemma-4-26b-a4b-it]",
                 "yoloe.imgsz=800",
-                "sam3.1.batch=8",
+                "yoloe-pf.max_det=50",
                 f"gemini.key_file={self.dir}/none",
                 f"gemini.usage_file={self.usage}",
             ],
@@ -879,8 +840,9 @@ class ConfigTest(Scratch):
         config = load_config(args)
         self.assertEqual((config["detector"], config["describer"]), ("yoloe-pf", "openai"))
         self.assertEqual((config["yoloe"]["imgsz"], config["yoloe"]["half"]), (800, True))
-        self.assertEqual((config["sam3.1"]["batch"], config["sam3.1"]["mask_batch"]), (8, 8))
-        self.assertNotIn("sam3", config)
+        # A section named with a hyphen takes its own keys, not its prefix's.
+        self.assertEqual(config["yoloe-pf"]["max_det"], 50)
+        self.assertEqual(config["yoloe"]["max_det"], 100)
         self.assertEqual(DESCRIBERS["gemini"](config)._routes["object"], ["gemma-4-26b-a4b-it"])
 
 
