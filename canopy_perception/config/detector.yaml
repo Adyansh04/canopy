@@ -13,6 +13,10 @@
     # The server runs on the host, since it needs torch and CUDA.
     server_address: "tcp://127.0.0.1:5561"
 
+    # Empty: the server segments. A sam3_inference_msgs/SegmentObjects service's name, such as
+    # sam3_inference's "/segment_objects", segments instead and the server only embeds.
+    segment_service: ""
+
     # Well past the slowest inference: this is what a stalled server costs before the node
     # rebuilds its socket.
     zmq_timeout_ms: 20000
