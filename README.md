@@ -28,7 +28,7 @@ flowchart LR
 | [`canopy`](canopy) | The world model: rooms, camera coverage, objects, the viewpoint planner, and the ROS node around them. |
 | [`canopy_msgs`](canopy_msgs) | Its interfaces: instance masks, rooms, objects, describer requests, and the search and exploration services. |
 | [`canopy_perception`](canopy_perception) | The front end: a detector and a describer that ask the model servers, and a mock detector for simulators. |
-| [`servers`](servers) | The models, on the host GPU: SAM 3.1 or YOLOE-26 detection, SigLIP 2 embeddings, and Gemini or a local Qwen VLM for names and room types. Not a ROS package. |
+| [`servers`](servers) | The models, on the host GPU: YOLOE-26 detection (SAM 3.1 runs in TensorRT in sam3_inference), SigLIP 2 embeddings, and Gemini or a local Qwen VLM for names and room types. Not a ROS package. |
 | [`editor`](editor) | A web page for checking a saved world by hand after a run: relabel, rename, delete, merge, split, move or add objects, and retype rooms. Not a ROS package. How to use it: [editor/doc/guide.md](editor/doc/guide.md). |
 
 Built for ROS 2 Jazzy (Ubuntu 24.04), C++20.

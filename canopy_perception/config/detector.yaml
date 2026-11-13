@@ -1,7 +1,7 @@
-# The detector for semantic mapping, against servers/semantic_server.py, whose SAM 3.1 backend
-# conditions the image on each phrase in turn: about 40 ms a phrase after 0.45 s for the frame on
-# a laptop RTX 4080. Keyed /** so a detector per camera, whatever its node name, reads it.
-# config/detector_yoloe.yaml goes over it for YOLOE-26 (--detector yoloe).
+# The detector for semantic mapping. Its masks come from SAM 3.1 in TensorRT (sam3_inference) where
+# a robot names its service in segment_service, which conditions the image on each phrase in turn,
+# and otherwise from servers/semantic_server.py's YOLOE-26 with config/detector_yoloe.yaml over this
+# file. Keyed /** so a detector per camera, whatever its node name, reads it.
 #
 # One name per kind of whole object, singular, lower case, 1-3 words: SAM 3.1 finds every instance
 # of a word, so a part's name ("shelf") gets the parts. Two names for one object, as bookshelf and
@@ -12,6 +12,10 @@
   ros__parameters:
     # The server runs on the host, since it needs torch and CUDA.
     server_address: "tcp://127.0.0.1:5561"
+
+    # Empty: the server segments. A sam3_inference_msgs/SegmentObjects service's name, such as
+    # sam3_inference's "/segment_objects", segments instead and the server only embeds.
+    segment_service: ""
 
     # Well past the slowest inference: this is what a stalled server costs before the node
     # rebuilds its socket.
