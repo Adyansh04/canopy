@@ -50,6 +50,7 @@
 #include "canopy/object_map.hpp"
 #include "canopy/room_segmentation.hpp"
 #include "canopy/room_typing.hpp"
+#include "canopy/stillness.hpp"
 #include "canopy/viewpoint_planner.hpp"
 #include "canopy/world_render.hpp"
 #include "canopy/world_store.hpp"
@@ -284,13 +285,12 @@ private:
     int                        structure_cells_segmented_ = 0;
     sensor_msgs::msg::PointCloud2::ConstSharedPtr pending_cloud_;
 
-    std::deque<CameraFeed>              cameras_;  // A deque: callbacks hold references into it.
-    std::vector<float>                  depth_scratch_;
-    std::deque<std::pair<double, bool>> motion_;
-    std::optional<std::pair<double, Pose2D>> last_odometry_;  // Stamp and pose, for motion.
-    std::map<int, std::vector<std::uint8_t>> crops_;
-    std::set<int>                            described_;
-    std::map<std::string, double>            requested_at_;
+    std::deque<CameraFeed>   cameras_;  // A deque: callbacks hold references into it.
+    std::vector<float>       depth_scratch_;
+    std::deque<MotionSample> motion_;  // Odometry, for stillness.
+    std::map<int, std::vector<std::uint8_t>>                     crops_;
+    std::set<int>                                                described_;
+    std::map<std::string, double>                                requested_at_;
     std::map<std::string, std::deque<std::vector<std::uint8_t>>> room_views_;  // JPEGs by room id.
     bool                                                         dirty_ = false;
     // Frames since the last viewpoint, by what became of them.

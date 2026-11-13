@@ -31,6 +31,7 @@ add_library(canopy_core
   src/object_map.cpp
   src/room_segmentation.cpp
   src/room_typing.cpp
+  src/stillness.cpp
   src/viewpoint_planner.cpp
   src/world_render.cpp
   src/world_store.cpp

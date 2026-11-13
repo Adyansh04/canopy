@@ -13,8 +13,12 @@
     world_dir: ""
     autosave_period_s: 60.0
 
-    # Frames count only after the base has been still this long: mid-turn, a frame whose stamp
-    # trails its capture, as a driver stamping arrival leaves it, lands degrees off.
+    # Frames count only after the base has been still for settle_s: mid-turn, a frame whose stamp
+    # trails its capture, as a driver stamping arrival leaves it, lands degrees off. Judged over the
+    # window as a whole, so a legged robot swaying where it stands counts as still: the mean speed
+    # under still_linear (m/s) and turn rate under still_angular (rad/s), and the base no further
+    # than those times settle_s (5 cm, 2.9 degrees) from its pose at the frame. Per-sample limits
+    # left a standing G1 still in 33 of 159 viewpoint dwells; the window, in all 159.
     require_stillness: true
     still_linear: 0.05
     still_angular: 0.05

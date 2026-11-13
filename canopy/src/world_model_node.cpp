@@ -736,24 +736,22 @@ void WorldModelNode::onCameraInfo(
 
 void WorldModelNode::onOdometry(const nav_msgs::msg::Odometry::ConstSharedPtr& odometry)
 {
-    const auto& twist  = odometry->twist.twist;
-    bool        moving = std::hypot(twist.linear.x, twist.linear.y) > still_linear_ ||
-                  std::abs(twist.angular.z) > still_angular_;
     const double stamp = seconds(odometry->header.stamp);
-    // From the pose as well: FAST-LIO's odometry, for one, leaves the twist at zero.
-    const auto&  where = odometry->pose.pose;
-    const Pose2D pose{ where.position.x, where.position.y, yawOf(where.orientation) };
-    if (last_odometry_ && stamp - last_odometry_->first > 1e-3)
+    // Kept in stamp order for the window search in stillOver: a late sample is dropped.
+    if (!motion_.empty() && stamp < motion_.back().stamp_s)
     {
-        const Pose2D& last = last_odometry_->second;
-        const double  span = stamp - last_odometry_->first;
-        moving = moving || std::hypot(pose.x - last.x, pose.y - last.y) / span > still_linear_ ||
-                 std::abs(std::remainder(pose.yaw - last.yaw, 2.0 * std::numbers::pi)) / span >
-                     still_angular_;
+        return;
     }
-    last_odometry_ = std::pair{ stamp, pose };
-    motion_.emplace_back(stamp, moving);
-    while (!motion_.empty() && motion_.front().first < stamp - 30.0)
+    const auto& where = odometry->pose.pose;
+    const auto& twist = odometry->twist.twist;
+    motion_.push_back({ .stamp_s = stamp,
+                        .x       = where.position.x,
+                        .y       = where.position.y,
+                        .yaw     = yawOf(where.orientation),
+                        .vx      = twist.linear.x,
+                        .vy      = twist.linear.y,
+                        .wz      = twist.angular.z });
+    while (motion_.front().stamp_s < stamp - 30.0)
     {
         motion_.pop_front();
     }
@@ -977,25 +975,8 @@ Footprint WorldModelNode::footprintOf(const MappedObject& object) const
 
 bool WorldModelNode::wasStill(double stamp) const
 {
-    if (!require_stillness_)
-    {
-        return true;
-    }
-    // Every sample over the settle window before the frame was still, and there were samples.
-    bool covered = false;
-    for (const auto& [time, moving] : motion_)
-    {
-        if (time < stamp - settle_s_ || time > stamp + 0.05)
-        {
-            continue;
-        }
-        if (moving)
-        {
-            return false;
-        }
-        covered = covered || time <= stamp - (0.8 * settle_s_);
-    }
-    return covered;
+    return !require_stillness_ ||
+           stillOver(motion_, stamp, settle_s_, still_linear_, still_angular_);
 }
 
 std::optional<Eigen::Isometry3d>
