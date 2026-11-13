@@ -21,6 +21,8 @@ MAX_DESCRIBE_IMAGES = 8
 DETECTORS = {
     "yoloe": lambda config, device: build_yoloe(config["yoloe"], device, prompt_free=False),
     "yoloe-pf": lambda config, device: build_yoloe(config["yoloe-pf"], device, prompt_free=True),
+    # Masks from elsewhere (a segmentation service in the stack): the server only embeds.
+    "none": lambda config, device: None,
 }
 EMBEDDERS = {
     "siglip2": lambda config, device: Siglip2Embedder(
@@ -90,7 +92,7 @@ class SemanticServer:
         del data
         return {
             "status": "ok",
-            "backend": self.detector.name,
+            "backend": self.detector.name if self.detector else "none",
             "device": self.device,
             "embedder": self.embedder.name if self.embedder else "",
             "describers": self.describer.names,
@@ -105,6 +107,8 @@ class SemanticServer:
                 str(phrase).strip() for phrase in data.get("phrases") or [] if str(phrase).strip()
             )
         )
+        if self.detector is None:
+            raise ValueError("this server segments nothing: it was started with --detector none")
         started = time.perf_counter()
         instances = self.detector.segment(
             image,
@@ -248,7 +252,8 @@ def serve(server, config):
     ).start()
     embedder = server.embedder.name if server.embedder else "no embedder"
     print(
-        f"serving {server.detector.name}, {embedder} on {server.device} at "
+        f"serving {server.detector.name if server.detector else 'no detector'}, {embedder} on "
+        f"{server.device} at "
         f"tcp://{config['host']}:{config['port']}, describers "
         f"{','.join(server.describer.names) or 'none'} on port {config['port'] + 1}",
         flush=True,

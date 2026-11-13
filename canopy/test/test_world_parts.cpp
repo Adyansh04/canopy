@@ -15,6 +15,7 @@
 #include "canopy/approach_pose.hpp"
 #include "canopy/grid.hpp"
 #include "canopy/room_typing.hpp"
+#include "canopy/stillness.hpp"
 #include "canopy/world_render.hpp"
 #include "canopy/world_store.hpp"
 
@@ -729,3 +730,65 @@ TEST(WorldRender, TintsRoomsAndOutlinesObjects)
 
 }  // namespace
 }  // namespace canopy
+
+namespace
+{
+
+/// 50 Hz odometry over [0, 2] s, from a pose and twist at each time.
+template <typename Motion>
+std::deque<canopy::MotionSample> odometry(Motion motion)
+{
+    std::deque<canopy::MotionSample> samples;
+    for (int i = 0; i <= 100; ++i)
+    {
+        canopy::MotionSample sample = motion(i * 0.02);
+        sample.stamp_s              = i * 0.02;
+        samples.push_back(sample);
+    }
+    return samples;
+}
+
+}  // namespace
+
+TEST(Stillness, ASwayingBaseIsStill)
+{
+    // A standing legged robot: 2 cm and 1 degree of sway at 1.5 Hz, its twist swinging 0.19 m/s.
+    const auto samples = odometry([](double t) {
+        const double phase = 2.0 * std::numbers::pi * 1.5 * t;
+        return canopy::MotionSample{ .x   = 0.02 * std::sin(phase),
+                                     .yaw = 0.017 * std::sin(phase),
+                                     .vx  = 0.02 * 2.0 * std::numbers::pi * 1.5 * std::cos(phase) };
+    });
+    EXPECT_TRUE(canopy::stillOver(samples, 2.0, 1.0, 0.05, 0.05));
+}
+
+TEST(Stillness, WalkingOrTurningIsNot)
+{
+    const auto walking =
+        odometry([](double t) { return canopy::MotionSample{ .x = 0.15 * t, .vx = 0.15 }; });
+    EXPECT_FALSE(canopy::stillOver(walking, 2.0, 1.0, 0.05, 0.05));
+    const auto turning =
+        odometry([](double t) { return canopy::MotionSample{ .yaw = 0.3 * t, .wz = 0.3 }; });
+    EXPECT_FALSE(canopy::stillOver(turning, 2.0, 1.0, 0.05, 0.05));
+    // FAST-LIO-style odometry with the twist left at zero: the pose alone shows the walk.
+    const auto pose_only = odometry([](double t) { return canopy::MotionSample{ .x = 0.15 * t }; });
+    EXPECT_FALSE(canopy::stillOver(pose_only, 2.0, 1.0, 0.05, 0.05));
+}
+
+TEST(Stillness, AStepAwayAndBackIsNot)
+{
+    // 10 cm out and back within the window: the mean velocity is zero, the excursion is not.
+    const auto samples = odometry(
+        [](double t) { return canopy::MotionSample{ .x = t > 1.3 && t < 1.7 ? 0.10 : 0.0 }; });
+    EXPECT_FALSE(canopy::stillOver(samples, 2.0, 1.0, 0.05, 0.05));
+}
+
+TEST(Stillness, AWindowTheSamplesDoNotCoverIsNot)
+{
+    const auto samples = odometry([](double) { return canopy::MotionSample{}; });
+    EXPECT_TRUE(canopy::stillOver(samples, 1.5, 1.0, 0.05, 0.05));
+    // Before the first sample, and long after the last.
+    EXPECT_FALSE(canopy::stillOver(samples, 0.5, 1.0, 0.05, 0.05));
+    EXPECT_FALSE(canopy::stillOver(samples, 5.0, 1.0, 0.05, 0.05));
+    EXPECT_FALSE(canopy::stillOver({}, 1.0, 1.0, 0.05, 0.05));
+}
